@@ -4,11 +4,22 @@
 
 | Phase | 목표 | 마일스톤 |
 |-------|------|----------|
-| 1 | Foundation | 단일 뷰포트 cine 재생 |
-| 2 | Multi-Viewport | 10개 뷰포트 @ 30fps |
-| 3 | Annotations | EchoPAC 수준 측정 도구 |
+| 1 | Foundation | 단일 뷰포트 cine 재생 + DataSource |
+| 2 | Multi-Viewport & Quality | 16개 뷰포트 @ 30fps + PQE |
+| 3 | Annotations | EchoPAC 수준 측정 도구 + STOW-RS |
 | 4 | Plugin System | 확장 가능한 생태계 |
 | 5 | Release | npm v1.0.0 배포 |
+
+### 성능 목표
+
+| 메트릭 | 목표 |
+|--------|------|
+| 동시 뷰포트 | **16개** (스트레스 에코) |
+| 프레임 레이트 | **30fps 이상** |
+| GPU 메모리 | **1.5GB 미만** |
+| 동기화 지연 | **< 16ms** |
+| 프레임 드롭 | **0** |
+| 초기 표시 | **0.5초 이내** (저품질) |
 
 ---
 
@@ -34,9 +45,15 @@
   - Number of Frames (0028,0008)
 - [ ] 멀티프레임 픽셀 데이터 분리
 
-#### 픽셀 디코더 (`@echopixel/core/dicom`)
+#### 픽셀 디코더 (`@echopixel/core/decoder`)
+- [ ] **WebCodecs ImageDecoder** (하드웨어 가속) ⭐
+  - Chrome, Edge, Firefox 118+ 지원
+  - JPEG/PNG 하드웨어 디코딩
+- [ ] **VideoFrame → WebGL 텍스처 직접 업로드** ⭐
+  - 제로카피 GPU→GPU 전송
+  - `gl.texImage2D(gl.TEXTURE_2D, ..., videoFrame)`
+- [ ] Safari 폴백 (JPEG Baseline 브라우저 API)
 - [ ] Uncompressed (Native) 지원
-- [ ] JPEG Baseline (브라우저 API)
 - [ ] Web Worker 기반 디코딩
 
 #### WebGL 렌더러 (`@echopixel/core/renderer`)
@@ -55,20 +72,49 @@
 - [ ] Play/Pause/Stop 제어
 - [ ] Frame Time Vector 기반 가변 속도
 
+#### DataSource 추상화 레이어 (`@echopixel/core/datasource`)
+- [ ] DataSource 인터페이스 정의
+- [ ] **Local File** - 개발/테스트용
+- [ ] **WADO-RS** - DICOMweb 표준
+  - Instance Retrieval
+  - Metadata (JSON)
+  - Rendered (JPEG)
+  - BulkData (raw pixels)
+- [ ] **WADO-URI** - 레거시 PACS 호환
+- [ ] **MJPEG Cine** - 빠른 미리보기 스트리밍
+- [ ] **Hybrid** - MJPEG → WADO-RS 점진적 전환
+
+#### 반응형 기초 (`@echopixel/react`) ⭐ 신규
+- [ ] ResizeObserver 기반 뷰포트 크기 감지
+- [ ] DPI/devicePixelRatio 감지
+- [ ] 캔버스 해상도 자동 조정
+
+#### 네트워크 기초 (`@echopixel/core/network`) ⭐ 신규
+- [ ] Range Requests (멀티프레임 부분 요청)
+- [ ] LRU 메모리 캐시 (디코딩된 프레임)
+- [ ] 기본 재시도 로직 (지수 백오프)
+
+#### 에러 처리 기초 ⭐ 신규
+- [ ] 로딩/에러 상태 UI 컴포넌트
+- [ ] 디코딩 폴백 (WebCodecs → 브라우저 API)
+- [ ] 네트워크 에러 재시도 (3회)
+- [ ] 기본 에러 리포트 구조
+
 ### 마일스톤 검증
 ```
-✓ 샘플 심초음파 DICOM 로드
+✓ 샘플 심초음파 DICOM 로드 (Local File)
 ✓ 단일 뷰포트에서 cine 재생
 ✓ 마우스 드래그로 Window/Level 조정
 ✓ Play/Pause 버튼 동작
+✓ WADO-RS로 원격 DICOM 로드
 ```
 
 ---
 
-## Phase 2: Multi-Viewport
+## Phase 2: Multi-Viewport & Quality
 
 ### 목표
-10개 이상의 뷰포트에서 동기화된 30fps cine 재생
+16개 이상의 뷰포트에서 동기화된 30fps cine 재생 + 점진적 품질 향상
 
 ### 작업 항목
 
@@ -81,34 +127,110 @@
 - [ ] GL_TEXTURE_2D_ARRAY 생성
 - [ ] 프레임 시퀀스 업로드
 - [ ] Layer 인덱스로 프레임 선택
+- [ ] texSubImage3D (레이어 단위 업데이트)
 
 #### ViewportManager (`@echopixel/core/viewport`)
 - [ ] 뷰포트 인스턴스 관리
 - [ ] 레이아웃 시스템 (그리드, 자유 배치)
 - [ ] 뷰포트 추가/제거
 
-#### 프레임 동기화 (`@echopixel/core/sync`)
+#### FrameSyncEngine (`@echopixel/core/sync`)
 - [ ] FrameClock 마스터 타이머
 - [ ] SyncGroup 뷰포트 그룹화
-- [ ] 공유 타임스탬프 분배
+- [ ] **동기화 방식**:
+  - Frame Ratio (프레임 비율 기반 - 기본)
+  - R-wave (심박 주기 기준)
+  - Time (절대 시간 기준)
+  - Manual (사용자 정의 동기점)
+- [ ] FPS 정규화 (다른 프레임 수 자동 조정)
+- [ ] 앵커 뷰포트 지정
+- [ ] 개별 뷰포트 일시정지/재개
+- [ ] 재생 속도 조절 (0.5x ~ 2x)
+
+#### Progressive Quality Enhancement (PQE)
+- [ ] **품질 레벨**:
+  | Level | 이름 | 해상도 | 소스 |
+  |-------|------|--------|------|
+  | 1 | Thumbnail | 64px | MJPEG |
+  | 2 | Preview | 256px | MJPEG |
+  | 3 | Standard | 512px | WADO-RS Rendered |
+  | 4 | Original | 원본 | WADO-RS BulkData |
+- [ ] 프레임 단위 점진적 교체
+- [ ] Double Buffering (끊김 없는 전환)
+- [ ] 선제적 로딩 (재생 위치 예측)
 
 #### 캐시 관리 (`@echopixel/core/cache`)
 - [ ] LRU CPU 캐시 (디코딩된 프레임)
 - [ ] LRU GPU 캐시 (텍스처)
-- [ ] 메모리 예산 관리
+- [ ] 메모리 예산 관리 (1.5GB 미만)
 - [ ] 프레임 프리페칭
+
+#### QIDO-RS (`@echopixel/core/datasource`)
+- [ ] Study 검색
+- [ ] Series 검색
+- [ ] Instance 검색
+
+#### 디바이스 성능 감지
+- [ ] GPU 성능 측정
+- [ ] 자동 품질 조절
+
+#### OffscreenCanvas 렌더링 ⭐ (신규)
+- [ ] Worker 기반 렌더링 옵션
+- [ ] 메인 스레드 분리
+- [ ] UI 응답성 향상
+
+#### H.264 스트림 옵션 ⭐ (신규)
+- [ ] WebCodecs VideoDecoder 활용
+- [ ] 서버에서 H.264 스트림 지원 시 사용
+- [ ] MJPEG 대비 10배+ 압축
+
+#### LOD 알고리즘 ⭐ (신규)
+- [ ] 뷰포트 크기별 해상도 동적 조절
+- [ ] DECODE-3DViz 기법 참고
+- [ ] 작은 뷰포트 = 저해상도, 확대 시 고해상도
 
 #### 최적화
 - [ ] IntersectionObserver 뷰포트 가시성
 - [ ] Pre-calculated 픽셀 통계
 - [ ] 프레임 드롭 보상
 
+#### 반응형 레이아웃 ⭐ (신규)
+- [ ] 브레이크포인트별 그리드 (Desktop 4x4, Tablet 3x3, Mobile 2x1)
+- [ ] 터치 제스처 (핀치 줌, 스와이프, 드래그)
+- [ ] Portrait ↔ Landscape 전환 처리
+- [ ] CSS Container Queries 활용
+
+#### 네트워크 고급 ⭐ (신규)
+- [ ] 프리페칭 (재생 방향 예측)
+- [ ] 가시성 기반 로딩 (보이는 뷰포트 우선)
+- [ ] 대역폭 감지 (Network Information API)
+- [ ] Service Worker 캐싱
+
+#### 에러 처리 고급 ⭐ (신규)
+- [ ] WebGL 컨텍스트 손실 감지 및 복구
+- [ ] GPU 메모리 부족 시 LRU 정리
+- [ ] 상세 에러 로깅 및 모니터링
+- [ ] 에러 리포트 수집 (선택적)
+
+#### 스크롤/가시성 최적화 ⭐ (신규)
+- [ ] IntersectionObserver 기반 가시성 감지
+- [ ] 화면 밖 뷰포트 렌더링 일시 중지
+- [ ] 오래 안 보이는 뷰포트 텍스처 언로드 (30초 후)
+- [ ] Passive 스크롤 리스너, CSS contain
+- [ ] 가상화 옵션 (32개+ 뷰포트 시)
+
 ### 마일스톤 검증
 ```
-✓ 10개 뷰포트 동시 표시
+✓ 16개 뷰포트 동시 표시 (스트레스 에코)
 ✓ Chrome DevTools에서 30fps 확인
-✓ 동기화 그룹 내 프레임 일치
-✓ GPU 메모리 1GB 미만
+✓ 동기화 그룹 내 프레임 일치 (< 16ms)
+✓ GPU 메모리 1.5GB 미만
+✓ 0.5초 내 저품질 → 고품질 전환
+✓ 프레임 드롭 0
+✓ 반응형 레이아웃 (데스크탑/태블릿/모바일)
+✓ 저속 네트워크(10Mbps)에서 적응형 품질
+✓ 스크롤 시 화면 밖 뷰포트 렌더링 중지 확인
+✓ 스크롤 성능 60fps 유지 (jank 없음)
 ```
 
 ---
@@ -147,7 +269,11 @@ EchoPAC 수준의 측정 도구 구현
 
 #### 직렬화
 - [ ] JSON 내보내기/가져오기
-- [ ] DICOM SR 생성 (선택적)
+- [ ] DICOM SR 생성
+
+#### STOW-RS (`@echopixel/core/datasource`)
+- [ ] DICOM SR 업로드
+- [ ] 어노테이션 저장/동기화
 
 ### 마일스톤 검증
 ```
@@ -220,6 +346,12 @@ EchoPAC 수준의 측정 도구 구현
 - [ ] JPEG2000 (OpenJPEG WASM)
 - [ ] RLE
 
+#### 렌더링 전략
+- [ ] GPU (WebGL2) 전용 (기본)
+- [ ] CPU 폴백 (Canvas 2D)
+- [ ] 사용자 선택 UI
+- [ ] 디바이스 감지 및 자동 선택
+
 #### 접근성
 - [ ] 키보드 네비게이션
 - [ ] ARIA 레이블
@@ -236,6 +368,11 @@ EchoPAC 수준의 측정 도구 구현
 - [ ] ESM + CJS 듀얼 빌드
 - [ ] GitHub Actions CI/CD
 - [ ] 버전 관리 (Changesets)
+
+#### WebGPU 렌더링 경로 ⭐ (신규, 옵션)
+- [ ] WebGPU 추상화 레이어
+- [ ] WebGL2 → WebGPU 호환 인터페이스
+- [ ] 미래 대비 (5~100x 성능 향상 잠재력)
 
 ### 마일스톤 검증
 ```

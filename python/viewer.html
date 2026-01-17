@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DICOM Echo Viewer Pro</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a15;
+            color: #eee;
+            min-height: 100vh;
+        }
+        .app-container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* 좌측 패널 - 환자/검사 정보 */
+        .left-panel {
+            width: 280px;
+            background: #12121f;
+            border-right: 1px solid #2a2a4a;
+            overflow-y: auto;
+            padding: 15px;
+        }
+
+        /* 중앙 - 뷰어 */
+        .center-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #000;
+            position: relative;
+        }
+
+        /* 우측 패널 - 기술 정보 */
+        .right-panel {
+            width: 300px;
+            background: #12121f;
+            border-left: 1px solid #2a2a4a;
+            overflow-y: auto;
+            padding: 15px;
+        }
+
+        .panel-section {
+            margin-bottom: 20px;
+        }
+        .panel-section h3 {
+            color: #00d4ff;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #2a2a4a;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            font-size: 12px;
+            border-bottom: 1px solid #1a1a2e;
+        }
+        .info-row label {
+            color: #888;
+        }
+        .info-row span {
+            color: #fff;
+            text-align: right;
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .info-row.highlight span {
+            color: #00ff88;
+            font-weight: bold;
+        }
+
+        /* 드롭존 */
+        .drop-zone {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border: 3px dashed #00d4ff;
+            border-radius: 12px;
+            padding: 60px 80px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            z-index: 10;
+        }
+        .drop-zone:hover, .drop-zone.dragover {
+            background: rgba(0, 212, 255, 0.1);
+            border-color: #00ff88;
+        }
+        .drop-zone h2 {
+            color: #00d4ff;
+            margin-bottom: 10px;
+        }
+        .drop-zone p {
+            color: #888;
+        }
+        #fileInput {
+            display: none;
+        }
+        .drop-zone.hidden {
+            display: none;
+        }
+
+        /* 캔버스 영역 */
+        .canvas-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        #canvas {
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        /* 오버레이 정보 (화면 위) */
+        .overlay-info {
+            position: absolute;
+            font-size: 12px;
+            font-family: 'Consolas', monospace;
+            color: #00ff88;
+            text-shadow: 1px 1px 2px #000;
+            pointer-events: none;
+        }
+        .overlay-top-left {
+            top: 10px;
+            left: 10px;
+        }
+        .overlay-top-right {
+            top: 10px;
+            right: 10px;
+            text-align: right;
+        }
+        .overlay-bottom-left {
+            bottom: 60px;
+            left: 10px;
+        }
+        .overlay-bottom-right {
+            bottom: 60px;
+            right: 10px;
+            text-align: right;
+        }
+
+        /* 컨트롤 바 */
+        .control-bar {
+            background: #1a1a2e;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            border-top: 1px solid #2a2a4a;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .control-group label {
+            color: #888;
+            font-size: 12px;
+        }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .btn-play {
+            background: #00d4ff;
+            color: #000;
+        }
+        .btn-play:hover {
+            background: #00a8cc;
+        }
+        .btn-stop {
+            background: #ff4757;
+            color: #fff;
+        }
+        .btn-stop:hover {
+            background: #cc3a47;
+        }
+        .btn-step {
+            background: #2a2a4a;
+            color: #fff;
+        }
+        .btn-step:hover {
+            background: #3a3a5a;
+        }
+
+        input[type="range"] {
+            width: 120px;
+            height: 4px;
+            border-radius: 2px;
+            background: #2a2a4a;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #00d4ff;
+            cursor: pointer;
+        }
+
+        /* 프로그레스 바 */
+        .progress-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .progress-bar {
+            flex: 1;
+            height: 6px;
+            background: #2a2a4a;
+            border-radius: 3px;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00d4ff, #00ff88);
+            width: 0%;
+            transition: width 0.1s;
+        }
+        .frame-counter {
+            color: #00d4ff;
+            font-size: 14px;
+            font-weight: bold;
+            min-width: 100px;
+            text-align: center;
+        }
+
+        /* 상태 표시 */
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .status-playing {
+            background: rgba(0, 212, 255, 0.2);
+            color: #00d4ff;
+        }
+        .status-stopped {
+            background: rgba(255, 71, 87, 0.2);
+            color: #ff4757;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* 탭 */
+        .tab-container {
+            display: flex;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #2a2a4a;
+        }
+        .tab {
+            padding: 8px 12px;
+            font-size: 11px;
+            color: #888;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .tab:hover {
+            color: #fff;
+        }
+        .tab.active {
+            color: #00d4ff;
+            border-bottom-color: #00d4ff;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- 좌측 패널 -->
+        <div class="left-panel" id="leftPanel">
+            <div class="panel-section">
+                <h3>Patient Info</h3>
+                <div class="info-row"><label>Name</label><span id="patientName">-</span></div>
+                <div class="info-row"><label>ID</label><span id="patientId">-</span></div>
+                <div class="info-row"><label>Birth Date</label><span id="patientBirthDate">-</span></div>
+                <div class="info-row"><label>Sex</label><span id="patientSex">-</span></div>
+                <div class="info-row"><label>Age</label><span id="patientAge">-</span></div>
+                <div class="info-row"><label>Weight</label><span id="patientWeight">-</span></div>
+                <div class="info-row"><label>Height</label><span id="patientHeight">-</span></div>
+            </div>
+
+            <div class="panel-section">
+                <h3>Study Info</h3>
+                <div class="info-row"><label>Study Date</label><span id="studyDate">-</span></div>
+                <div class="info-row"><label>Study Time</label><span id="studyTime">-</span></div>
+                <div class="info-row"><label>Study ID</label><span id="studyId">-</span></div>
+                <div class="info-row"><label>Accession #</label><span id="accessionNumber">-</span></div>
+                <div class="info-row"><label>Description</label><span id="studyDescription">-</span></div>
+                <div class="info-row"><label>Referring</label><span id="referringPhysician">-</span></div>
+            </div>
+
+            <div class="panel-section">
+                <h3>Series Info</h3>
+                <div class="info-row"><label>Modality</label><span id="modality">-</span></div>
+                <div class="info-row"><label>Series #</label><span id="seriesNumber">-</span></div>
+                <div class="info-row"><label>Description</label><span id="seriesDescription">-</span></div>
+                <div class="info-row"><label>Body Part</label><span id="bodyPart">-</span></div>
+                <div class="info-row"><label>Protocol</label><span id="protocolName">-</span></div>
+                <div class="info-row"><label>Operator</label><span id="operatorName">-</span></div>
+            </div>
+
+            <div class="panel-section">
+                <h3>Institution</h3>
+                <div class="info-row"><label>Name</label><span id="institutionName">-</span></div>
+                <div class="info-row"><label>Department</label><span id="department">-</span></div>
+                <div class="info-row"><label>Station</label><span id="stationName">-</span></div>
+            </div>
+        </div>
+
+        <!-- 중앙 뷰어 -->
+        <div class="center-panel">
+            <div class="drop-zone" id="dropZone">
+                <h2>DICOM Echo Viewer</h2>
+                <p>파일을 드래그하거나 클릭하여 선택</p>
+                <input type="file" id="fileInput" accept=".dcm">
+            </div>
+
+            <div class="canvas-container">
+                <canvas id="canvas"></canvas>
+
+                <!-- 오버레이 정보 -->
+                <div class="overlay-info overlay-top-left" id="overlayTopLeft"></div>
+                <div class="overlay-info overlay-top-right" id="overlayTopRight"></div>
+                <div class="overlay-info overlay-bottom-left" id="overlayBottomLeft"></div>
+                <div class="overlay-info overlay-bottom-right" id="overlayBottomRight"></div>
+            </div>
+
+            <!-- 컨트롤 바 -->
+            <div class="control-bar hidden" id="controlBar">
+                <div class="control-group">
+                    <button class="btn btn-step" id="prevFrameBtn">◀◀</button>
+                    <button class="btn btn-play" id="playBtn">▶ Play</button>
+                    <button class="btn btn-stop" id="stopBtn">■ Stop</button>
+                    <button class="btn btn-step" id="nextFrameBtn">▶▶</button>
+                </div>
+
+                <div class="progress-container">
+                    <div class="progress-bar" id="progressBar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="frame-counter">
+                        <span id="currentFrame">0</span> / <span id="totalFrames">0</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>FPS:</label>
+                    <input type="range" id="fpsSlider" min="1" max="60" value="30">
+                    <span id="fpsDisplay">30</span>
+                </div>
+
+                <span class="status-badge status-stopped" id="statusBadge">STOPPED</span>
+            </div>
+        </div>
+
+        <!-- 우측 패널 -->
+        <div class="right-panel" id="rightPanel">
+            <div class="tab-container">
+                <div class="tab active" data-tab="image">Image</div>
+                <div class="tab" data-tab="us">Ultrasound</div>
+                <div class="tab" data-tab="cardiac">Cardiac</div>
+                <div class="tab" data-tab="equipment">Equipment</div>
+            </div>
+
+            <!-- Image 탭 -->
+            <div class="tab-content active" id="tab-image">
+                <div class="panel-section">
+                    <h3>Image Pixel</h3>
+                    <div class="info-row highlight"><label>Dimensions</label><span id="imageDimensions">-</span></div>
+                    <div class="info-row highlight"><label>Frames</label><span id="numberOfFrames">-</span></div>
+                    <div class="info-row"><label>Bits Allocated</label><span id="bitsAllocated">-</span></div>
+                    <div class="info-row"><label>Bits Stored</label><span id="bitsStored">-</span></div>
+                    <div class="info-row"><label>High Bit</label><span id="highBit">-</span></div>
+                    <div class="info-row"><label>Pixel Rep</label><span id="pixelRepresentation">-</span></div>
+                    <div class="info-row"><label>Photometric</label><span id="photometric">-</span></div>
+                    <div class="info-row"><label>Samples/Pixel</label><span id="samplesPerPixel">-</span></div>
+                </div>
+
+                <div class="panel-section">
+                    <h3>Cine / Playback</h3>
+                    <div class="info-row highlight"><label>Frame Rate</label><span id="frameRate">-</span></div>
+                    <div class="info-row"><label>Frame Time</label><span id="frameTime">-</span></div>
+                    <div class="info-row"><label>Duration</label><span id="duration">-</span></div>
+                    <div class="info-row"><label>Cine Rate</label><span id="cineRate">-</span></div>
+                </div>
+
+                <div class="panel-section">
+                    <h3>VOI LUT</h3>
+                    <div class="info-row"><label>Window Center</label><span id="windowCenter">-</span></div>
+                    <div class="info-row"><label>Window Width</label><span id="windowWidth">-</span></div>
+                </div>
+            </div>
+
+            <!-- Ultrasound 탭 -->
+            <div class="tab-content" id="tab-us">
+                <div class="panel-section">
+                    <h3>Transducer</h3>
+                    <div class="info-row"><label>Type</label><span id="transducerType">-</span></div>
+                    <div class="info-row"><label>Frequency</label><span id="transducerFreq">-</span></div>
+                </div>
+
+                <div class="panel-section">
+                    <h3>Scan Parameters</h3>
+                    <div class="info-row"><label>Depth</label><span id="scanDepth">-</span></div>
+                    <div class="info-row"><label>Mechanical Index</label><span id="mechanicalIndex">-</span></div>
+                    <div class="info-row"><label>Thermal Index (Bone)</label><span id="boneThermalIndex">-</span></div>
+                    <div class="info-row"><label>Thermal Index (Soft)</label><span id="softThermalIndex">-</span></div>
+                </div>
+
+                <div class="panel-section">
+                    <h3>Region Calibration</h3>
+                    <div class="info-row"><label>Physical Delta X</label><span id="physicalDeltaX">-</span></div>
+                    <div class="info-row"><label>Physical Delta Y</label><span id="physicalDeltaY">-</span></div>
+                    <div class="info-row"><label>Units</label><span id="physicalUnits">-</span></div>
+                </div>
+            </div>
+
+            <!-- Cardiac 탭 -->
+            <div class="tab-content" id="tab-cardiac">
+                <div class="panel-section">
+                    <h3>Cardiac Parameters</h3>
+                    <div class="info-row highlight"><label>Heart Rate</label><span id="heartRate">-</span></div>
+                    <div class="info-row"><label>RR Interval</label><span id="rrInterval">-</span></div>
+                    <div class="info-row"><label>Trigger Time</label><span id="triggerTime">-</span></div>
+                    <div class="info-row"><label>Intervals Acquired</label><span id="intervalsAcquired">-</span></div>
+                </div>
+
+                <div class="panel-section">
+                    <h3>View Info</h3>
+                    <div class="info-row"><label>Image View</label><span id="imageView">-</span></div>
+                    <div class="info-row"><label>Position</label><span id="patientPosition">-</span></div>
+                </div>
+            </div>
+
+            <!-- Equipment 탭 -->
+            <div class="tab-content" id="tab-equipment">
+                <div class="panel-section">
+                    <h3>Equipment</h3>
+                    <div class="info-row"><label>Manufacturer</label><span id="manufacturer">-</span></div>
+                    <div class="info-row"><label>Model</label><span id="modelName">-</span></div>
+                    <div class="info-row"><label>Serial #</label><span id="serialNumber">-</span></div>
+                    <div class="info-row"><label>Software Ver</label><span id="softwareVersion">-</span></div>
+                </div>
+
+                <div class="panel-section">
+                    <h3>SOP Info</h3>
+                    <div class="info-row"><label>SOP Class</label><span id="sopClass">-</span></div>
+                    <div class="info-row"><label>Transfer Syntax</label><span id="transferSyntax">-</span></div>
+                    <div class="info-row"><label>Charset</label><span id="charset">-</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DICOM 태그 정의
+        const TAGS = {
+            // Patient
+            PatientName: '00100010',
+            PatientID: '00100020',
+            PatientBirthDate: '00100030',
+            PatientSex: '00100040',
+            PatientAge: '00101010',
+            PatientWeight: '00101030',
+            PatientSize: '00101020',
+
+            // Study
+            StudyDate: '00080020',
+            StudyTime: '00080030',
+            StudyID: '00200010',
+            AccessionNumber: '00080050',
+            StudyDescription: '00081030',
+            ReferringPhysicianName: '00080090',
+
+            // Series
+            Modality: '00080060',
+            SeriesNumber: '00200011',
+            SeriesDescription: '0008103e',
+            BodyPartExamined: '00180015',
+            ProtocolName: '00181030',
+            OperatorsName: '00081070',
+            PatientPosition: '00185100',
+
+            // Institution
+            InstitutionName: '00080080',
+            InstitutionalDepartmentName: '00081040',
+            StationName: '00081010',
+            Manufacturer: '00080070',
+            ManufacturerModelName: '00081090',
+            DeviceSerialNumber: '00181000',
+            SoftwareVersions: '00181020',
+
+            // Image
+            Rows: '00280010',
+            Columns: '00280011',
+            NumberOfFrames: '00280008',
+            BitsAllocated: '00280100',
+            BitsStored: '00280101',
+            HighBit: '00280102',
+            PixelRepresentation: '00280103',
+            PhotometricInterpretation: '00280004',
+            SamplesPerPixel: '00280002',
+            PixelData: '7fe00010',
+
+            // Cine
+            FrameTime: '00181063',
+            RecommendedDisplayFrameRate: '00082144',
+            CineRate: '00180040',
+            HeartRate: '00181088',
+            EffectiveDuration: '00180072',
+
+            // VOI LUT
+            WindowCenter: '00281050',
+            WindowWidth: '00281051',
+
+            // US Specific
+            TransducerType: '00186031',
+            TransducerFrequency: '00186030',
+            DepthOfScanField: '00185050',
+            MechanicalIndex: '00185022',
+            BoneThermalIndex: '00185024',
+            SoftTissueThermalIndex: '00185026',
+
+            // Cardiac
+            NominalInterval: '00181062',
+            TriggerTime: '00181060',
+            IntervalsAcquired: '00181083',
+
+            // SOP
+            SOPClassUID: '00080016',
+            TransferSyntaxUID: '00020010',
+            SpecificCharacterSet: '00080005',
+        };
+
+        // SOP Class 이름 매핑
+        const SOP_CLASS_NAMES = {
+            '1.2.840.10008.5.1.4.1.1.3.1': 'US Multi-frame Image',
+            '1.2.840.10008.5.1.4.1.1.6.1': 'US Image',
+        };
+
+        // Transfer Syntax 이름 매핑
+        const TRANSFER_SYNTAX_NAMES = {
+            '1.2.840.10008.1.2': 'Implicit VR LE',
+            '1.2.840.10008.1.2.1': 'Explicit VR LE',
+            '1.2.840.10008.1.2.2': 'Explicit VR BE',
+        };
+
+        // DICOM Parser
+        class DicomParser {
+            constructor(arrayBuffer) {
+                this.buffer = arrayBuffer;
+                this.dataView = new DataView(arrayBuffer);
+                this.byteArray = new Uint8Array(arrayBuffer);
+                this.offset = 0;
+                this.littleEndian = true;
+                this.explicitVR = true;
+                this.elements = {};
+            }
+
+            parse() {
+                this.offset = 128;
+                const magic = String.fromCharCode(
+                    this.byteArray[128], this.byteArray[129],
+                    this.byteArray[130], this.byteArray[131]
+                );
+
+                if (magic !== 'DICM') {
+                    throw new Error('유효한 DICOM 파일이 아닙니다');
+                }
+                this.offset = 132;
+
+                while (this.offset < this.buffer.byteLength - 8) {
+                    try {
+                        const element = this.readDataElement();
+                        if (element) {
+                            this.elements[element.tag] = element;
+
+                            if (element.tag === '00020010' && element.value) {
+                                const ts = element.value.toString().trim();
+                                if (ts === '1.2.840.10008.1.2') {
+                                    this.explicitVR = false;
+                                }
+                                if (ts === '1.2.840.10008.1.2.2') {
+                                    this.littleEndian = false;
+                                }
+                            }
+
+                            if (element.tag === '7fe00010') {
+                                break;
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('Element 파싱 중 오류:', e);
+                        break;
+                    }
+                }
+
+                return this.elements;
+            }
+
+            readDataElement() {
+                if (this.offset + 4 > this.buffer.byteLength) return null;
+
+                const group = this.readUint16();
+                const element = this.readUint16();
+                const tag = group.toString(16).padStart(4, '0').toLowerCase() +
+                           element.toString(16).padStart(4, '0').toLowerCase();
+
+                const isMetaInfo = group === 0x0002;
+                const useExplicitVR = isMetaInfo || this.explicitVR;
+
+                let vr = '';
+                let valueLength = 0;
+
+                if (useExplicitVR) {
+                    vr = String.fromCharCode(this.byteArray[this.offset], this.byteArray[this.offset + 1]);
+                    this.offset += 2;
+
+                    if (['OB', 'OD', 'OF', 'OL', 'OW', 'SQ', 'UC', 'UN', 'UR', 'UT'].includes(vr)) {
+                        this.offset += 2;
+                        valueLength = this.readUint32();
+                    } else {
+                        valueLength = this.readUint16();
+                    }
+                } else {
+                    valueLength = this.readUint32();
+                    vr = this.getImplicitVR(tag);
+                }
+
+                if (valueLength === 0xFFFFFFFF) {
+                    if (tag === '7fe00010') {
+                        valueLength = this.buffer.byteLength - this.offset;
+                    } else {
+                        valueLength = 0;
+                    }
+                }
+
+                let value = null;
+                if (valueLength > 0 && this.offset + valueLength <= this.buffer.byteLength) {
+                    if (tag === '7fe00010') {
+                        value = new Uint8Array(this.buffer, this.offset, valueLength);
+                    } else if (vr === 'US') {
+                        value = this.dataView.getUint16(this.offset, this.littleEndian);
+                    } else if (vr === 'UL') {
+                        value = this.dataView.getUint32(this.offset, this.littleEndian);
+                    } else if (vr === 'FL') {
+                        value = this.dataView.getFloat32(this.offset, this.littleEndian);
+                    } else if (vr === 'FD') {
+                        value = this.dataView.getFloat64(this.offset, this.littleEndian);
+                    } else {
+                        value = this.readStringValue(valueLength);
+                    }
+                    this.offset += valueLength;
+                } else if (valueLength > 0) {
+                    this.offset = this.buffer.byteLength;
+                }
+
+                return { tag, vr, length: valueLength, value };
+            }
+
+            readUint16() {
+                const val = this.dataView.getUint16(this.offset, this.littleEndian);
+                this.offset += 2;
+                return val;
+            }
+
+            readUint32() {
+                const val = this.dataView.getUint32(this.offset, this.littleEndian);
+                this.offset += 4;
+                return val;
+            }
+
+            readStringValue(length) {
+                let str = '';
+                for (let i = 0; i < length; i++) {
+                    const charCode = this.byteArray[this.offset + i];
+                    if (charCode === 0) continue;
+                    str += String.fromCharCode(charCode);
+                }
+                return str.trim();
+            }
+
+            getImplicitVR(tag) {
+                const vrMap = {
+                    '00080060': 'CS', '00080020': 'DA', '00100010': 'PN',
+                    '00100020': 'LO', '00280002': 'US', '00280004': 'CS',
+                    '00280008': 'IS', '00280010': 'US', '00280011': 'US',
+                    '00280100': 'US', '00280101': 'US', '00280102': 'US',
+                    '00280103': 'US', '7fe00010': 'OW',
+                };
+                return vrMap[tag] || 'UN';
+            }
+        }
+
+        // Viewer 클래스
+        class EchoViewer {
+            constructor() {
+                this.canvas = document.getElementById('canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.elements = {};
+                this.frames = [];
+                this.currentFrame = 0;
+                this.isPlaying = false;
+                this.fps = 30;
+                this.animationId = null;
+                this.lastFrameTime = 0;
+
+                this.setupEventListeners();
+                this.setupTabs();
+            }
+
+            setupTabs() {
+                document.querySelectorAll('.tab').forEach(tab => {
+                    tab.addEventListener('click', () => {
+                        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                        tab.classList.add('active');
+                        document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+                    });
+                });
+            }
+
+            setupEventListeners() {
+                const dropZone = document.getElementById('dropZone');
+                const fileInput = document.getElementById('fileInput');
+
+                dropZone.addEventListener('click', () => fileInput.click());
+                dropZone.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    dropZone.classList.add('dragover');
+                });
+                dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+                dropZone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    dropZone.classList.remove('dragover');
+                    if (e.dataTransfer.files[0]) this.loadFile(e.dataTransfer.files[0]);
+                });
+                fileInput.addEventListener('change', (e) => {
+                    if (e.target.files[0]) this.loadFile(e.target.files[0]);
+                });
+
+                document.getElementById('playBtn').addEventListener('click', () => this.play());
+                document.getElementById('stopBtn').addEventListener('click', () => this.stop());
+                document.getElementById('prevFrameBtn').addEventListener('click', () => this.stepFrame(-1));
+                document.getElementById('nextFrameBtn').addEventListener('click', () => this.stepFrame(1));
+
+                document.getElementById('progressBar').addEventListener('click', (e) => {
+                    const rect = e.target.getBoundingClientRect();
+                    const percent = (e.clientX - rect.left) / rect.width;
+                    this.currentFrame = Math.floor(percent * this.frames.length);
+                    this.renderFrame(this.currentFrame);
+                    this.updateProgress();
+                });
+
+                document.getElementById('fpsSlider').addEventListener('input', (e) => {
+                    this.fps = parseInt(e.target.value);
+                    document.getElementById('fpsDisplay').textContent = this.fps;
+                });
+            }
+
+            getValue(tag, defaultVal = '-') {
+                const el = this.elements[tag];
+                if (!el || el.value === null || el.value === undefined) return defaultVal;
+                return el.value;
+            }
+
+            getInt(tag, defaultVal = 0) {
+                const val = this.getValue(tag, defaultVal);
+                if (typeof val === 'number') return val;
+                return parseInt(val, 10) || defaultVal;
+            }
+
+            formatDate(dateStr) {
+                if (!dateStr || dateStr === '-' || dateStr.length !== 8) return dateStr;
+                return `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`;
+            }
+
+            formatTime(timeStr) {
+                if (!timeStr || timeStr === '-' || timeStr.length < 6) return timeStr;
+                return `${timeStr.slice(0, 2)}:${timeStr.slice(2, 4)}:${timeStr.slice(4, 6)}`;
+            }
+
+            formatName(name) {
+                if (!name || name === '-') return name;
+                return name.replace(/\^/g, ' ').trim();
+            }
+
+            async loadFile(file) {
+                const arrayBuffer = await file.arrayBuffer();
+
+                try {
+                    const parser = new DicomParser(arrayBuffer);
+                    this.elements = parser.parse();
+
+                    this.extractFrames();
+                    this.updateAllUI();
+                    this.renderFrame(0);
+
+                    document.getElementById('dropZone').classList.add('hidden');
+                    document.getElementById('controlBar').classList.remove('hidden');
+                } catch (error) {
+                    alert('DICOM 파싱 오류: ' + error.message);
+                    console.error(error);
+                }
+            }
+
+            extractFrames() {
+                const rows = this.getInt(TAGS.Rows, 512);
+                const columns = this.getInt(TAGS.Columns, 512);
+                const numberOfFrames = this.getInt(TAGS.NumberOfFrames, 1);
+                const bitsAllocated = this.getInt(TAGS.BitsAllocated, 8);
+                const bitsStored = this.getInt(TAGS.BitsStored, 8);
+                const samplesPerPixel = this.getInt(TAGS.SamplesPerPixel, 1);
+                const photometric = this.getValue(TAGS.PhotometricInterpretation, 'MONOCHROME2');
+                const pixelData = this.getValue(TAGS.PixelData, null);
+
+                if (!pixelData) throw new Error('픽셀 데이터를 찾을 수 없습니다');
+
+                this.frames = [];
+                const bytesPerPixel = Math.ceil(bitsAllocated / 8) * samplesPerPixel;
+                const frameSize = rows * columns * bytesPerPixel;
+
+                this.canvas.width = columns;
+                this.canvas.height = rows;
+
+                for (let f = 0; f < numberOfFrames; f++) {
+                    const frameOffset = f * frameSize;
+                    if (frameOffset + frameSize > pixelData.length) break;
+
+                    const imageData = this.ctx.createImageData(columns, rows);
+
+                    for (let i = 0; i < rows * columns; i++) {
+                        let pixelValue;
+                        if (bitsAllocated <= 8) {
+                            pixelValue = pixelData[frameOffset + i];
+                        } else {
+                            const idx = frameOffset + i * 2;
+                            pixelValue = pixelData[idx] | (pixelData[idx + 1] << 8);
+                            const maxVal = (1 << bitsStored) - 1;
+                            pixelValue = Math.floor((pixelValue / maxVal) * 255);
+                        }
+
+                        if (photometric && photometric.includes('MONOCHROME1')) {
+                            pixelValue = 255 - pixelValue;
+                        }
+
+                        const idx = i * 4;
+                        imageData.data[idx] = pixelValue;
+                        imageData.data[idx + 1] = pixelValue;
+                        imageData.data[idx + 2] = pixelValue;
+                        imageData.data[idx + 3] = 255;
+                    }
+
+                    this.frames.push(imageData);
+                }
+
+                // FPS 설정
+                const frameTime = this.getValue(TAGS.FrameTime, null);
+                const recFps = this.getValue(TAGS.RecommendedDisplayFrameRate, null);
+                if (recFps && recFps !== '-') {
+                    this.fps = parseInt(recFps);
+                } else if (frameTime && frameTime !== '-') {
+                    this.fps = Math.round(1000 / parseFloat(frameTime));
+                }
+                document.getElementById('fpsSlider').value = this.fps;
+                document.getElementById('fpsDisplay').textContent = this.fps;
+            }
+
+            updateAllUI() {
+                // Patient
+                document.getElementById('patientName').textContent = this.formatName(this.getValue(TAGS.PatientName));
+                document.getElementById('patientId').textContent = this.getValue(TAGS.PatientID);
+                document.getElementById('patientBirthDate').textContent = this.formatDate(this.getValue(TAGS.PatientBirthDate));
+                document.getElementById('patientSex').textContent = this.getValue(TAGS.PatientSex);
+                document.getElementById('patientAge').textContent = this.getValue(TAGS.PatientAge);
+                document.getElementById('patientWeight').textContent = this.getValue(TAGS.PatientWeight) + ' kg';
+                document.getElementById('patientHeight').textContent = this.getValue(TAGS.PatientSize) + ' m';
+
+                // Study
+                document.getElementById('studyDate').textContent = this.formatDate(this.getValue(TAGS.StudyDate));
+                document.getElementById('studyTime').textContent = this.formatTime(this.getValue(TAGS.StudyTime));
+                document.getElementById('studyId').textContent = this.getValue(TAGS.StudyID);
+                document.getElementById('accessionNumber').textContent = this.getValue(TAGS.AccessionNumber);
+                document.getElementById('studyDescription').textContent = this.getValue(TAGS.StudyDescription);
+                document.getElementById('referringPhysician').textContent = this.formatName(this.getValue(TAGS.ReferringPhysicianName));
+
+                // Series
+                document.getElementById('modality').textContent = this.getValue(TAGS.Modality);
+                document.getElementById('seriesNumber').textContent = this.getValue(TAGS.SeriesNumber);
+                document.getElementById('seriesDescription').textContent = this.getValue(TAGS.SeriesDescription);
+                document.getElementById('bodyPart').textContent = this.getValue(TAGS.BodyPartExamined);
+                document.getElementById('protocolName').textContent = this.getValue(TAGS.ProtocolName);
+                document.getElementById('operatorName').textContent = this.formatName(this.getValue(TAGS.OperatorsName));
+
+                // Institution
+                document.getElementById('institutionName').textContent = this.getValue(TAGS.InstitutionName);
+                document.getElementById('department').textContent = this.getValue(TAGS.InstitutionalDepartmentName);
+                document.getElementById('stationName').textContent = this.getValue(TAGS.StationName);
+
+                // Image
+                const rows = this.getInt(TAGS.Rows);
+                const cols = this.getInt(TAGS.Columns);
+                document.getElementById('imageDimensions').textContent = `${cols} x ${rows}`;
+                document.getElementById('numberOfFrames').textContent = this.frames.length;
+                document.getElementById('bitsAllocated').textContent = this.getValue(TAGS.BitsAllocated);
+                document.getElementById('bitsStored').textContent = this.getValue(TAGS.BitsStored);
+                document.getElementById('highBit').textContent = this.getValue(TAGS.HighBit);
+                document.getElementById('pixelRepresentation').textContent = this.getInt(TAGS.PixelRepresentation) === 0 ? 'Unsigned' : 'Signed';
+                document.getElementById('photometric').textContent = this.getValue(TAGS.PhotometricInterpretation);
+                document.getElementById('samplesPerPixel').textContent = this.getValue(TAGS.SamplesPerPixel);
+
+                // Cine
+                document.getElementById('frameRate').textContent = this.fps + ' fps';
+                document.getElementById('frameTime').textContent = this.getValue(TAGS.FrameTime) + ' ms';
+                document.getElementById('duration').textContent = (this.frames.length / this.fps).toFixed(2) + ' sec';
+                document.getElementById('cineRate').textContent = this.getValue(TAGS.CineRate);
+
+                // VOI LUT
+                document.getElementById('windowCenter').textContent = this.getValue(TAGS.WindowCenter);
+                document.getElementById('windowWidth').textContent = this.getValue(TAGS.WindowWidth);
+
+                // US
+                document.getElementById('transducerType').textContent = this.getValue(TAGS.TransducerType);
+                document.getElementById('transducerFreq').textContent = this.getValue(TAGS.TransducerFrequency) + ' MHz';
+                document.getElementById('scanDepth').textContent = this.getValue(TAGS.DepthOfScanField) + ' mm';
+                document.getElementById('mechanicalIndex').textContent = this.getValue(TAGS.MechanicalIndex);
+                document.getElementById('boneThermalIndex').textContent = this.getValue(TAGS.BoneThermalIndex);
+                document.getElementById('softThermalIndex').textContent = this.getValue(TAGS.SoftTissueThermalIndex);
+
+                // Cardiac
+                document.getElementById('heartRate').textContent = this.getValue(TAGS.HeartRate) + ' bpm';
+                document.getElementById('rrInterval').textContent = this.getValue(TAGS.NominalInterval) + ' ms';
+                document.getElementById('triggerTime').textContent = this.getValue(TAGS.TriggerTime) + ' ms';
+                document.getElementById('intervalsAcquired').textContent = this.getValue(TAGS.IntervalsAcquired);
+                document.getElementById('imageView').textContent = this.getValue(TAGS.SeriesDescription);
+                document.getElementById('patientPosition').textContent = this.getValue(TAGS.PatientPosition);
+
+                // Equipment
+                document.getElementById('manufacturer').textContent = this.getValue(TAGS.Manufacturer);
+                document.getElementById('modelName').textContent = this.getValue(TAGS.ManufacturerModelName);
+                document.getElementById('serialNumber').textContent = this.getValue(TAGS.DeviceSerialNumber);
+                document.getElementById('softwareVersion').textContent = this.getValue(TAGS.SoftwareVersions);
+
+                // SOP
+                const sopClass = this.getValue(TAGS.SOPClassUID);
+                document.getElementById('sopClass').textContent = SOP_CLASS_NAMES[sopClass] || sopClass;
+                const transferSyntax = this.getValue(TAGS.TransferSyntaxUID);
+                document.getElementById('transferSyntax').textContent = TRANSFER_SYNTAX_NAMES[transferSyntax] || transferSyntax;
+                document.getElementById('charset').textContent = this.getValue(TAGS.SpecificCharacterSet);
+
+                // Controls
+                document.getElementById('totalFrames').textContent = this.frames.length;
+
+                // Overlay
+                this.updateOverlay();
+            }
+
+            updateOverlay() {
+                const patientName = this.formatName(this.getValue(TAGS.PatientName));
+                const patientId = this.getValue(TAGS.PatientID);
+                const studyDate = this.formatDate(this.getValue(TAGS.StudyDate));
+                const institution = this.getValue(TAGS.InstitutionName);
+
+                document.getElementById('overlayTopLeft').innerHTML = `
+                    ${patientName}<br>
+                    ID: ${patientId}<br>
+                    ${studyDate}
+                `;
+
+                const heartRate = this.getValue(TAGS.HeartRate);
+                const depth = this.getValue(TAGS.DepthOfScanField);
+                const freq = this.getValue(TAGS.TransducerFrequency);
+
+                document.getElementById('overlayTopRight').innerHTML = `
+                    ${institution}<br>
+                    HR: ${heartRate} bpm<br>
+                    ${freq} MHz / ${depth} mm
+                `;
+
+                document.getElementById('overlayBottomLeft').innerHTML = `
+                    ${this.getValue(TAGS.SeriesDescription)}
+                `;
+
+                const mi = this.getValue(TAGS.MechanicalIndex);
+                const ti = this.getValue(TAGS.SoftTissueThermalIndex);
+
+                document.getElementById('overlayBottomRight').innerHTML = `
+                    MI: ${mi} / TI: ${ti}
+                `;
+            }
+
+            renderFrame(index) {
+                if (index >= 0 && index < this.frames.length) {
+                    this.ctx.putImageData(this.frames[index], 0, 0);
+                }
+            }
+
+            updateProgress() {
+                document.getElementById('currentFrame').textContent = this.currentFrame + 1;
+                const percent = ((this.currentFrame + 1) / this.frames.length) * 100;
+                document.getElementById('progressFill').style.width = percent + '%';
+            }
+
+            stepFrame(delta) {
+                this.currentFrame = (this.currentFrame + delta + this.frames.length) % this.frames.length;
+                this.renderFrame(this.currentFrame);
+                this.updateProgress();
+            }
+
+            play() {
+                if (this.isPlaying || this.frames.length === 0) return;
+                this.isPlaying = true;
+
+                document.getElementById('statusBadge').textContent = 'PLAYING';
+                document.getElementById('statusBadge').className = 'status-badge status-playing';
+
+                this.lastFrameTime = performance.now();
+                this.animate();
+            }
+
+            stop() {
+                this.isPlaying = false;
+                if (this.animationId) cancelAnimationFrame(this.animationId);
+
+                document.getElementById('statusBadge').textContent = 'STOPPED';
+                document.getElementById('statusBadge').className = 'status-badge status-stopped';
+            }
+
+            animate() {
+                if (!this.isPlaying) return;
+
+                const now = performance.now();
+                const elapsed = now - this.lastFrameTime;
+                const frameInterval = 1000 / this.fps;
+
+                if (elapsed >= frameInterval) {
+                    this.currentFrame = (this.currentFrame + 1) % this.frames.length;
+                    this.renderFrame(this.currentFrame);
+                    this.updateProgress();
+                    this.lastFrameTime = now - (elapsed % frameInterval);
+                }
+
+                this.animationId = requestAnimationFrame(() => this.animate());
+            }
+        }
+
+        // 초기화
+        const viewer = new EchoViewer();
+    </script>
+</body>
+</html>
