@@ -4,6 +4,41 @@
 
 ---
 
+## 2026-01-17 세션 #5 (Phase 1a 계속 - 개발 환경 설정)
+
+### 작업 내용
+- [x] 루트 package.json name 오타 수정 (echopixcel → echopixel)
+- [x] apps/demo/package.json 생성
+- [x] TypeScript 설정 (tsconfig.json)
+  - 루트: 공통 설정 (strict, moduleResolution: bundler)
+  - packages/core: 라이브러리용 (declaration, declarationMap)
+  - apps/demo: React 앱용 (jsx: react-jsx, paths alias)
+- [x] Vite 설정 (vite.config.ts)
+  - packages/core: Library 모드 (ESM + CJS 듀얼 빌드)
+  - apps/demo: App 모드 (React 플러그인, 개발 서버)
+
+### 학습 내용
+- `workspace:*` 프로토콜: pnpm에서 로컬 패키지를 심볼릭 링크로 연결
+- tsconfig.json과 Vite의 관계:
+  - tsc: 타입 체크만 (noEmit: true)
+  - Vite(esbuild): 실제 코드 변환 (타입 체크 생략)
+  - paths 설정은 둘 다 필요 (IDE용, 빌드용)
+- VSCode의 tsconfig.json 자동 인식 (가장 가까운 설정 파일 사용)
+- vite build 과정: 진입점 → 의존성 그래프 → 변환 → 최적화 → 번들
+- 번들러 처리 대상: 스크립트(.ts/.tsx), 스타일(.css/.scss), 에셋, WASM, GLSL 등
+
+### 다음 세션 할 일
+- [ ] ESLint + Prettier 설정
+- [ ] 첫 번째 pnpm install 실행
+- [ ] WebGL2 컨텍스트 초기화
+- [ ] 정적 텍스처 렌더링
+
+### 메모
+- TS 오류(vite 모듈 못 찾음)는 pnpm install 후 해결 예정
+- Library 모드: minify: false (개발 중 디버깅 편의)
+
+---
+
 ## 2026-01-17 세션 #4 (Phase 1a 시작)
 
 ### 작업 내용

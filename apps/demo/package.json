@@ -1,0 +1,16 @@
+{
+  "name": "@echopixel/demo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@echopixel/core": "workspace:*"
+  },
+  "devDependencies": {}
+}

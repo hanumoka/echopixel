@@ -69,8 +69,11 @@
 - [x] 모노레포 초기화 (pnpm workspace)
 - [x] packages/core 구조 생성
 - [x] apps/demo 구조 생성
-- [ ] Vite + TypeScript (strict)
+- [x] apps/demo/package.json 생성
+- [x] TypeScript 설정 (tsconfig.json - 루트, core, demo)
+- [x] Vite 설정 (vite.config.ts - core, demo)
 - [ ] ESLint + Prettier
+- [ ] 첫 번째 pnpm install 실행
 - [ ] WebGL2 컨텍스트 초기화
 - [ ] 정적 텍스처 렌더링
 
@@ -152,6 +155,14 @@
 ---
 
 ## 최근 활동
+
+### 2026-01-17 (세션 #5)
+- Phase 1a 계속: 개발 환경 설정
+  - 루트 package.json name 오타 수정 (echopixcel → echopixel)
+  - apps/demo/package.json 생성
+  - TypeScript 설정 (tsconfig.json 3개: 루트, core, demo)
+  - Vite 설정 (vite.config.ts 2개: core Library모드, demo App모드)
+- 학습: workspace:* 프로토콜, tsconfig-Vite 관계, 번들러 동작 원리
 
 ### 2026-01-17 (세션 #4)
 - Phase 1a 시작: 모노레포 초기화
