@@ -853,7 +853,284 @@ echopixel/
 
 ---
 
-## 9. 다음 단계
+## 9. 테스트 전략
+
+### 테스트 범위
+
+```
+테스트 피라미드:
+├── Unit Tests (Vitest)
+│   ├── DICOM Parser
+│   │   ├── 태그 파싱 정확성
+│   │   ├── Transfer Syntax 감지
+│   │   └── 픽셀 데이터 추출
+│   ├── Decoder
+│   │   ├── WebCodecsDecoder
+│   │   ├── BrowserDecoder
+│   │   └── 폴백 체인 동작
+│   ├── TextureUploader
+│   │   ├── VideoFrame 입력
+│   │   ├── ImageBitmap 입력
+│   │   └── TypedArray 입력
+│   └── Cache
+│       └── LRU 동작 검증
+│
+├── Integration Tests (Vitest)
+│   ├── DICOM 로드 → 화면 표시 전체 흐름
+│   ├── DataSource → Decoder → Renderer 파이프라인
+│   └── 멀티프레임 cine 재생
+│
+└── E2E Tests (Playwright)
+    ├── 파일 드래그앤드롭 → 표시
+    ├── cine 재생/정지
+    ├── Window/Level 조정
+    └── 멀티 뷰포트 동기화 (Phase 2)
+```
+
+### Phase별 테스트 범위
+
+| Phase | Unit | Integration | E2E |
+|-------|------|-------------|-----|
+| 1a | WebGL 컨텍스트 | - | 이미지 표시 |
+| 1b | Parser, Decoder | DICOM → 표시 | 파일 로드 |
+| 1c | Cine 엔진 | 재생 흐름 | 재생/W/L |
+| 1d | DataSource | 네트워크 로드 | WADO-RS |
+| 1e | 에러 핸들러 | 폴백 체인 | 에러 UI |
+
+### 테스트 도구
+
+| 도구 | 용도 |
+|------|------|
+| **Vitest** | Unit/Integration 테스트 |
+| **Playwright** | E2E, 크로스 브라우저 |
+| **@vitest/coverage-v8** | 커버리지 리포트 |
+| **MSW** | 네트워크 모킹 (WADO-RS) |
+
+### 테스트 데이터
+
+| 유형 | 소스 | 용도 |
+|------|------|------|
+| 시뮬레이션 DICOM | `python/` 스크립트 | 기본 테스트 |
+| 벤더별 샘플 | 수집 필요 | 호환성 테스트 |
+| 엣지 케이스 | 수집/생성 필요 | 에러 처리 테스트 |
+
+---
+
+## 10. CI/CD 전략
+
+### GitHub Actions 워크플로우
+
+```yaml
+# .github/workflows/ci.yml 구조
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    # ESLint + Prettier 검사
+
+  typecheck:
+    # TypeScript 타입 검사 (tsc --noEmit)
+
+  test:
+    # Vitest 실행 + 커버리지
+
+  build:
+    # Vite 빌드
+    needs: [lint, typecheck, test]
+
+  publish:
+    # npm publish (태그 푸시 시)
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build]
+```
+
+### 워크플로우 상세
+
+| Job | 트리거 | 내용 |
+|-----|--------|------|
+| **lint** | PR, Push | ESLint, Prettier |
+| **typecheck** | PR, Push | `tsc --noEmit` |
+| **test** | PR, Push | Vitest + 커버리지 |
+| **build** | PR, Push | `pnpm build` |
+| **publish** | 태그 (v*) | npm publish |
+
+### 브랜치 전략
+
+```
+main ─────●─────●─────●───── (프로덕션)
+           \   /     /
+feature/xxx ●───●   /
+                 \ /
+feature/yyy ──────●
+```
+
+- **main**: 항상 배포 가능 상태
+- **feature/***: 기능 개발
+- **PR 필수**: main 직접 푸시 금지
+
+---
+
+## 11. React Error Boundary 전략
+
+### Error Boundary 계층 구조
+
+```
+<AppErrorBoundary>           // 최상위: 앱 전체 폴백
+  <EchoProvider>
+    <ViewportErrorBoundary>  // 뷰포트별: 개별 격리
+      <Viewport />
+    </ViewportErrorBoundary>
+    <ViewportErrorBoundary>
+      <Viewport />
+    </ViewportErrorBoundary>
+  </EchoProvider>
+</AppErrorBoundary>
+```
+
+### Error Boundary 종류
+
+| Boundary | 범위 | 폴백 UI | 복구 방법 |
+|----------|------|---------|----------|
+| **AppErrorBoundary** | 전체 앱 | 에러 페이지 | 새로고침 |
+| **ViewportErrorBoundary** | 개별 뷰포트 | 에러 아이콘 + 메시지 | 재시도 버튼 |
+| **ToolbarErrorBoundary** | 툴바 | 기본 툴바 | 자동 복구 |
+
+### 에러 타입별 처리
+
+| 에러 타입 | 처리 | UI |
+|----------|------|-----|
+| DICOM 파싱 실패 | ViewportErrorBoundary | "파일 로드 실패" |
+| 디코딩 실패 | 폴백 체인 → 실패 시 Boundary | "디코딩 실패" |
+| WebGL 컨텍스트 손실 | 자동 복구 시도 | "복구 중..." |
+| 네트워크 실패 | 재시도 → 실패 시 Boundary | "연결 실패" |
+| 예상치 못한 에러 | AppErrorBoundary | 에러 페이지 |
+
+### 에러 리포팅
+
+```typescript
+// 에러 수집 (개발 모드)
+interface ErrorReport {
+  type: 'parse' | 'decode' | 'render' | 'network' | 'unknown'
+  message: string
+  stack?: string
+  context: {
+    component: string
+    dicomFile?: string
+    transferSyntax?: string
+    browser: string
+  }
+  timestamp: number
+}
+```
+
+---
+
+## 12. 잠재적 위험 및 완화 전략
+
+### 위험 요소
+
+| 위험 | 심각도 | 완화 전략 | 상태 |
+|------|--------|----------|------|
+| Safari WebCodecs 미지원 | 중간 | createImageBitmap 폴백 | Phase 1e |
+| VideoFrame 메모리 누수 | 높음 | try-finally 패턴 강제, 개발 모드 경고 | 문서화됨 |
+| 제로카피 실패 | 중간 | 3단계 폴백 체인 | 문서화됨 |
+| 벤더별 DICOM 호환성 | 중간 | 실제 샘플 테스트 | 수집 필요 |
+| GPU 메모리 부족 | 중간 | LRU 캐시, 품질 자동 조절 | Phase 2 |
+| WebGL 컨텍스트 제한 | 낮음 | Single Canvas 아키텍처 | 설계됨 |
+
+### Safari 지원 상세
+
+| Safari 버전 | WebCodecs | createImageBitmap | 지원 계획 |
+|-------------|-----------|-------------------|----------|
+| Safari 16.4+ | 부분 지원 | ✅ | Phase 1e |
+| Safari 15-16.3 | ❌ | ✅ | Phase 1e |
+| iOS Safari | ❌ | ✅ | Phase 2 |
+
+### VideoFrame 메모리 누수 방지
+
+```typescript
+// 개발 모드 경고 시스템 (권장)
+class VideoFrameTracker {
+  private openFrames = new Set<VideoFrame>()
+
+  track(frame: VideoFrame) {
+    this.openFrames.add(frame)
+    // 5초 후에도 열려있으면 경고
+    setTimeout(() => {
+      if (this.openFrames.has(frame)) {
+        console.warn('VideoFrame not closed after 5s', frame)
+      }
+    }, 5000)
+  }
+
+  untrack(frame: VideoFrame) {
+    this.openFrames.delete(frame)
+  }
+}
+```
+
+### 폴백 발생 로깅
+
+```typescript
+// 폴백 발생 시 로깅
+interface FallbackEvent {
+  from: 'webcodecs' | 'imagebitmap' | 'canvas2d'
+  to: 'imagebitmap' | 'canvas2d' | 'error'
+  reason: string
+  browser: string
+  gpu?: string
+}
+```
+
+---
+
+## 13. DICOM 테스트 샘플 수집 계획
+
+### 필요한 샘플 유형
+
+| 카테고리 | 샘플 | 우선순위 | 상태 |
+|----------|------|----------|------|
+| **Transfer Syntax** | Explicit VR LE | 높음 | ✅ 시뮬레이션 |
+| | JPEG Baseline | 높음 | ⏳ 필요 |
+| | JPEG Lossless | 중간 | Phase 5 |
+| | JPEG-LS | 중간 | Phase 5 |
+| | JPEG 2000 | 중간 | Phase 5 |
+| | RLE | 낮음 | Phase 5 |
+| **벤더** | GE | 높음 | ⏳ 필요 |
+| | Philips | 높음 | ⏳ 필요 |
+| | Siemens | 높음 | ⏳ 필요 |
+| | Samsung | 중간 | ⏳ 필요 |
+| | Canon | 낮음 | ⏳ 필요 |
+| **엣지 케이스** | 손상된 파일 | 중간 | ⏳ 생성 필요 |
+| | 비표준 태그 | 중간 | ⏳ 수집 필요 |
+| | 대용량 (100+ 프레임) | 중간 | ⏳ 생성 필요 |
+
+### 수집 방법
+
+| 방법 | 샘플 유형 | 비고 |
+|------|----------|------|
+| Python 스크립트 | 시뮬레이션, 엣지 케이스 | 직접 생성 |
+| sado 프로젝트 | 실제 벤더 파일 | 익명화 필요 |
+| 공개 데이터셋 | 다양한 벤더 | TCIA 등 |
+
+### JPEG Baseline DICOM 생성 스크립트 (추가 필요)
+
+```python
+# python/generate_jpeg_dicom.py (예정)
+# Transfer Syntax: 1.2.840.10008.1.2.4.50
+# JPEG Baseline 압축된 DICOM 생성
+```
+
+---
+
+## 14. 다음 단계
 
 검토 후 결정 필요:
 

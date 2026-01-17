@@ -205,6 +205,11 @@
 | 2026-01-17 | 대중적 Transfer Syntax 전체 지원 | Phase별 점진적 지원 (1: JPEG, 2: H.264, 5: WASM) |
 | 2026-01-17 | Decoder 추상화 레이어 설계 | Phase 1에서 인터페이스 정의, Phase 5까지 확장 가능 |
 | 2026-01-17 | TextureUploader 다중 입력 지원 | VideoFrame, ImageBitmap, TypedArray 모두 처리 |
+| 2026-01-17 | 테스트 전략 정의 | Vitest (Unit/Integration) + Playwright (E2E) |
+| 2026-01-17 | CI/CD 워크플로우 정의 | GitHub Actions: lint, typecheck, test, build, publish |
+| 2026-01-17 | React Error Boundary 전략 | App/Viewport/Toolbar 계층별 에러 격리 |
+| 2026-01-17 | 잠재적 위험 문서화 | Safari, 메모리 누수, 폴백, 벤더 호환성 |
+| 2026-01-17 | DICOM 샘플 수집 계획 | Transfer Syntax별, 벤더별, 엣지 케이스별 |
 
 ---
 
