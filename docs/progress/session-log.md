@@ -4,6 +4,61 @@
 
 ---
 
+## 2026-01-17 세션 #4 (Phase 1a 시작)
+
+### 작업 내용
+- [x] CLAUDE.md에 가이드 원칙 추가 (학습 중심 가이드 방식)
+- [x] pnpm-workspace.yaml 생성
+- [x] 루트 package.json 생성
+- [x] 폴더 구조 생성 (packages/core/src, apps/demo/src)
+- [x] packages/core/package.json 생성
+
+### 학습 내용
+- 모노레포 구조 (packages vs apps)
+- pnpm workspace 개념
+- package.json 필드:
+  - `type: "module"` (ESM vs CommonJS)
+  - `engines` (Node.js 버전 제약)
+  - `packageManager` (Corepack 연동)
+  - `exports` (모던 진입점 명시)
+  - `files` (npm 배포 시 포함 파일)
+- Corepack 개념 및 pnpm과의 관계
+- rimraf (크로스 플랫폼 삭제 도구)
+
+### 다음 세션 할 일
+- [ ] 폴더명 변경 (echopixcel → echopixel)
+- [ ] apps/demo/package.json 생성
+- [ ] TypeScript 설정 (tsconfig.json)
+- [ ] Vite 설정 (vite.config.ts)
+- [ ] ESLint + Prettier 설정
+- [ ] 첫 번째 pnpm install 실행
+
+### 메모
+- 프로젝트 폴더명 echopixcel → echopixel로 변경 예정
+- 사용자가 직접 코드 작성, Claude는 가이드 역할
+
+---
+
+## 2026-01-17 세션 #3
+
+### 작업 내용
+- [x] POC 계획 최종 검토 및 문서 정리
+- [x] POC-SUMMARY.md 문서 생성
+- [x] 테스트/CI/CD 전략 문서화
+- [x] 잠재적 위험 문서화
+
+### 결정사항
+- 반응형 웹 지원 필수
+- 네트워크 최적화 전략 (PQE, 프리페칭, 캐싱)
+- 에러 처리 전략 (폴백 체인, 재시도, 컨텍스트 복구)
+- npm alpha → sado 연동 테스트
+
+### 메모
+- WebCodecs ImageDecoder 도입 결정
+- VideoFrame 제로카피 텍스처 업로드 전략 수립
+
+---
+
 ## 2026-01-17 세션 #2
 
 ### 작업 내용

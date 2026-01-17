@@ -1,0 +1,34 @@
+{
+  "name": "@echopixel/core",
+  "version": "0.0.1",
+  "description": "High-performance DICOM echocardiography viewer core libraray",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "vite build",
+    "clean": "rimraf dist"
+  },
+  "keywords": [
+    "dicom",
+    "echocardiography",
+    "medical-imaging",
+    "webgl"
+  ],
+  "author": "hanumoka",
+  "license": "MIT",
+  "devDependencies": {},
+  "peerDependencies": {}
+}

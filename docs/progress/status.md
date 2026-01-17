@@ -65,8 +65,10 @@
 
 ### Phase 1: Foundation 🚧 진행중 (세분화)
 
-#### Phase 1a: 프로젝트 설정 + 기본 렌더링 ⏳
-- [ ] 모노레포 초기화 (pnpm workspace)
+#### Phase 1a: 프로젝트 설정 + 기본 렌더링 🚧 진행중
+- [x] 모노레포 초기화 (pnpm workspace)
+- [x] packages/core 구조 생성
+- [x] apps/demo 구조 생성
 - [ ] Vite + TypeScript (strict)
 - [ ] ESLint + Prettier
 - [ ] WebGL2 컨텍스트 초기화
@@ -150,6 +152,15 @@
 ---
 
 ## 최근 활동
+
+### 2026-01-17 (세션 #4)
+- Phase 1a 시작: 모노레포 초기화
+  - pnpm-workspace.yaml 생성
+  - 루트 package.json 생성
+  - packages/core, apps/demo 폴더 구조 생성
+  - packages/core/package.json 생성
+- CLAUDE.md에 가이드 원칙 추가
+- 학습: ESM vs CJS, Corepack, npm 배포 개념
 
 ### 2026-01-17 (세션 #3)
 - POC 계획 최종 검토 및 문서 정리
