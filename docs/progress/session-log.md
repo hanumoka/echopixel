@@ -4,6 +4,65 @@
 
 ---
 
+## 2026-01-18 세션 #9 (Phase 1b-1 완료!)
+
+### 작업 내용
+- [x] 픽셀 데이터 추출 구현 (extractPixelData)
+  - Native (비압축) 픽셀 데이터 지원
+  - Encapsulated (JPEG 압축) 픽셀 데이터 지원
+  - Basic Offset Table 파싱
+- [x] WebCodecs ImageDecoder 구현
+  - `decodeJpeg()`: JPEG 압축 데이터 디코딩
+  - `isImageDecoderSupported()`: WebCodecs 지원 확인
+  - `closeDecodedFrame()`: VideoFrame 리소스 해제
+- [x] Native 픽셀 디코더 구현
+  - `decodeNative()`: 비압축 픽셀 데이터 → ImageBitmap
+  - `applyWindowLevel()`: Window/Level 적용
+  - `calculateMinMax()`: 자동 Window/Level 계산
+  - 8-bit/16-bit grayscale 지원
+  - MONOCHROME1/MONOCHROME2 지원
+  - RGB, YBR_FULL 컬러 지원
+- [x] WebGL 텍스처 관리 구현 (TextureManager)
+  - `upload()`: ImageBitmap/VideoFrame → 텍스처 업로드
+  - `bind()`: 텍스처 유닛 바인딩
+  - `dispose()`: 리소스 해제
+- [x] WebGL 쉐이더 렌더링 구현 (QuadRenderer)
+  - Vertex/Fragment 쉐이더 컴파일
+  - VAO/VBO 설정
+  - 전체 화면 사각형 렌더링
+- [x] App.tsx 통합 및 테스트
+- [x] **심초음파 DICOM 파일 렌더링 성공!**
+
+### 학습 내용
+- **Window/Level**: 픽셀 값을 0-255 범위로 선형 변환
+  - windowCenter: 밝기 중심값
+  - windowWidth: 대비 범위
+- **Photometric Interpretation**:
+  - MONOCHROME1: 0=흰색 (반전 필요)
+  - MONOCHROME2: 0=검은색 (일반)
+- **WebGL2 렌더링 파이프라인**:
+  - 텍스처 업로드 (texImage2D)
+  - 쉐이더 프로그램 (vertex + fragment)
+  - VAO/VBO (정점 배열 객체)
+  - drawArrays (TRIANGLE_STRIP)
+
+### 빌드 이슈 해결
+- `pnpm build` 명령이 출력을 생성하지 않는 문제
+- 원인: Windows Git Bash 환경에서 pnpm 출력 캡처 이슈
+- 해결: `node ../../node_modules/vite/bin/vite.js build` 직접 실행
+
+### 다음 세션 할 일
+- [ ] Phase 1b-2: 멀티프레임 재생
+- [ ] 프레임 선택 UI (슬라이더)
+- [ ] Cine 재생 (requestAnimationFrame)
+
+### 메모
+- Phase 1b-1 완료! 단일 프레임 DICOM 렌더링 성공
+- Native + JPEG 압축 모두 지원
+- 테스트 파일: echo_4chamb...68frames.dcm (640x480)
+
+---
+
 ## 2026-01-18 세션 #8 (DICOM 파서 구현)
 
 ### 작업 내용

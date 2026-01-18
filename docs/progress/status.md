@@ -6,7 +6,7 @@
 |------|------|
 | **현재 Phase** | Phase 1b (DICOM 파싱 + 디코딩) |
 | **마지막 업데이트** | 2026-01-18 |
-| **다음 마일스톤** | DICOM 파서 구현 |
+| **다음 마일스톤** | Phase 1b-2: 멀티프레임 재생 |
 
 ---
 
@@ -81,15 +81,17 @@
 
 > 상세 설계: [phase-1b-design.md](../design/phase-1b-design.md)
 
-**Phase 1b-1: 단일 프레임**
+**Phase 1b-1: 단일 프레임 ✅ 완료**
 - [x] DICOM 파일 식별 (isDicomFile - DICM prefix + 레거시 지원)
 - [x] DICOM 파서 기본 구현 (parseDicom - 태그 읽기, 메타데이터 추출)
 - [x] 핵심 태그 추출 함수 (getUint16Value, getStringValue, getImageInfo)
-- [ ] 데모에서 DICOM 파서 테스트 (파일 선택 UI) ← 현재 진행중
-- [ ] 픽셀 데이터 추출 (7FE0,0010)
-- [ ] WebCodecs ImageDecoder (JPEG → VideoFrame)
-- [ ] WebGL 텍스처 업로드 + 렌더링
-- [ ] 단일 프레임 DICOM 화면 표시
+- [x] 데모에서 DICOM 파서 테스트 (파일 선택 UI)
+- [x] 픽셀 데이터 추출 (extractPixelData - Native + Encapsulated)
+- [x] WebCodecs ImageDecoder (JPEG → VideoFrame)
+- [x] Native 픽셀 디코더 (decodeNative - Window/Level 적용)
+- [x] WebGL 텍스처 업로드 (TextureManager)
+- [x] WebGL 쉐이더 렌더링 (QuadRenderer)
+- [x] 단일 프레임 DICOM 화면 표시 (심초음파 테스트 성공!)
 
 **Phase 1b-2: 멀티프레임**
 - [ ] Basic Offset Table 파싱
@@ -170,7 +172,21 @@
 
 ## 최근 활동
 
-### 2026-01-18 (세션 #8) - DICOM 파서 구현 🚧
+### 2026-01-18 (세션 #9) - Phase 1b-1 완료! 🎉
+- **단일 프레임 DICOM 렌더링 성공!**
+  - 픽셀 데이터 추출 (Native + Encapsulated 모두 지원)
+  - WebCodecs ImageDecoder (JPEG 압축)
+  - Native 픽셀 디코더 (Window/Level 자동 계산)
+  - WebGL TextureManager + QuadRenderer
+- 심초음파 DICOM 파일 테스트 성공 (640x480, 68 프레임)
+- 새로 추가된 파일:
+  - `ImageDecoder.ts`: WebCodecs 기반 JPEG 디코딩
+  - `NativeDecoder.ts`: 비압축 픽셀 데이터 처리
+  - `webgl/TextureManager.ts`: 텍스처 관리
+  - `webgl/QuadRenderer.ts`: 쉐이더 렌더링
+  - `webgl/shaders.ts`: GLSL 쉐이더 소스
+
+### 2026-01-18 (세션 #8) - DICOM 파서 구현
 - DICOM 파서 기본 구현 완료
   - `packages/core/src/dicom/` 모듈 생성
   - `isDicomFile()`: DICM prefix + 레거시 DICOM 지원
@@ -178,9 +194,7 @@
   - `getUint16Value()`, `getStringValue()`: VR별 값 추출
   - `getImageInfo()`: 렌더링 필수 정보 (Rows, Columns, Bits 등)
 - core/index.ts에서 DICOM 모듈 export 추가
-- pnpm build, pnpm typecheck 성공
 - 학습: WADO-RS vs WADO-URI 메타데이터 차이
-- 이슈: VSCode IntelliSense DOM 타입 인식 오류 (빌드는 정상)
 
 ### 2026-01-18 (세션 #7) - 프로젝트 분석 + 코드 품질 개선
 - 프로젝트 전체 분석 (4개 에이전트 병렬 실행)
