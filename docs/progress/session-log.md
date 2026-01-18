@@ -4,6 +4,86 @@
 
 ---
 
+## 2026-01-18 세션 #14 (Multi Canvas 기능 고도화)
+
+### 작업 내용
+
+**무한 루프 버그 수정**
+- [x] Maximum update depth exceeded 에러 해결
+  - 원인: `instanceId` 객체가 JSX에서 인라인으로 생성되어 매 렌더링마다 새 참조 발생
+  - 해결: useEffect 의존성에 객체 대신 개별 UID 문자열 사용
+  ```typescript
+  const studyUid = instanceId?.studyInstanceUid;
+  const seriesUid = instanceId?.seriesInstanceUid;
+  const sopUid = instanceId?.sopInstanceUid;
+  // 의존성 배열에 studyUid, seriesUid, sopUid 사용
+  ```
+
+**전역 제어 및 동기화 기능**
+- [x] DicomViewportHandle 인터페이스 정의 (useImperativeHandle)
+  - play(), pause(), togglePlay(), setFps(), goToFrame(), getState()
+- [x] 전역 제어 패널 구현
+  - 전체 재생/정지 버튼
+  - 전체 FPS 조절
+  - 처음으로 버튼
+- [x] 프레임 동기화 모드 구현
+  - none: 동기화 없음
+  - frame-ratio: 프레임 비율 기반 (마스터 50% → 슬레이브 50%)
+  - absolute: 절대 프레임 번호 동기화
+- [x] 연속 동기화 (재생 중 setInterval로 지속 동기화)
+
+**뷰포트 확장**
+- [x] Multi Canvas 뷰포트 개수 확장 (4개 → 10개)
+- [x] 동적 그리드 계산 (뷰포트 수에 따라 2~4열)
+- [x] 로드 완료 후 초기 프레임 표시 (재생 전)
+  - 50ms 지연 렌더로 WebGL 초기화 완료 보장
+
+**인스턴스 선택 제한 수정**
+- [x] getMaxSelect() 함수 추가
+  - viewMode에 따라 최대 선택 개수 동적 계산
+  - multi-canvas: multiCanvasCount 사용
+  - single-canvas: 그리드 크기 기반 (2x2=4, 3x3=9, 4x4=16)
+- [x] toggleInstanceSelection, selectAllPlayable 수정
+
+**WebGL 컨텍스트 제한 조사**
+- [x] 브라우저별 WebGL 컨텍스트 제한 발견 (8-16개)
+  - 제한 초과 시: "WARNING: Too many active WebGL contexts. Oldest context will be lost."
+  - Canvas mismatch 발생 시 WebGL 재초기화
+- [x] 8개 초과 뷰포트 사용 시 경고 메시지 추가
+  - Single Canvas 모드 권장
+
+### 학습 포인트
+
+**React 의존성 배열과 객체 참조**
+- 객체를 의존성 배열에 넣으면 매 렌더링마다 새 객체로 인식
+- 해결책: 객체 대신 개별 프리미티브 값 사용, 또는 useMemo로 객체 메모이제이션
+
+**useImperativeHandle + forwardRef**
+- 부모 컴포넌트에서 자식 컴포넌트의 메서드 호출 가능
+- ref를 통해 컴포넌트 인스턴스 메서드 노출
+
+**WebGL 컨텍스트 제한**
+- 브라우저마다 8-16개 WebGL 컨텍스트 제한
+- 제한 초과 시 가장 오래된 컨텍스트 자동 해제
+- Multi Canvas 방식의 한계: ~8개 뷰포트
+- Single Canvas 방식 권장: 제한 없이 다중 뷰포트 렌더링 가능
+
+### 빌드 검증
+- [x] Vite dev 서버 정상 동작
+- [x] HMR 정상 동작
+
+### 다음 세션 할 일
+- [ ] Single Canvas 모드 실제 동작 테스트
+- [ ] 16개 뷰포트 성능 검증
+- [ ] WebGL 컨텍스트 제한 우회 방안 조사 (OffscreenCanvas 등)
+
+### 메모
+- Multi Canvas 방식은 브라우저 WebGL 컨텍스트 제한(8-16개)으로 인해 ~8개 뷰포트가 실질적 한계
+- 16개 이상 뷰포트를 위해서는 Single Canvas + Scissor 방식이 필수
+- Phase 2에서 구현한 Single Canvas 아키텍처의 중요성 재확인
+
+---
+
 ## 2026-01-18 세션 #13 (Phase 2 핵심 구현)
 
 ### 작업 내용

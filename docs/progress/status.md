@@ -198,6 +198,24 @@
 
 ## 최근 활동
 
+### 2026-01-18 (세션 #14) - Multi Canvas 기능 고도화
+- **무한 루프 버그 수정**
+  - Maximum update depth exceeded 에러 해결
+  - 원인: instanceId 객체의 매 렌더링 새 참조 생성
+  - 해결: useEffect 의존성에 개별 UID 문자열 사용
+- **전역 제어 및 동기화 기능**
+  - DicomViewportHandle (useImperativeHandle) 구현
+  - 전체 재생/정지, 전체 FPS 조절, 처음으로 기능
+  - 프레임 동기화 모드 (none, frame-ratio, absolute)
+  - 연속 동기화 (재생 중 setInterval)
+- **뷰포트 확장**
+  - Multi Canvas 뷰포트 개수 4개 → 10개
+  - 동적 그리드 계산, 초기 프레임 표시
+- **WebGL 컨텍스트 제한 발견**
+  - 브라우저별 8-16개 WebGL 컨텍스트 제한
+  - Multi Canvas 방식 실질적 한계: ~8개 뷰포트
+  - Single Canvas 방식의 중요성 재확인
+
 ### 2026-01-18 (세션 #13) - Phase 2 핵심 구현! 🎉
 - **Phase 2a: 2D Array Texture**
   - TextureManager에 배열 텍스처 API 추가 (texStorage3D, texSubImage3D)

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   isDicomFile,
   parseDicom,
@@ -25,8 +25,9 @@ import {
   type Viewport,
 } from '@echopixel/core';
 import { DicomViewport } from './components/DicomViewport';
+import { MultiCanvasGrid } from './components/MultiCanvasGrid';
 
-type ViewMode = 'single' | 'multi';
+type ViewMode = 'single' | 'multi' | 'multi-canvas';
 type DataSourceMode = 'local' | 'wado-rs';
 
 interface ParseResult {
@@ -92,6 +93,22 @@ export default function App() {
   const [scannedInstances, setScannedInstances] = useState<ScannedInstance[]>([]);
   const [selectedUids, setSelectedUids] = useState<Set<string>>(new Set());
   const [scanningStatus, setScanningStatus] = useState<string>('');
+
+  // Multi Canvas 모드 상태
+  const [multiCanvasLoaded, setMultiCanvasLoaded] = useState(false);
+  const [multiCanvasUids, setMultiCanvasUids] = useState<string[]>([]);
+  const [multiCanvasCount, setMultiCanvasCount] = useState<number>(1); // 1~4개
+
+  // Multi Canvas용 DataSource (안정적인 참조 유지)
+  const multiCanvasDataSource = useMemo(() => {
+    if (!multiCanvasLoaded) return null;
+    return new WadoRsDataSource({
+      baseUrl: wadoBaseUrl,
+      timeout: 60000,
+      maxRetries: 3,
+    });
+  // wadoBaseUrl이 변경되거나 multiCanvasLoaded가 true가 될 때만 재생성
+  }, [wadoBaseUrl, multiCanvasLoaded]);
 
   // 멀티 뷰포트 refs
   const glRef = useRef<WebGL2RenderingContext | null>(null);
@@ -211,6 +228,9 @@ export default function App() {
     setMultiViewportReady(false);
     setMultiLoadingStatus('');
     setIsPlaying(false);
+    // Multi Canvas 상태 초기화
+    setMultiCanvasLoaded(false);
+    setMultiCanvasUids([]);
   };
 
   // === 멀티 뷰포트 관련 함수 ===
@@ -290,6 +310,16 @@ export default function App() {
     }
   };
 
+  // 최대 선택 개수 계산 (viewMode에 따라 다름)
+  const getMaxSelect = () => {
+    if (viewMode === 'multi-canvas') {
+      return multiCanvasCount;
+    }
+    // multi 또는 single 모드: layout 기반
+    const gridSize = layout === 'grid-2x2' ? 2 : layout === 'grid-3x3' ? 3 : 4;
+    return gridSize * gridSize;
+  };
+
   // Instance UID 선택 토글
   const toggleInstanceSelection = (uid: string) => {
     setSelectedUids(prev => {
@@ -297,9 +327,8 @@ export default function App() {
       if (newSet.has(uid)) {
         newSet.delete(uid);
       } else {
-        // 레이아웃에 맞는 최대 개수 제한
-        const gridSize = layout === 'grid-2x2' ? 2 : layout === 'grid-3x3' ? 3 : 4;
-        const maxSelect = gridSize * gridSize;
+        // 현재 모드에 맞는 최대 개수 제한
+        const maxSelect = getMaxSelect();
         if (newSet.size < maxSelect) {
           newSet.add(uid);
         }
@@ -310,8 +339,7 @@ export default function App() {
 
   // 전체 선택/해제
   const selectAllPlayable = () => {
-    const gridSize = layout === 'grid-2x2' ? 2 : layout === 'grid-3x3' ? 3 : 4;
-    const maxSelect = gridSize * gridSize;
+    const maxSelect = getMaxSelect();
     const playableUids = scannedInstances
       .filter(r => !r.error && r.isPlayable)
       .slice(0, maxSelect)
@@ -606,11 +634,12 @@ export default function App() {
     <div style={{ padding: '20px', fontFamily: 'system-ui, sans-serif', maxWidth: '1200px' }}>
       <h1 style={{ marginBottom: '20px' }}>EchoPixel Demo - DICOM Viewer</h1>
 
-      {/* 뷰 모드 선택 (Single / Multi) */}
+      {/* 뷰 모드 선택 (Single / Multi / Multi-Canvas) */}
       <div style={{
         display: 'flex',
         gap: '10px',
         marginBottom: '15px',
+        flexWrap: 'wrap',
       }}>
         <button
           onClick={() => handleViewModeChange('single')}
@@ -638,7 +667,21 @@ export default function App() {
             fontWeight: viewMode === 'multi' ? 'bold' : 'normal',
           }}
         >
-          Multi Viewport (Phase 2)
+          Multi (Single Canvas)
+        </button>
+        <button
+          onClick={() => handleViewModeChange('multi-canvas')}
+          style={{
+            padding: '10px 20px',
+            background: viewMode === 'multi-canvas' ? '#47a' : '#333',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontWeight: viewMode === 'multi-canvas' ? 'bold' : 'normal',
+          }}
+        >
+          Multi (Multi Canvas)
         </button>
       </div>
 
@@ -1165,8 +1208,7 @@ export default function App() {
                 }}>
                   {scannedInstances.map((instance, idx) => {
                     const isSelected = selectedUids.has(instance.uid);
-                    const gridSize = layout === 'grid-2x2' ? 2 : layout === 'grid-3x3' ? 3 : 4;
-                    const maxSelect = gridSize * gridSize;
+                    const maxSelect = getMaxSelect();
                     const canSelect = isSelected || selectedUids.size < maxSelect;
 
                     return (
@@ -1479,6 +1521,296 @@ export default function App() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* === 멀티 캔버스 모드 (Multiple Canvas) === */}
+      {viewMode === 'multi-canvas' && (
+        <div>
+          {/* 에러 표시 */}
+          {error && (
+            <div style={{
+              padding: '15px',
+              marginBottom: '15px',
+              background: '#3a1a1a',
+              border: '1px solid #a44',
+              borderRadius: '4px',
+              color: '#f88',
+            }}>
+              Error: {error}
+            </div>
+          )}
+
+          {/* 설정 패널 */}
+          <div style={{
+            padding: '15px',
+            marginBottom: '15px',
+            background: '#1a2a4a',
+            border: '1px solid #47a',
+            borderRadius: '4px',
+          }}>
+            <h3 style={{ margin: '0 0 15px 0', color: '#8cf', fontSize: '16px' }}>
+              Multi-Canvas Grid 설정 (Multiple WebGL Contexts)
+            </h3>
+
+            <div style={{ display: 'grid', gap: '10px', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+              <div>
+                <label style={{ display: 'block', color: '#8cf', marginBottom: '5px', fontSize: '13px' }}>
+                  DICOM Web Base URL
+                </label>
+                <input
+                  type="text"
+                  value={wadoBaseUrl}
+                  onChange={(e) => setWadoBaseUrl(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    fontSize: '13px',
+                    background: '#2a2a3a',
+                    border: '1px solid #555',
+                    borderRadius: '4px',
+                    color: '#fff',
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', color: '#8cf', marginBottom: '5px', fontSize: '13px' }}>
+                  Study Instance UID
+                </label>
+                <input
+                  type="text"
+                  value={studyUid}
+                  onChange={(e) => setStudyUid(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    fontSize: '13px',
+                    background: '#2a2a3a',
+                    border: '1px solid #555',
+                    borderRadius: '4px',
+                    color: '#fff',
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', color: '#8cf', marginBottom: '5px', fontSize: '13px' }}>
+                  Series Instance UID
+                </label>
+                <input
+                  type="text"
+                  value={seriesUid}
+                  onChange={(e) => setSeriesUid(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    fontSize: '13px',
+                    background: '#2a2a3a',
+                    border: '1px solid #555',
+                    borderRadius: '4px',
+                    color: '#fff',
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', color: '#8cf', marginBottom: '5px', fontSize: '13px' }}>
+                  뷰포트 개수
+                </label>
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(count => (
+                    <button
+                      key={count}
+                      onClick={() => setMultiCanvasCount(count)}
+                      style={{
+                        padding: '6px 12px',
+                        fontSize: '13px',
+                        background: multiCanvasCount === count ? '#47a' : '#2a2a3a',
+                        color: '#fff',
+                        border: multiCanvasCount === count ? '2px solid #8cf' : '1px solid #555',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontWeight: multiCanvasCount === count ? 'bold' : 'normal',
+                        minWidth: '40px',
+                      }}
+                    >
+                      {count}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* 액션 버튼들 */}
+            <div style={{ marginTop: '15px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <button
+                onClick={handleScanInstances}
+                disabled={!!scanningStatus}
+                style={{
+                  padding: '10px 20px',
+                  background: scanningStatus ? '#555' : '#47a',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: scanningStatus ? 'not-allowed' : 'pointer',
+                  fontSize: '14px',
+                }}
+              >
+                {scanningStatus || 'Instance 스캔'}
+              </button>
+
+              <button
+                onClick={() => {
+                  const uidsToLoad = Array.from(selectedUids).slice(0, multiCanvasCount);
+                  if (uidsToLoad.length === 0) {
+                    setError('로드할 Instance를 선택하세요');
+                    return;
+                  }
+                  setMultiCanvasUids(uidsToLoad);
+                  setMultiCanvasLoaded(true);
+                  setError(null);
+                }}
+                disabled={selectedUids.size === 0 || !!scanningStatus}
+                style={{
+                  padding: '10px 20px',
+                  background: selectedUids.size === 0 ? '#555' : '#4a7',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: selectedUids.size === 0 ? 'not-allowed' : 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                }}
+              >
+                로드 ({Math.min(selectedUids.size, multiCanvasCount)}개)
+              </button>
+            </div>
+
+            {/* Instance UID 선택 목록 */}
+            {scannedInstances.length > 0 && (
+              <div style={{ marginTop: '15px' }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '10px',
+                }}>
+                  <span style={{ color: '#8cf', fontSize: '13px' }}>
+                    Instance 선택 ({selectedUids.size} / {multiCanvasCount}개)
+                  </span>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={selectAllPlayable}
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '11px',
+                        background: '#363',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '3px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      영상만 선택
+                    </button>
+                    <button
+                      onClick={clearSelection}
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '11px',
+                        background: '#633',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '3px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      선택 해제
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{
+                  background: '#1a1a2a',
+                  borderRadius: '4px',
+                  maxHeight: '200px',
+                  overflowY: 'auto',
+                }}>
+                  {scannedInstances.map((instance, idx) => {
+                    const isSelected = selectedUids.has(instance.uid);
+                    const maxSelect = getMaxSelect();
+                    const canSelect = isSelected || selectedUids.size < maxSelect;
+
+                    return (
+                      <div
+                        key={instance.uid}
+                        onClick={() => !instance.error && canSelect && toggleInstanceSelection(instance.uid)}
+                        style={{
+                          padding: '6px 10px',
+                          borderBottom: '1px solid #333',
+                          cursor: instance.error ? 'not-allowed' : (canSelect ? 'pointer' : 'not-allowed'),
+                          background: isSelected ? '#2a3a4a' : 'transparent',
+                          opacity: instance.error ? 0.5 : (canSelect ? 1 : 0.6),
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          fontSize: '11px',
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          disabled={instance.error !== undefined || !canSelect}
+                          onChange={() => {}}
+                          style={{ cursor: 'inherit' }}
+                        />
+                        <span style={{ color: '#666', minWidth: '20px' }}>{idx + 1}.</span>
+                        <span style={{
+                          color: instance.isPlayable ? '#8f8' : '#fa8',
+                          minWidth: '35px',
+                        }}>
+                          {instance.isPlayable ? '영상' : '정지'}
+                        </span>
+                        <span style={{ color: '#8cf', minWidth: '50px' }}>
+                          {instance.frameCount}f
+                        </span>
+                        <span style={{ fontFamily: 'monospace', color: '#aaa', flex: 1 }}>
+                          ...{instance.uid.slice(-20)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* MultiCanvasGrid 렌더링 */}
+          {multiCanvasLoaded && multiCanvasUids.length > 0 && multiCanvasDataSource && (
+            <MultiCanvasGrid
+              key={multiCanvasUids.join('-')}
+              layout={layout}
+              dataSource={multiCanvasDataSource}
+              studyUid={studyUid}
+              seriesUid={seriesUid}
+              instanceUids={multiCanvasUids}
+              viewportSize={layout === 'grid-2x2' ? 380 : layout === 'grid-3x3' ? 250 : 180}
+              gap={4}
+            />
+          )}
+
+          {/* 스캔 전 안내 */}
+          {scannedInstances.length === 0 && !scanningStatus && (
+            <div style={{
+              padding: '20px',
+              background: '#1a1a2a',
+              borderRadius: '4px',
+              textAlign: 'center',
+              color: '#888',
+            }}>
+              'Instance 스캔' 버튼을 클릭하여 Series 내 Instance를 조회하세요.
+              <br />
+              스캔 후 로드할 Instance를 선택하면 자동으로 뷰포트가 생성됩니다.
             </div>
           )}
         </div>

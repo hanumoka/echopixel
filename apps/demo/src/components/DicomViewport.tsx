@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useImperativeHandle, forwardRef } from 'react';
 import {
   decodeJpeg,
   decodeNative,
@@ -11,6 +11,30 @@ import {
   type DicomInstanceId,
   type DicomMetadata,
 } from '@echopixel/core';
+
+/**
+ * DicomViewport 외부 제어용 핸들 타입
+ * useImperativeHandle로 노출되는 메서드들
+ */
+export interface DicomViewportHandle {
+  /** 재생 시작 */
+  play: () => void;
+  /** 재생 정지 */
+  pause: () => void;
+  /** 재생/정지 토글 */
+  togglePlay: () => void;
+  /** FPS 설정 */
+  setFps: (fps: number) => void;
+  /** 특정 프레임으로 이동 */
+  goToFrame: (frame: number) => void;
+  /** 현재 상태 조회 */
+  getState: () => {
+    isPlaying: boolean;
+    currentFrame: number;
+    fps: number;
+    totalFrames: number;
+  };
+}
 
 /**
  * DicomViewport Props
@@ -51,7 +75,7 @@ export interface DicomViewportProps {
   onError?: (error: Error) => void;
 }
 
-export function DicomViewport({
+export const DicomViewport = forwardRef<DicomViewportHandle, DicomViewportProps>(function DicomViewport({
   frames: propFrames,
   imageInfo: propImageInfo,
   isEncapsulated: propIsEncapsulated,
@@ -64,7 +88,7 @@ export function DicomViewport({
   onLoadingChange,
   onMetadataLoaded,
   onError,
-}: DicomViewportProps) {
+}, ref) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const glRef = useRef<WebGL2RenderingContext | null>(null);
@@ -199,8 +223,15 @@ export function DicomViewport({
   }, [responsive, maintainAspectRatio, imageInfo, propWidth, propHeight]);
 
   // DataSource에서 데이터 로드
+  // 의존성: instanceId를 값으로 비교 (객체 참조가 아닌 개별 UID 값 사용)
+  // 이유: 부모 컴포넌트에서 instanceId 객체를 인라인으로 생성하면 매 렌더링마다
+  //       새 참조가 생성되어 무한 루프 발생 가능
+  const studyUid = instanceId?.studyInstanceUid;
+  const seriesUid = instanceId?.seriesInstanceUid;
+  const sopUid = instanceId?.sopInstanceUid;
+
   useEffect(() => {
-    if (!dataSource || !instanceId) {
+    if (!dataSource || !studyUid || !seriesUid || !sopUid) {
       return;
     }
 
@@ -212,7 +243,12 @@ export function DicomViewport({
       onLoadingChange?.(true);
 
       try {
-        const { metadata, frames: loadedData } = await dataSource.loadAllFrames(instanceId);
+        const instanceIdToLoad: DicomInstanceId = {
+          studyInstanceUid: studyUid,
+          seriesInstanceUid: seriesUid,
+          sopInstanceUid: sopUid,
+        };
+        const { metadata, frames: loadedData } = await dataSource.loadAllFrames(instanceIdToLoad);
 
         if (cancelled) return;
 
@@ -243,7 +279,7 @@ export function DicomViewport({
       cancelled = true;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataSource, instanceId]); // 콜백은 의도적으로 제외 (무한 루프 방지)
+  }, [dataSource, studyUid, seriesUid, sopUid]); // 개별 UID 값으로 의존성 설정 (무한 루프 방지)
 
   // WebGL 초기화 및 이벤트 리스너
   useEffect(() => {
@@ -457,11 +493,21 @@ export function DicomViewport({
   }, [frames, imageInfo, isEncapsulated]);
 
   // 초기 프레임 렌더링 (WebGL 준비 완료 후에만 실행)
+  // 로드 완료 후 첫 프레임을 확실히 표시하기 위해 약간의 지연 추가
   useEffect(() => {
     if (webglReady && frames.length > 0 && imageInfo) {
+      // 첫 프레임 렌더링 (즉시 + 지연 후 한번 더)
+      // 지연 렌더링은 캔버스가 완전히 준비되지 않았을 경우를 대비
       renderFrame(0);
       setCurrentFrame(0);
       setStatus(`${imageInfo.columns}x${imageInfo.rows}, ${frames.length} 프레임`);
+
+      // 안전을 위해 약간의 지연 후 다시 렌더링 (캔버스 레이아웃 완료 보장)
+      const timer = setTimeout(() => {
+        renderFrame(0);
+      }, 50);
+
+      return () => clearTimeout(timer);
     }
   }, [webglReady, frames, imageInfo, renderFrame]);
 
@@ -525,6 +571,36 @@ export function DicomViewport({
     setIsPlaying((prev) => !prev);
     lastFrameTimeRef.current = 0;
   }, []);
+
+  // 외부 제어용 핸들 노출 (useImperativeHandle)
+  useImperativeHandle(ref, () => ({
+    play: () => {
+      setIsPlaying(true);
+      lastFrameTimeRef.current = 0;
+    },
+    pause: () => {
+      setIsPlaying(false);
+    },
+    togglePlay: () => {
+      setIsPlaying((prev) => !prev);
+      lastFrameTimeRef.current = 0;
+    },
+    setFps: (newFps: number) => {
+      setFps(Math.max(1, Math.min(60, newFps)));
+    },
+    goToFrame: (frame: number) => {
+      if (totalFrames === 0) return;
+      const targetFrame = Math.max(0, Math.min(totalFrames - 1, frame));
+      setCurrentFrame(targetFrame);
+      renderFrame(targetFrame);
+    },
+    getState: () => ({
+      isPlaying,
+      currentFrame,
+      fps,
+      totalFrames,
+    }),
+  }), [isPlaying, currentFrame, fps, totalFrames, renderFrame]);
 
   // 이전/다음 프레임
   const prevFrame = useCallback(() => {
@@ -882,4 +958,4 @@ export function DicomViewport({
       )}
     </div>
   );
-}
+});

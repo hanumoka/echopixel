@@ -89,6 +89,7 @@ export function MultiViewport({
   // 상태
   const [viewports, setViewports] = useState<Viewport[]>([]);
   const [activeViewportId, setActiveViewportId] = useState<string | null>(null);
+  const [hoveredViewportId, setHoveredViewportId] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [fps, setFps] = useState(30);
   const [stats, setStats] = useState({ fps: 0, frameTime: 0 });
@@ -346,6 +347,33 @@ export function MultiViewport({
     [onViewportClick],
   );
 
+  // Canvas 마우스 이동 핸들러 (Hover 감지)
+  const handleCanvasMouseMove = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      const canvas = canvasRef.current;
+      const viewportManager = viewportManagerRef.current;
+      if (!canvas || !viewportManager) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+
+      // Canvas 좌표 계산 (WebGL 좌표계: 좌하단 원점)
+      const canvasX = (e.clientX - rect.left) * scaleX;
+      const canvasY = canvas.height - (e.clientY - rect.top) * scaleY;
+
+      // 해당 위치의 뷰포트 찾기
+      const viewport = viewportManager.getViewportAtPosition(canvasX, canvasY);
+      setHoveredViewportId(viewport?.id ?? null);
+    },
+    [],
+  );
+
+  // Canvas 마우스 나감 핸들러
+  const handleCanvasMouseLeave = useCallback(() => {
+    setHoveredViewportId(null);
+  }, []);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
       {/* 상태 표시 */}
@@ -372,20 +400,74 @@ export function MultiViewport({
         )}
       </div>
 
-      {/* Canvas */}
-      <canvas
-        ref={canvasRef}
-        width={Math.floor(width * dpr)}
-        height={Math.floor(height * dpr)}
+      {/* Canvas Container */}
+      <div
         style={{
+          position: 'relative',
           width: `${width}px`,
           height: `${height}px`,
           border: '1px solid #444',
           background: '#000',
-          cursor: 'pointer',
         }}
-        onClick={handleCanvasClick}
-      />
+      >
+        <canvas
+          ref={canvasRef}
+          width={Math.floor(width * dpr)}
+          height={Math.floor(height * dpr)}
+          style={{
+            display: 'block',
+            width: '100%',
+            height: '100%',
+            cursor: 'pointer',
+          }}
+          onClick={handleCanvasClick}
+          onMouseMove={handleCanvasMouseMove}
+          onMouseLeave={handleCanvasMouseLeave}
+        />
+
+        {/* Viewport Hover Overlay */}
+        {viewports.map((vp, index) => {
+          // WebGL 좌표 → CSS 좌표 변환 (Y축 반전)
+          // vp.bounds는 canvas의 물리적 픽셀 기준 (canvas.width, canvas.height)
+          // CSS는 논리적 픽셀 기준 (width, height props)
+          const canvasPixelHeight = height * dpr;
+          const cssX = vp.bounds.x / dpr;
+          const cssY = (canvasPixelHeight - vp.bounds.y - vp.bounds.height) / dpr;
+          const cssWidth = vp.bounds.width / dpr;
+          const cssHeight = vp.bounds.height / dpr;
+
+          const isHovered = hoveredViewportId === vp.id;
+          const isActive = activeViewportId === vp.id;
+
+          // 디버그: 첫 렌더링 시 좌표 확인
+          if (index === 0) {
+            console.log('[Overlay] bounds:', vp.bounds, 'dpr:', dpr, 'css:', { cssX, cssY, cssWidth, cssHeight });
+          }
+
+          return (
+            <div
+              key={vp.id}
+              style={{
+                position: 'absolute',
+                left: `${cssX}px`,
+                top: `${cssY}px`,
+                width: `${cssWidth}px`,
+                height: `${cssHeight}px`,
+                border: isActive
+                  ? '3px solid #4cf'
+                  : isHovered
+                  ? '2px solid rgba(100, 200, 255, 0.7)'
+                  : '1px solid rgba(255, 255, 255, 0.15)',
+                background: isHovered ? 'rgba(100, 200, 255, 0.1)' : 'transparent',
+                boxSizing: 'border-box',
+                pointerEvents: 'none',
+                transition: 'border 0.1s ease, background 0.1s ease',
+                borderRadius: '2px',
+              }}
+            />
+          );
+        })}
+      </div>
 
       {/* 컨트롤 */}
       <div
