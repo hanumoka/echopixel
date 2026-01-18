@@ -1,7 +1,7 @@
 {
   "name": "@echopixel/core",
   "version": "0.0.1",
-  "description": "High-performance DICOM echocardiography viewer core libraray",
+  "description": "High-performance DICOM echocardiography viewer core library",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

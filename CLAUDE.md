@@ -30,7 +30,7 @@ docs/learning/                   # 기술 학습 노트
 
 ## 프로젝트 목표
 
-- 웹 브라우저에서 10개 이상의 DICOM 심초음파 영상을 동시에 30fps 이상으로 재생
+- 웹 브라우저에서 **16개** DICOM 심초음파 영상을 동시에 30fps 이상으로 재생 (스트레스 에코)
 - Cornerstone3D 대비 성능 개선 및 뷰포트 제한 극복
 - npm 패키지로 오픈소스 배포
 
@@ -152,7 +152,7 @@ docs/learning/                   # 기술 학습 노트
 ## 프로젝트 구조 (계획)
 
 ```
-echopixcel/
+echopixel/
 ├── packages/
 │   ├── core/          # 핵심 엔진
 │   ├── react/         # React 컴포넌트

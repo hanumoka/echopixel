@@ -1,7 +1,10 @@
 import { defineConfig } from "vite";
 import { resolve } from "path";
+// TODO: vite-plugin-dts 추가 후 활성화
+// import dts from "vite-plugin-dts";
 
 export default defineConfig({
+  // plugins: [dts()],  // TypeScript 선언 파일 생성 (추후 활성화)
   build: {
     lib: {
       entry: resolve(__dirname, "src/index.ts"),
