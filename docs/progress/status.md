@@ -4,9 +4,9 @@
 
 | 항목 | 상태 |
 |------|------|
-| **현재 Phase** | Phase 1b (DICOM 파싱 + 디코딩) |
+| **현재 Phase** | Phase 1c 완료 (React 컴포넌트 + GPU W/L) |
 | **마지막 업데이트** | 2026-01-18 |
-| **다음 마일스톤** | Phase 1c: Cine 재생 + React 컴포넌트 |
+| **다음 마일스톤** | Phase 1d: DataSource + 네트워크 기초 |
 
 ---
 
@@ -100,10 +100,13 @@
 - [x] Cine 재생 (requestAnimationFrame, 가변 FPS)
 - [x] Play/Pause, 이전/다음 프레임 버튼
 
-#### Phase 1c: React 컴포넌트 + Window/Level ⏳
-- [ ] React Viewport 컴포넌트 분리
-- [ ] Window/Level 마우스 조정
-- [ ] 키보드 단축키 (Space: 재생/정지, 방향키: 프레임 이동)
+#### Phase 1c: React 컴포넌트 + Window/Level ✅ 완료
+- [x] React DicomViewport 컴포넌트 분리
+- [x] Window/Level 마우스 조정 (우클릭 드래그, Ctrl+드래그)
+- [x] 키보드 단축키 (Space: 재생/정지, 방향키: 프레임/FPS 조절, R: W/L 리셋)
+- [x] GPU 셰이더 기반 W/L (Native + JPEG 모두 지원)
+- [x] getTransferSyntaxName() - Transfer Syntax 이름 표시
+- [x] bool uniform 버그 수정 (float 사용, Chromium 호환성)
 
 #### Phase 1d: DataSource + 네트워크 기초 ⏳
 - [ ] WADO-RS DataSource
@@ -171,6 +174,22 @@
 ---
 
 ## 최근 활동
+
+### 2026-01-18 (세션 #10) - Phase 1c 완료! 🎉
+- **React DicomViewport 컴포넌트 분리**
+  - 재사용 가능한 DICOM 뷰어 컴포넌트
+  - props: frames, imageInfo, isEncapsulated, width, height
+- **GPU 셰이더 기반 Window/Level 구현**
+  - Native (비압축) + JPEG (압축) 모두 지원
+  - 실시간 성능: 셰이더에서 즉시 계산
+  - mix() 함수로 분기 제거 (SIMD 최적화)
+- **bool uniform 버그 수정**
+  - Chromium bool uniform 버그 발견 및 우회
+  - `uniform bool` → `uniform float` 변경
+  - 검은 화면 문제 해결
+- **getTransferSyntaxName() 추가**
+  - Transfer Syntax UID를 읽기 쉬운 문자열로 변환
+  - 예: "1.2.840.10008.1.2.4.50" → "JPEG Baseline (Lossy)"
 
 ### 2026-01-18 (세션 #9) - Phase 1b 완료! 🎉
 - **Phase 1b-1: 단일 프레임 DICOM 렌더링 성공!**
