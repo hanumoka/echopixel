@@ -4,9 +4,9 @@
 
 | 항목 | 상태 |
 |------|------|
-| **현재 Phase** | Phase 1c 완료 (React 컴포넌트 + GPU W/L) |
+| **현재 Phase** | Phase 1e 완료 (에러 처리 + 반응형 기초) |
 | **마지막 업데이트** | 2026-01-18 |
-| **다음 마일스톤** | Phase 1d: DataSource + 네트워크 기초 |
+| **다음 마일스톤** | Phase 1 완료 → npm 0.1.0-beta.1 배포 준비 |
 
 ---
 
@@ -108,16 +108,26 @@
 - [x] getTransferSyntaxName() - Transfer Syntax 이름 표시
 - [x] bool uniform 버그 수정 (float 사용, Chromium 호환성)
 
-#### Phase 1d: DataSource + 네트워크 기초 ⏳
-- [ ] WADO-RS DataSource
-- [ ] Range Requests (멀티프레임 부분 요청)
-- [ ] LRU 메모리 캐시
-- [ ] 네트워크 재시도 (지수 백오프)
+#### Phase 1d: DataSource + 네트워크 기초 ✅ 완료
+- [x] LRU 메모리 캐시 (cache/LRUCache.ts)
+- [x] 네트워크 유틸리티 (errors.ts, retry.ts with exponential backoff)
+- [x] DataSource 인터페이스 (datasource/types.ts)
+- [x] LocalFileDataSource 구현 (기존 로직 래핑)
+- [x] WadoRsDataSource 구현 (WADO-RS 서버 통신)
+  - [x] 캐싱 (LRU)
+  - [x] 재시도 (지수 백오프)
+  - [x] 중복 요청 방지 (인플라이트 캐시)
+- [x] DicomViewport에 dataSource prop 추가
+- [x] 데모 앱에 Local/WADO-RS 모드 전환 UI
 
-#### Phase 1e: 에러 처리 + 반응형 기초 ⏳
-- [ ] 기본 에러 UI
-- [ ] 디코딩 폴백 (WebCodecs → createImageBitmap)
-- [ ] ResizeObserver, DPI 감지
+#### Phase 1e: 에러 처리 + 반응형 기초 ✅ 완료
+- [x] 렌더링 에러 UI (에러 오버레이 + 재시도 버튼)
+- [x] DPI 감지 (devicePixelRatio, 최대 2로 제한)
+- [x] DPI 변경 감지 (matchMedia, 모니터 간 창 이동 시)
+- [x] 반응형 Canvas 옵션 (responsive prop, maintainAspectRatio)
+- [x] ResizeObserver로 컨테이너 크기 감지
+- [x] 디바운싱 (빈번한 리사이즈 이벤트 최적화)
+- [x] 디코딩 폴백 (createImageBitmap) - 이미 ImageDecoder.ts에 구현됨
 
 #### Safari 폴백 (우선순위 낮음)
 - [ ] createImageBitmap 기반 (Phase 1e 또는 Phase 2)
@@ -174,6 +184,50 @@
 ---
 
 ## 최근 활동
+
+### 2026-01-18 (세션 #12) - Phase 1e 완료! 🎉
+- **렌더링 에러 처리 강화**
+  - `renderError` 상태 추가
+  - 에러 발생 시 오버레이 UI 표시 (배경: 반투명 빨간색)
+  - 재시도 버튼으로 현재 프레임 다시 렌더링
+- **DPI (devicePixelRatio) 대응**
+  - Retina 디스플레이에서 선명한 렌더링
+  - Canvas 드로잉 버퍼 크기: DPR 배율 적용
+  - CSS 크기: 원래 크기 유지 (화면 표시)
+  - DPR 최대 2로 제한 (성능 고려)
+  - `matchMedia`로 DPR 변경 감지 (모니터 간 창 이동 시)
+- **반응형 Canvas 옵션**
+  - `responsive` prop: 컨테이너에 맞춰 자동 크기 조정
+  - `maintainAspectRatio` prop: 종횡비 유지 여부
+  - ResizeObserver로 컨테이너 크기 변경 감지
+  - 디바운싱으로 빈번한 리사이즈 이벤트 최적화 (~60fps)
+- **학습 포인트**
+  - Canvas width/height vs style.width/height 차이
+  - gl.viewport()와 드로잉 버퍼 크기 관계
+  - ResizeObserver vs window resize 이벤트
+
+### 2026-01-18 (세션 #11) - Phase 1d 완료! 🎉
+- **DataSource 아키텍처 구현**
+  - DataSource 인터페이스 정의 (loadDicomFile 메서드)
+  - LocalFileDataSource: 로컬 파일 읽기 (기존 로직 래핑)
+  - WadoRsDataSource: WADO-RS 서버 통신
+- **LRU 캐시 구현**
+  - 메모리 효율적인 캐싱 (가장 오래된 항목 자동 삭제)
+  - ArrayBuffer 캐싱으로 재다운로드 방지
+- **네트워크 재시도 로직**
+  - 지수 백오프 (Exponential Backoff)
+  - 최대 3회 재시도, 1초 → 2초 → 4초 대기
+  - NetworkError, RetryableError 타입 정의
+- **중복 요청 방지**
+  - 인플라이트 캐시 (동일 URL 요청 중복 방지)
+  - 여러 뷰포트가 동일 파일 요청 시 하나만 다운로드
+- **DicomViewport dataSource prop**
+  - 선택적 prop으로 확장
+  - props: File | string (URL) + DataSource
+- **데모 앱 UI 개선**
+  - Local/WADO-RS 모드 전환 라디오 버튼
+  - WADO-RS URL 입력 필드
+  - 모드별 다른 DataSource 사용
 
 ### 2026-01-18 (세션 #10) - Phase 1c 완료! 🎉
 - **React DicomViewport 컴포넌트 분리**
@@ -311,20 +365,21 @@
 
 ## 다음 단계
 
-### 즉시 진행 (Phase 1a)
+### Phase 1 완료 → 배포 준비
 
-1. **모노레포 초기화**
-   - pnpm workspace 설정
-   - `@echopixel/core`, `@echopixel/react` 구조 생성
+Phase 1 (Foundation) 모든 하위 단계 완료! 다음 작업:
 
-2. **개발 환경 설정**
-   - Vite 라이브러리 모드 설정
-   - TypeScript strict 모드
-   - ESLint + Prettier
+1. **npm 배포 준비**
+   - vite-plugin-dts 설정 (.d.ts 파일 생성)
+   - package.json exports 필드 확인
+   - README.md 작성
+   - CHANGELOG.md 작성
+   - npm publish (0.1.0-beta.1)
 
-3. **WebGL2 기본 렌더링**
-   - 컨텍스트 초기화
-   - 테스트 이미지 렌더링
+2. **Phase 2 준비**
+   - Multi-Viewport 아키텍처 설계 (Single Canvas, 16개 뷰포트)
+   - 2D Array Texture 설계
+   - ViewportManager 설계
 
 ### Phase 1 세부 마일스톤
 

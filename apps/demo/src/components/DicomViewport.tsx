@@ -35,10 +35,14 @@ export interface DicomViewportProps {
   instanceId?: DicomInstanceId;
 
   // === 공통 ===
-  /** 캔버스 너비 */
+  /** 캔버스 너비 (responsive=false일 때 사용) */
   width?: number;
-  /** 캔버스 높이 */
+  /** 캔버스 높이 (responsive=false일 때 사용) */
   height?: number;
+  /** 컨테이너에 맞춰 자동 크기 조정 (기본값: false) */
+  responsive?: boolean;
+  /** 종횡비 유지 여부 (responsive=true일 때만 적용, 기본값: true) */
+  maintainAspectRatio?: boolean;
   /** 로딩 상태 콜백 */
   onLoadingChange?: (loading: boolean) => void;
   /** 메타데이터 로드 완료 콜백 */
@@ -53,8 +57,10 @@ export function DicomViewport({
   isEncapsulated: propIsEncapsulated,
   dataSource,
   instanceId,
-  width = 512,
-  height = 512,
+  width: propWidth = 512,
+  height: propHeight = 512,
+  responsive = false,
+  maintainAspectRatio = true,
   onLoadingChange,
   onMetadataLoaded,
   onError,
@@ -97,8 +103,100 @@ export function DicomViewport({
   const [windowWidth, setWindowWidth] = useState<number | undefined>(undefined);
   const [status, setStatus] = useState('');
   const [webglReady, setWebglReady] = useState(false); // WebGL 준비 상태
+  const [renderError, setRenderError] = useState<string | null>(null); // 렌더링 에러 상태
+  const [dpr, setDpr] = useState(() => Math.min(window.devicePixelRatio || 1, 2)); // DPI 배율 (최대 2로 제한)
+
+  // 반응형 모드를 위한 계산된 크기
+  const [computedSize, setComputedSize] = useState({ width: propWidth, height: propHeight });
+
+  // 최종 사용할 Canvas 크기 (반응형이면 계산된 크기, 아니면 prop 크기)
+  const width = responsive ? computedSize.width : propWidth;
+  const height = responsive ? computedSize.height : propHeight;
 
   const totalFrames = frames.length;
+
+  // DPR 변경 감지 (모니터 간 창 이동 시)
+  useEffect(() => {
+    const updateDpr = () => {
+      const newDpr = Math.min(window.devicePixelRatio || 1, 2);
+      setDpr(newDpr);
+    };
+
+    // matchMedia를 사용한 DPR 변경 감지
+    const mediaQuery = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+    mediaQuery.addEventListener('change', updateDpr);
+
+    return () => {
+      mediaQuery.removeEventListener('change', updateDpr);
+    };
+  }, []);
+
+  // 반응형 모드: 컨테이너 크기에 맞춰 Canvas 크기 계산
+  useEffect(() => {
+    if (!responsive || !containerRef.current) {
+      // 반응형이 아니면 prop 크기 사용
+      setComputedSize({ width: propWidth, height: propHeight });
+      return;
+    }
+
+    let resizeTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    const calculateSize = (containerWidth: number, containerHeight: number) => {
+      if (containerWidth <= 0 || containerHeight <= 0) return;
+
+      if (!maintainAspectRatio || !imageInfo) {
+        // 종횡비 유지 안함: 컨테이너 크기 그대로 사용
+        setComputedSize({ width: containerWidth, height: containerHeight });
+      } else {
+        // 종횡비 유지: 이미지 비율에 맞춰 계산
+        const imageAspectRatio = imageInfo.columns / imageInfo.rows;
+        const containerAspectRatio = containerWidth / containerHeight;
+
+        let newWidth: number;
+        let newHeight: number;
+
+        if (containerAspectRatio > imageAspectRatio) {
+          // 컨테이너가 더 넓음 → 높이에 맞춤
+          newHeight = containerHeight;
+          newWidth = Math.floor(containerHeight * imageAspectRatio);
+        } else {
+          // 컨테이너가 더 좁음 → 너비에 맞춤
+          newWidth = containerWidth;
+          newHeight = Math.floor(containerWidth / imageAspectRatio);
+        }
+
+        setComputedSize({ width: newWidth, height: newHeight });
+      }
+    };
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width: containerWidth, height: containerHeight } = entry.contentRect;
+
+        // 디바운싱: 빈번한 리사이즈 이벤트 최적화
+        if (resizeTimeout) {
+          clearTimeout(resizeTimeout);
+        }
+
+        resizeTimeout = setTimeout(() => {
+          calculateSize(containerWidth, containerHeight);
+        }, 16); // ~60fps
+      }
+    });
+
+    resizeObserver.observe(containerRef.current);
+
+    // 초기 크기 계산
+    const rect = containerRef.current.getBoundingClientRect();
+    calculateSize(rect.width, rect.height);
+
+    return () => {
+      resizeObserver.disconnect();
+      if (resizeTimeout) {
+        clearTimeout(resizeTimeout);
+      }
+    };
+  }, [responsive, maintainAspectRatio, imageInfo, propWidth, propHeight]);
 
   // DataSource에서 데이터 로드
   useEffect(() => {
@@ -316,6 +414,9 @@ export function DicomViewport({
     }
 
     try {
+      // 에러 상태 초기화 (성공적인 렌더링 시도 시)
+      setRenderError(null);
+
       const frameData = frames[frameIndex];
       let decodedFrame;
       let shaderWL: WindowLevelOptions | undefined;
@@ -349,6 +450,8 @@ export function DicomViewport({
 
       closeDecodedFrame(decodedFrame);
     } catch (err) {
+      const message = err instanceof Error ? err.message : 'Render failed';
+      setRenderError(message);
       console.error('Frame render error:', err);
     }
   }, [frames, imageInfo, isEncapsulated]);
@@ -361,6 +464,13 @@ export function DicomViewport({
       setStatus(`${imageInfo.columns}x${imageInfo.rows}, ${frames.length} 프레임`);
     }
   }, [webglReady, frames, imageInfo, renderFrame]);
+
+  // DPR 변경 시 현재 프레임 다시 렌더링 (모니터 이동 시)
+  useEffect(() => {
+    if (webglReady && frames.length > 0) {
+      renderFrame(currentFrame);
+    }
+  }, [dpr]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 프레임 변경 핸들러
   const handleFrameChange = useCallback((newFrame: number) => {
@@ -524,8 +634,8 @@ export function DicomViewport({
   if (isLoading) {
     return (
       <div style={{
-        width,
-        height,
+        // 반응형 모드면 부모 채우기, 아니면 고정 크기
+        ...(responsive ? { width: '100%', height: '100%' } : { width, height }),
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -544,8 +654,8 @@ export function DicomViewport({
   if (loadError) {
     return (
       <div style={{
-        width,
-        height,
+        // 반응형 모드면 부모 채우기, 아니면 고정 크기
+        ...(responsive ? { width: '100%', height: '100%' } : { width, height }),
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -565,7 +675,16 @@ export function DicomViewport({
   return (
     <div
       ref={containerRef}
-      style={{ outline: 'none' }}
+      style={{
+        outline: 'none',
+        // 반응형 모드일 때 부모 요소 채우기
+        ...(responsive && {
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+        }),
+      }}
       tabIndex={0}
       onKeyDown={handleKeyDown}
     >
@@ -580,8 +699,12 @@ export function DicomViewport({
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
+        gap: '12px',
       }}>
         <span>{status}</span>
+        <span style={{ color: '#8f8', fontSize: '11px' }}>
+          DPR: {dpr} | Canvas: {Math.floor(width * dpr)}x{Math.floor(height * dpr)}
+        </span>
         {windowCenter !== undefined && windowWidth !== undefined && (
           <span style={{ color: '#8cf' }}>
             W/L: {Math.round(windowWidth)} / {Math.round(windowCenter)}
@@ -589,24 +712,79 @@ export function DicomViewport({
         )}
       </div>
 
-      {/* 캔버스 */}
-      <canvas
-        ref={canvasRef}
-        width={width}
-        height={height}
-        style={{
-          border: '1px solid #444',
-          background: '#000',
-          display: 'block',
-          marginBottom: '10px',
-          cursor: isDraggingRef.current ? 'crosshair' : 'default',
-        }}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-        onContextMenu={handleContextMenu}
-      />
+      {/* 캔버스 컨테이너 (렌더 에러 오버레이 포함) */}
+      <div style={{
+        position: 'relative',
+        width,
+        height,
+        marginBottom: '10px',
+        // 반응형 모드일 때 남은 공간 채우기
+        ...(responsive && {
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }),
+      }}>
+        <canvas
+          ref={canvasRef}
+          // 드로잉 버퍼 크기: DPR 배율 적용 (Retina에서 선명한 렌더링)
+          width={Math.floor(width * dpr)}
+          height={Math.floor(height * dpr)}
+          style={{
+            border: '1px solid #444',
+            background: '#000',
+            display: 'block',
+            // CSS 크기: 원래 크기 유지 (화면 표시 크기)
+            width: `${width}px`,
+            height: `${height}px`,
+            cursor: isDraggingRef.current ? 'crosshair' : 'default',
+          }}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          onContextMenu={handleContextMenu}
+        />
+
+        {/* 렌더링 에러 오버레이 */}
+        {renderError && (
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(40, 20, 20, 0.9)',
+            color: '#f88',
+            fontSize: '14px',
+            padding: '20px',
+            textAlign: 'center',
+            gap: '12px',
+          }}>
+            <div style={{ fontWeight: 'bold' }}>Render Error</div>
+            <div style={{ color: '#faa', fontSize: '12px' }}>{renderError}</div>
+            <button
+              onClick={() => renderFrame(currentFrame)}
+              style={{
+                padding: '8px 16px',
+                background: '#c44',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '13px',
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* 프레임 컨트롤 */}
       {totalFrames > 1 && (

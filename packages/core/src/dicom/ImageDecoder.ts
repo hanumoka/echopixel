@@ -38,22 +38,11 @@ async function decodeWithImageDecoder(jpegData: Uint8Array): Promise<DecodedFram
 
   const { image: videoFrame } = await decoder.decode();
 
-  // VideoFrame 상세 정보 로깅
-  console.log('[ImageDecoder] VideoFrame details:', {
-    format: videoFrame.format,
-    codedWidth: videoFrame.codedWidth,
-    codedHeight: videoFrame.codedHeight,
-    displayWidth: videoFrame.displayWidth,
-    displayHeight: videoFrame.displayHeight,
-    colorSpace: videoFrame.colorSpace,
-  });
-
   // I422, I420 등 YUV 포맷은 texImage2D에서 문제 발생
   // ImageBitmap으로 변환하여 RGBA로 만듦
   const isYuvFormat = videoFrame.format?.startsWith('I4') || videoFrame.format?.startsWith('NV');
 
   if (isYuvFormat) {
-    console.log('[ImageDecoder] Converting YUV to ImageBitmap for WebGL compatibility');
     const bitmap = await createImageBitmap(videoFrame);
     videoFrame.close(); // 원본 VideoFrame 해제
     decoder.close();

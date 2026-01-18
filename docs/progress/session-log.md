@@ -4,6 +4,156 @@
 
 ---
 
+## 2026-01-18 세션 #12 (Phase 1e 완료! Phase 1 Foundation 완료!)
+
+### 작업 내용
+
+**렌더링 에러 처리 강화**
+- [x] `renderError` 상태 추가
+  - 프레임 렌더링 실패 시 에러 메시지 저장
+  - 성공 시 에러 상태 초기화
+- [x] 에러 오버레이 UI 구현
+  - Canvas 위에 반투명 빨간색 오버레이
+  - 에러 메시지 표시
+  - 재시도 버튼 (현재 프레임 다시 렌더링)
+
+**DPI (devicePixelRatio) 대응**
+- [x] `dpr` 상태 추가 (최대 2로 제한 - 성능 고려)
+- [x] Canvas 드로잉 버퍼 크기: `width * dpr`, `height * dpr`
+- [x] Canvas CSS 크기: 원래 `width`, `height` 유지
+- [x] `matchMedia`로 DPR 변경 감지 (모니터 간 창 이동 시)
+- [x] DPR 변경 시 현재 프레임 다시 렌더링
+
+**반응형 Canvas 옵션**
+- [x] `responsive` prop 추가 (기본값: false)
+  - true: 컨테이너 크기에 맞춰 자동 조정
+  - false: 고정 크기 (기존 동작 유지)
+- [x] `maintainAspectRatio` prop 추가 (기본값: true)
+  - true: 이미지 종횡비 유지
+  - false: 컨테이너 크기 그대로 사용
+- [x] ResizeObserver로 컨테이너 크기 변경 감지
+- [x] 디바운싱 (16ms, ~60fps) - 빈번한 리사이즈 이벤트 최적화
+- [x] 로딩/에러 UI도 반응형 모드 지원
+
+### 학습 포인트
+
+**Canvas와 DPI**
+- `canvas.width/height`: 드로잉 버퍼 크기 (실제 픽셀)
+- `canvas.style.width/height`: CSS 크기 (화면 표시)
+- Retina (DPR 2): 드로잉 버퍼를 2배로 해야 선명
+- `gl.viewport()`는 드로잉 버퍼 크기와 일치시켜야 왜곡 없음
+
+**ResizeObserver vs resize 이벤트**
+- `resize`: window 크기 변경만 감지
+- `ResizeObserver`: 특정 요소 크기 변경 감지 (CSS, 레이아웃 모두)
+- 성능: IntersectionObserver와 유사하게 브라우저 최적화
+
+**matchMedia로 DPR 감지**
+```typescript
+const mediaQuery = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+mediaQuery.addEventListener('change', updateDpr);
+```
+- 모니터 간 창 이동 시 DPR 변경 감지 가능
+- `dppx` = dots per pixel
+
+### 빌드 검증
+- [x] `pnpm run typecheck` - 성공
+- [x] `pnpm run build` - 성공
+- [x] `pnpm run lint` - 성공
+
+### 다음 세션 할 일
+- [ ] npm 배포 준비 (vite-plugin-dts, README, CHANGELOG)
+- [ ] Phase 2 설계 (Multi-Viewport, 2D Array Texture)
+
+### 메모
+- **Phase 1 Foundation 완료!** 🎉
+- 모든 하위 단계 (1a ~ 1e) 완료
+- 다음: npm 0.1.0-beta.1 배포 준비 또는 Phase 2 시작
+
+---
+
+## 2026-01-18 세션 #11 (Phase 1d 완료!)
+
+### 작업 내용
+
+**DataSource 아키텍처 구현**
+- [x] DataSource 인터페이스 정의
+  - `loadDicomFile(source: string): Promise<ArrayBuffer>` 메서드
+  - Local/Remote 데이터 소스 추상화
+- [x] LocalFileDataSource 구현
+  - `loadDicomFile(url: string)`: blob: URL → ArrayBuffer
+  - 기존 File 읽기 로직 래핑
+- [x] WadoRsDataSource 구현
+  - WADO-RS 서버에서 DICOM 파일 다운로드
+  - baseUrl + 상대 경로 조합
+  - fetch API 사용
+
+**LRU 캐시 구현**
+- [x] LRUCache 클래스 생성 (`cache/LRUCache.ts`)
+  - Map + 이중 연결 리스트 구조
+  - get(), put() 메서드
+  - 최대 크기 도달 시 가장 오래된 항목 삭제
+  - ArrayBuffer 캐싱으로 재다운로드 방지
+
+**네트워크 유틸리티**
+- [x] 네트워크 에러 타입 정의 (`network/errors.ts`)
+  - NetworkError: 모든 네트워크 에러의 기본 클래스
+  - RetryableError: 재시도 가능한 에러 (5xx, 408, 429, 네트워크 오류)
+- [x] 재시도 로직 구현 (`network/retry.ts`)
+  - 지수 백오프 (Exponential Backoff)
+  - 기본값: 최대 3회 재시도, 1초 초기 지연
+  - 재시도 간격: 1초 → 2초 → 4초 (2배씩 증가)
+  - RetryableError만 재시도, 나머지는 즉시 실패
+
+**중복 요청 방지**
+- [x] 인플라이트 캐시 (In-flight Cache)
+  - WadoRsDataSource 내부에 Map<string, Promise<ArrayBuffer>>
+  - 동일 URL 동시 요청 시 하나의 Promise 공유
+  - 다운로드 완료/실패 후 캐시에서 제거
+  - 여러 뷰포트가 동일 파일 요청 시 효율적
+
+**DicomViewport 컴포넌트 확장**
+- [x] dataSource prop 추가
+  - 선택적 prop (기존 File 방식과 호환)
+  - File 또는 string (URL) 입력 받음
+  - DataSource 인스턴스로 DICOM 로드
+
+**데모 앱 UI 개선**
+- [x] Local/WADO-RS 모드 전환
+  - 라디오 버튼으로 모드 선택
+  - Local 모드: 파일 선택 input
+  - WADO-RS 모드: URL 입력 필드
+- [x] WADO-RS URL 입력 UI
+  - 텍스트 입력 + "Load" 버튼
+  - 예시: `http://localhost:10201/studies/1.2.3.4/series/5.6.7.8/instances/9.10.11.12`
+- [x] DataSource 인스턴스 생성 및 전달
+  - Local: LocalFileDataSource
+  - WADO-RS: WadoRsDataSource (baseUrl 설정)
+
+### 학습 내용
+- **LRU 캐시 알고리즘**: Map + 이중 연결 리스트로 O(1) 성능
+- **지수 백오프 (Exponential Backoff)**: 네트워크 부하 감소, 재시도 성공률 향상
+- **인플라이트 캐시**: 중복 네트워크 요청 방지, 메모리/대역폭 절약
+- **DataSource 패턴**: 데이터 소스 추상화, Local/Remote/Cache 통합 관리
+- **WADO-RS**: RESTful DICOM 웹 서비스 표준 (DICOMweb)
+- **RetryableError**: HTTP 5xx, 408, 429, 네트워크 오류는 재시도 가능
+
+### 빌드 이슈 해결
+- core 빌드 후 demo에서 새 모듈 import 성공
+
+### 다음 세션 할 일
+- [ ] Phase 1e: 에러 처리 + 반응형 기초
+- [ ] 기본 에러 UI (로딩, 에러 메시지, 재시도)
+- [ ] 디코딩 폴백 (WebCodecs → createImageBitmap)
+- [ ] ResizeObserver, DPI 감지
+
+### 메모
+- Phase 1d 전체 완료!
+- 네트워크 기초 완성: DataSource, 캐싱, 재시도, 중복 방지
+- 다음: 에러 처리와 반응형 UI로 Phase 1 마무리
+
+---
+
 ## 2026-01-18 세션 #9 (Phase 1b 완료!)
 
 ### 작업 내용
