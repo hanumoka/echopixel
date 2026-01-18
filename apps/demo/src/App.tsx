@@ -54,9 +54,6 @@ export default function App() {
     isEncapsulated: boolean;
   } | null>(null);
 
-  // HMR 시뮬레이션을 위한 key (변경 시 컴포넌트 강제 리마운트)
-  const [viewportKey, setViewportKey] = useState(0);
-
   // DICOM 파일 처리
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -356,40 +353,14 @@ export default function App() {
 
       {/* DICOM 뷰포트 - WADO-RS 모드 */}
       {mode === 'wado-rs' && wadoDataSource && instanceId && (
-        <>
-          {/* HMR 시뮬레이션 버튼 */}
-          <div style={{ marginBottom: '10px', display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <button
-              onClick={() => {
-                console.log('[App] HMR Simulation: Forcing remount, key:', viewportKey + 1);
-                setViewportKey(prev => prev + 1);
-              }}
-              style={{
-                padding: '8px 16px',
-                background: '#a47',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '13px',
-              }}
-            >
-              🔄 Force Remount (HMR Simulation)
-            </button>
-            <span style={{ color: '#888', fontSize: '12px' }}>
-              Key: {viewportKey}
-            </span>
-          </div>
-          <DicomViewport
-            key={viewportKey}
-            dataSource={wadoDataSource}
-            instanceId={instanceId}
-            width={512}
-            height={512}
-            onMetadataLoaded={(metadata) => setWadoMetadata(metadata)}
-            onError={(err) => setError(err.message)}
-          />
-        </>
+        <DicomViewport
+          dataSource={wadoDataSource}
+          instanceId={instanceId}
+          width={512}
+          height={512}
+          onMetadataLoaded={(metadata) => setWadoMetadata(metadata)}
+          onError={(err) => setError(err.message)}
+        />
       )}
 
       {/* 파일 선택 - 로컬 모드만 */}

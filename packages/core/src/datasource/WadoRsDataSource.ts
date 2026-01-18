@@ -86,7 +86,6 @@ export class WadoRsDataSource implements DataSource {
     if (useCache) {
       const cached = this.metadataCache.get(cacheKey);
       if (cached) {
-        console.log(`[WadoRsDataSource] Metadata cache HIT: ${cacheKey}`);
         return cached;
       }
     }
@@ -94,12 +93,8 @@ export class WadoRsDataSource implements DataSource {
     // 진행 중인 요청 확인 (중복 방지)
     const pending = this.pendingMetadata.get(cacheKey);
     if (pending) {
-      console.log(`[WadoRsDataSource] Metadata pending: ${cacheKey}`);
       return pending;
     }
-
-    // 새 요청 시작
-    console.log(`[WadoRsDataSource] Metadata fetch: ${cacheKey}`);
     const promise = this.fetchMetadata(instanceId, options);
     this.pendingMetadata.set(cacheKey, promise);
 
@@ -148,14 +143,10 @@ export class WadoRsDataSource implements DataSource {
     if (useCache) {
       const cached = this.frameCache.get(cacheKey);
       if (cached) {
-        console.log(`[WadoRsDataSource] Frame cache HIT: ${cacheKey}`);
         const isJpeg = cached.length >= 2 && cached[0] === 0xFF && cached[1] === 0xD8;
         return { data: cached, isJpeg };
       }
     }
-
-    // 새 요청 시작
-    console.log(`[WadoRsDataSource] Frame fetch: ${cacheKey}`);
     const result = await this.fetchFrame(instanceId, frameNumber, options);
 
     // 캐시 저장
@@ -212,11 +203,6 @@ export class WadoRsDataSource implements DataSource {
     // (WADO-RS는 모든 프레임을 동일한 형식으로 반환)
     const actualIsEncapsulated = results.length > 0 ? results[0].isJpeg : false;
 
-    console.log(
-      `[WadoRsDataSource] Original isEncapsulated: ${metadata.isEncapsulated}, ` +
-        `Actual (from frame data): ${actualIsEncapsulated}`,
-    );
-
     // 메타데이터의 isEncapsulated를 실제 값으로 업데이트
     const updatedMetadata: DicomMetadata = {
       ...metadata,
@@ -232,7 +218,6 @@ export class WadoRsDataSource implements DataSource {
   clearCache(): void {
     this.metadataCache.clear();
     this.frameCache.clear();
-    console.log('[WadoRsDataSource] Cache cleared');
   }
 
   /**
@@ -378,7 +363,6 @@ export class WadoRsDataSource implements DataSource {
     );
 
     const contentType = response.headers.get('content-type') || '';
-    console.log(`[WadoRsDataSource] Frame ${frameNumber} Content-Type:`, contentType);
 
     // Content-Type으로 형식 판단
     const isJpeg = contentType.includes('image/jpeg') || contentType.includes('image/jp2');
