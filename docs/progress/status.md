@@ -82,8 +82,10 @@
 > 상세 설계: [phase-1b-design.md](../design/phase-1b-design.md)
 
 **Phase 1b-1: 단일 프레임**
-- [ ] DICOM 파일 식별 (확장자 무관, 내용 기반)
-- [ ] DICOM 파서 기본 구현 (태그 읽기, 메타데이터 추출)
+- [x] DICOM 파일 식별 (isDicomFile - DICM prefix + 레거시 지원)
+- [x] DICOM 파서 기본 구현 (parseDicom - 태그 읽기, 메타데이터 추출)
+- [x] 핵심 태그 추출 함수 (getUint16Value, getStringValue, getImageInfo)
+- [ ] 데모에서 DICOM 파서 테스트 (파일 선택 UI) ← 현재 진행중
 - [ ] 픽셀 데이터 추출 (7FE0,0010)
 - [ ] WebCodecs ImageDecoder (JPEG → VideoFrame)
 - [ ] WebGL 텍스처 업로드 + 렌더링
@@ -168,6 +170,25 @@
 
 ## 최근 활동
 
+### 2026-01-18 (세션 #8) - DICOM 파서 구현 🚧
+- DICOM 파서 기본 구현 완료
+  - `packages/core/src/dicom/` 모듈 생성
+  - `isDicomFile()`: DICM prefix + 레거시 DICOM 지원
+  - `parseDicom()`: 태그 파싱, Transfer Syntax 추출, Pixel Data 위치
+  - `getUint16Value()`, `getStringValue()`: VR별 값 추출
+  - `getImageInfo()`: 렌더링 필수 정보 (Rows, Columns, Bits 등)
+- core/index.ts에서 DICOM 모듈 export 추가
+- pnpm build, pnpm typecheck 성공
+- 학습: WADO-RS vs WADO-URI 메타데이터 차이
+- 이슈: VSCode IntelliSense DOM 타입 인식 오류 (빌드는 정상)
+
+### 2026-01-18 (세션 #7) - 프로젝트 분석 + 코드 품질 개선
+- 프로젝트 전체 분석 (4개 에이전트 병렬 실행)
+- 문서 불일치 수정 (뷰포트 16개, 프레임 드롭 <1%, GPU 1.5GB)
+- 오타 수정 (echopixcel, libraray)
+- core 코드 개선 (Renderer 인터페이스, dispose(), WebGL2 옵션)
+- App.tsx 개선 (cleanup 함수, 에러 처리)
+
 ### 2026-01-18 (세션 #6) - Phase 1a 완료! 🎉
 - ESLint + Prettier 설정 완료
 - pnpm 설치 및 의존성 설치
@@ -216,7 +237,8 @@
 
 | 이슈 | 상태 | 담당 | 비고 |
 |------|------|------|------|
-| 없음 | - | - | - |
+| VSCode DOM 타입 인식 오류 | 🟡 미해결 | - | 빌드/타입체크는 정상, IntelliSense만 문제 |
+| vite-plugin-dts 미설정 | 🟡 보류 | - | .d.ts 생성 안됨, 추후 설정 필요 |
 
 ---
 

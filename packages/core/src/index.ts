@@ -40,10 +40,7 @@ export interface RendererOptions {
  * @returns Renderer 인스턴스
  * @throws WebGL2를 지원하지 않는 브라우저에서 에러
  */
-export function createRenderer(
-  canvas: HTMLCanvasElement,
-  options?: RendererOptions,
-): Renderer {
+export function createRenderer(canvas: HTMLCanvasElement, options?: RendererOptions): Renderer {
   // 의료영상 최적화 기본값
   const defaultAttributes: WebGLContextAttributes = {
     alpha: false, // 배경 투명도 불필요 → 성능 향상
@@ -89,3 +86,7 @@ export function createRenderer(
     },
   };
 }
+
+// DICOM
+export { isDicomFile, parseDicom, getUint16Value, getStringValue, getImageInfo } from './dicom';
+export type { DicomTag, DicomElement, DicomDataset, DicomImageInfo } from './dicom';

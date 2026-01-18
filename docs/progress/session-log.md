@@ -4,6 +4,58 @@
 
 ---
 
+## 2026-01-18 세션 #8 (DICOM 파서 구현)
+
+### 작업 내용
+- [x] DICOM 모듈 파일 구조 생성
+  - `packages/core/src/dicom/types.ts` (DicomTag, DicomElement, DicomDataset 인터페이스)
+  - `packages/core/src/dicom/DicomParser.ts` (파싱 함수들)
+  - `packages/core/src/dicom/index.ts` (배럴 export)
+- [x] isDicomFile 함수 구현
+  - DICM magic number (offset 128~131) 확인
+  - 레거시 DICOM 지원 (Group 0x0002 또는 0x0008)
+- [x] parseDicom 함수 구현
+  - Explicit VR 태그 파싱 (Short/Long VR 형식)
+  - Transfer Syntax UID 추출 (0002,0010)
+  - Pixel Data 위치 저장 (7FE0,0010)
+- [x] 핵심 태그 추출 함수 구현
+  - `getUint16Value()`: US (Unsigned Short) 값 추출
+  - `getStringValue()`: 문자열 값 추출
+  - `getImageInfo()`: 렌더링 필수 정보 일괄 추출
+- [x] core/index.ts 업데이트 (DICOM 모듈 export)
+- [x] 빌드 및 타입체크 성공 확인
+- [ ] 데모에서 테스트 (진행중)
+
+### 학습 내용
+- **WADO-RS vs WADO-URI 메타데이터 차이**
+  - WADO-URI: 완전한 DICOM 파일 (메타데이터 + 픽셀)
+  - WADO-RS /frames: 픽셀 데이터만 (메타데이터 별도 요청 필요)
+  - WADO-RS /metadata: JSON 형식 메타데이터
+- **DataView API**: ArrayBuffer에서 바이너리 데이터 읽기
+- **VR (Value Representation)**: Short(2바이트 길이) vs Long(4바이트 길이) 형식
+- **Little-endian**: DICOM 표준 바이트 순서
+
+### 발견된 이슈
+1. **VSCode IntelliSense DOM 타입 인식 오류**
+   - `WebGL2RenderingContext`, `HTMLCanvasElement`, `console` 등 미인식
+   - `pnpm build`, `pnpm typecheck` 모두 성공 (실제 오류 아님)
+   - tsconfig.json에 `lib: ["ES2022", "DOM", "DOM.Iterable"]` 설정됨
+   - VSCode 캐시 삭제, TS 서버 재시작 등 시도했으나 미해결
+   - **결론**: 빌드에 영향 없음, 추후 해결
+
+### 다음 세션 할 일
+- [ ] Step 3 완료: 데모에서 DICOM 파서 테스트
+- [ ] App.tsx 수정 (파일 선택 UI, 파싱 결과 표시)
+- [ ] 실제 DICOM 파일로 테스트
+- [ ] Step 4: 문서화 및 커밋
+
+### 메모
+- DICOM 파서 핵심 기능 구현 완료
+- 현재 Explicit VR만 지원 (대부분의 DICOM 파일)
+- Implicit VR, Sequence 파싱은 추후 필요시 확장
+
+---
+
 ## 2026-01-18 세션 #7 (프로젝트 분석 + 코드 품질 개선)
 
 ### 작업 내용
