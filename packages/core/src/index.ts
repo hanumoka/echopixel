@@ -118,3 +118,21 @@ export type {
 // WebGL
 export { TextureManager, QuadRenderer } from './webgl';
 export type { WindowLevelOptions } from './webgl';
+
+// Cache
+export { LRUCache } from './cache';
+
+// Network
+export { NetworkError, retryFetch, raceFetch } from './network';
+export type { NetworkErrorType, RetryOptions } from './network';
+
+// DataSource
+export { LocalFileDataSource, WadoRsDataSource } from './datasource';
+export type {
+  DataSource,
+  DicomInstanceId,
+  DicomMetadata,
+  LoadFrameOptions,
+  WadoRsConfig,
+  LocalFileConfig,
+} from './datasource';

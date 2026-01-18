@@ -163,6 +163,13 @@ export class QuadRenderer {
   }
 
   /**
+   * WebGL 리소스가 유효한지 확인
+   */
+  isValid(): boolean {
+    return this.program !== null && this.vao !== null;
+  }
+
+  /**
    * 리소스 해제
    */
   dispose(): void {

@@ -7,11 +7,16 @@ import {
   isEncapsulated,
   isImageDecoderSupported,
   getTransferSyntaxName,
+  WadoRsDataSource,
   type DicomDataset,
   type DicomImageInfo,
   type PixelDataInfo,
+  type DicomInstanceId,
+  type DicomMetadata,
 } from '@echopixel/core';
 import { DicomViewport } from './components/DicomViewport';
+
+type DataSourceMode = 'local' | 'wado-rs';
 
 interface ParseResult {
   isValid: boolean;
@@ -28,12 +33,29 @@ export default function App() {
   const [fileName, setFileName] = useState('');
   const [loadingStatus, setLoadingStatus] = useState<string>('');
 
-  // 뷰포트에 전달할 데이터
+  // 데이터 소스 모드
+  const [mode, setMode] = useState<DataSourceMode>('local');
+
+  // WADO-RS 설정 (테스트용 기본값 설정)
+  const [wadoBaseUrl, setWadoBaseUrl] = useState('http://localhost:10201/dicomweb');
+  const [studyUid, setStudyUid] = useState('1.2.410.2000010.82.2291.2816285240528008');
+  const [seriesUid, setSeriesUid] = useState('1.2.840.113619.2.391.60843.1732524731.1.1');
+  const [instanceUid, setInstanceUid] = useState('1.2.840.113619.2.391.60843.1732524816.3.1.512');
+
+  // DataSource와 InstanceId
+  const [wadoDataSource, setWadoDataSource] = useState<WadoRsDataSource | null>(null);
+  const [instanceId, setInstanceId] = useState<DicomInstanceId | null>(null);
+  const [wadoMetadata, setWadoMetadata] = useState<DicomMetadata | null>(null);
+
+  // 뷰포트에 전달할 데이터 (로컬 모드용)
   const [viewportData, setViewportData] = useState<{
     frames: Uint8Array[];
     imageInfo: DicomImageInfo;
     isEncapsulated: boolean;
   } | null>(null);
+
+  // HMR 시뮬레이션을 위한 key (변경 시 컴포넌트 강제 리마운트)
+  const [viewportKey, setViewportKey] = useState(0);
 
   // DICOM 파일 처리
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -90,9 +112,85 @@ export default function App() {
     }
   };
 
+  // WADO-RS 로드 핸들러
+  const handleWadoLoad = () => {
+    if (!studyUid || !seriesUid || !instanceUid) {
+      setError('Study UID, Series UID, Instance UID를 모두 입력하세요');
+      return;
+    }
+
+    // 기존 데이터 초기화
+    setViewportData(null);
+    setParseResult(null);
+    setError(null);
+
+    // DataSource 생성
+    const dataSource = new WadoRsDataSource({
+      baseUrl: wadoBaseUrl,
+      timeout: 30000,
+      maxRetries: 3,
+    });
+
+    setWadoDataSource(dataSource);
+    setInstanceId({
+      studyInstanceUid: studyUid,
+      seriesInstanceUid: seriesUid,
+      sopInstanceUid: instanceUid,
+    });
+  };
+
+  // 모드 변경 핸들러
+  const handleModeChange = (newMode: DataSourceMode) => {
+    setMode(newMode);
+    // 모드 변경 시 상태 초기화
+    setViewportData(null);
+    setParseResult(null);
+    setError(null);
+    setWadoDataSource(null);
+    setInstanceId(null);
+    setWadoMetadata(null);
+    setLoadingStatus('');
+  };
+
   return (
     <div style={{ padding: '20px', fontFamily: 'system-ui, sans-serif', maxWidth: '900px' }}>
       <h1 style={{ marginBottom: '20px' }}>EchoPixel Demo - DICOM Viewer</h1>
+
+      {/* 모드 선택 */}
+      <div style={{
+        display: 'flex',
+        gap: '10px',
+        marginBottom: '20px',
+      }}>
+        <button
+          onClick={() => handleModeChange('local')}
+          style={{
+            padding: '10px 20px',
+            background: mode === 'local' ? '#4a7' : '#333',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontWeight: mode === 'local' ? 'bold' : 'normal',
+          }}
+        >
+          Local File
+        </button>
+        <button
+          onClick={() => handleModeChange('wado-rs')}
+          style={{
+            padding: '10px 20px',
+            background: mode === 'wado-rs' ? '#47a' : '#333',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontWeight: mode === 'wado-rs' ? 'bold' : 'normal',
+          }}
+        >
+          WADO-RS
+        </button>
+      </div>
 
       {/* 초기 상태 / 에러 표시 */}
       {error && (
@@ -122,8 +220,8 @@ export default function App() {
         </div>
       )}
 
-      {/* 초기 안내 */}
-      {!viewportData && !loadingStatus && !error && (
+      {/* 초기 안내 - 로컬 모드 */}
+      {mode === 'local' && !viewportData && !loadingStatus && !error && (
         <div style={{
           padding: '10px',
           marginBottom: '15px',
@@ -136,8 +234,117 @@ export default function App() {
         </div>
       )}
 
-      {/* DICOM 뷰포트 */}
-      {viewportData && (
+      {/* WADO-RS 입력 폼 */}
+      {mode === 'wado-rs' && !instanceId && (
+        <div style={{
+          padding: '15px',
+          marginBottom: '15px',
+          background: '#1a2a3a',
+          border: '1px solid #47a',
+          borderRadius: '4px',
+        }}>
+          <div style={{ marginBottom: '10px' }}>
+            <label style={{ display: 'block', color: '#8cf', marginBottom: '5px', fontSize: '13px' }}>
+              DICOM Web Base URL
+            </label>
+            <input
+              type="text"
+              value={wadoBaseUrl}
+              onChange={(e) => setWadoBaseUrl(e.target.value)}
+              placeholder="http://localhost:8080/dicomweb"
+              style={{
+                width: '100%',
+                padding: '8px',
+                fontSize: '14px',
+                background: '#2a2a3a',
+                border: '1px solid #555',
+                borderRadius: '4px',
+                color: '#fff',
+              }}
+            />
+          </div>
+          <div style={{ display: 'grid', gap: '10px', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+            <div>
+              <label style={{ display: 'block', color: '#8cf', marginBottom: '5px', fontSize: '13px' }}>
+                Study Instance UID
+              </label>
+              <input
+                type="text"
+                value={studyUid}
+                onChange={(e) => setStudyUid(e.target.value)}
+                placeholder="1.2.3.4..."
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  fontSize: '14px',
+                  background: '#2a2a3a',
+                  border: '1px solid #555',
+                  borderRadius: '4px',
+                  color: '#fff',
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', color: '#8cf', marginBottom: '5px', fontSize: '13px' }}>
+                Series Instance UID
+              </label>
+              <input
+                type="text"
+                value={seriesUid}
+                onChange={(e) => setSeriesUid(e.target.value)}
+                placeholder="1.2.3.4..."
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  fontSize: '14px',
+                  background: '#2a2a3a',
+                  border: '1px solid #555',
+                  borderRadius: '4px',
+                  color: '#fff',
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', color: '#8cf', marginBottom: '5px', fontSize: '13px' }}>
+                SOP Instance UID
+              </label>
+              <input
+                type="text"
+                value={instanceUid}
+                onChange={(e) => setInstanceUid(e.target.value)}
+                placeholder="1.2.3.4..."
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  fontSize: '14px',
+                  background: '#2a2a3a',
+                  border: '1px solid #555',
+                  borderRadius: '4px',
+                  color: '#fff',
+                }}
+              />
+            </div>
+          </div>
+          <button
+            onClick={handleWadoLoad}
+            style={{
+              marginTop: '15px',
+              padding: '10px 20px',
+              background: '#47a',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '14px',
+            }}
+          >
+            Load from WADO-RS
+          </button>
+        </div>
+      )}
+
+      {/* DICOM 뷰포트 - 로컬 모드 */}
+      {mode === 'local' && viewportData && (
         <DicomViewport
           frames={viewportData.frames}
           imageInfo={viewportData.imageInfo}
@@ -147,18 +354,58 @@ export default function App() {
         />
       )}
 
-      {/* 파일 선택 */}
-      <div style={{ marginTop: '15px', marginBottom: '20px' }}>
-        <input
-          type="file"
-          accept=".dcm,.dicom,application/dicom"
-          onChange={handleFileChange}
-          style={{ fontSize: '16px' }}
-        />
-      </div>
+      {/* DICOM 뷰포트 - WADO-RS 모드 */}
+      {mode === 'wado-rs' && wadoDataSource && instanceId && (
+        <>
+          {/* HMR 시뮬레이션 버튼 */}
+          <div style={{ marginBottom: '10px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <button
+              onClick={() => {
+                console.log('[App] HMR Simulation: Forcing remount, key:', viewportKey + 1);
+                setViewportKey(prev => prev + 1);
+              }}
+              style={{
+                padding: '8px 16px',
+                background: '#a47',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '13px',
+              }}
+            >
+              🔄 Force Remount (HMR Simulation)
+            </button>
+            <span style={{ color: '#888', fontSize: '12px' }}>
+              Key: {viewportKey}
+            </span>
+          </div>
+          <DicomViewport
+            key={viewportKey}
+            dataSource={wadoDataSource}
+            instanceId={instanceId}
+            width={512}
+            height={512}
+            onMetadataLoaded={(metadata) => setWadoMetadata(metadata)}
+            onError={(err) => setError(err.message)}
+          />
+        </>
+      )}
 
-      {/* 파싱 결과 (메타데이터) */}
-      {parseResult && (
+      {/* 파일 선택 - 로컬 모드만 */}
+      {mode === 'local' && (
+        <div style={{ marginTop: '15px', marginBottom: '20px' }}>
+          <input
+            type="file"
+            accept=".dcm,.dicom,application/dicom"
+            onChange={handleFileChange}
+            style={{ fontSize: '16px' }}
+          />
+        </div>
+      )}
+
+      {/* 파싱 결과 (메타데이터) - 로컬 모드만 */}
+      {mode === 'local' && parseResult && (
         <div
           style={{
             padding: '15px',
@@ -222,6 +469,58 @@ export default function App() {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* WADO-RS 메타데이터 표시 */}
+      {mode === 'wado-rs' && wadoMetadata && (
+        <div
+          style={{
+            padding: '15px',
+            marginTop: '15px',
+            background: '#1a2a3a',
+            border: '1px solid #47a',
+            borderRadius: '4px',
+            color: '#fff',
+          }}
+        >
+          <h3 style={{ margin: '0 0 10px 0', fontSize: '16px' }}>
+            WADO-RS Metadata
+          </h3>
+          <div style={{ display: 'grid', gap: '15px', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', fontSize: '13px' }}>
+            {/* 기본 정보 */}
+            <div>
+              <h4 style={{ margin: '0 0 8px 0', color: '#8cf', fontSize: '14px' }}>기본 정보</h4>
+              <p style={{ margin: '3px 0' }}>
+                Transfer Syntax: {getTransferSyntaxName(wadoMetadata.transferSyntax)}
+              </p>
+              <p style={{ margin: '3px 0' }}>
+                압축: {wadoMetadata.isEncapsulated ? 'Yes (Encapsulated)' : 'No (Native)'}
+              </p>
+            </div>
+
+            {/* 이미지 정보 */}
+            <div>
+              <h4 style={{ margin: '0 0 8px 0', color: '#8cf', fontSize: '14px' }}>이미지 정보</h4>
+              <p style={{ margin: '3px 0' }}>
+                크기: {wadoMetadata.imageInfo.columns} x {wadoMetadata.imageInfo.rows}
+              </p>
+              <p style={{ margin: '3px 0' }}>
+                Bits: {wadoMetadata.imageInfo.bitsAllocated} / {wadoMetadata.imageInfo.bitsStored}
+              </p>
+              <p style={{ margin: '3px 0' }}>
+                Photometric: {wadoMetadata.imageInfo.photometricInterpretation}
+              </p>
+            </div>
+
+            {/* 프레임 정보 */}
+            <div>
+              <h4 style={{ margin: '0 0 8px 0', color: '#8cf', fontSize: '14px' }}>프레임 정보</h4>
+              <p style={{ margin: '3px 0' }}>
+                프레임 수: {wadoMetadata.frameCount}
+              </p>
+            </div>
+          </div>
         </div>
       )}
     </div>

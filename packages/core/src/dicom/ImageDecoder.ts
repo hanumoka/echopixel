@@ -33,12 +33,44 @@ async function decodeWithImageDecoder(jpegData: Uint8Array): Promise<DecodedFram
     data: jpegData,
   });
 
-  const { image } = await decoder.decode();
+  // completed를 기다려서 안정적인 디코딩 보장
+  await decoder.completed;
 
+  const { image: videoFrame } = await decoder.decode();
+
+  // VideoFrame 상세 정보 로깅
+  console.log('[ImageDecoder] VideoFrame details:', {
+    format: videoFrame.format,
+    codedWidth: videoFrame.codedWidth,
+    codedHeight: videoFrame.codedHeight,
+    displayWidth: videoFrame.displayWidth,
+    displayHeight: videoFrame.displayHeight,
+    colorSpace: videoFrame.colorSpace,
+  });
+
+  // I422, I420 등 YUV 포맷은 texImage2D에서 문제 발생
+  // ImageBitmap으로 변환하여 RGBA로 만듦
+  const isYuvFormat = videoFrame.format?.startsWith('I4') || videoFrame.format?.startsWith('NV');
+
+  if (isYuvFormat) {
+    console.log('[ImageDecoder] Converting YUV to ImageBitmap for WebGL compatibility');
+    const bitmap = await createImageBitmap(videoFrame);
+    videoFrame.close(); // 원본 VideoFrame 해제
+    decoder.close();
+
+    return {
+      image: bitmap,
+      width: bitmap.width,
+      height: bitmap.height,
+      needsClose: false, // ImageBitmap은 close() 선택적
+    };
+  }
+
+  // RGB 계열은 그대로 사용
   const result: DecodedFrame = {
-    image,
-    width: image.displayWidth,
-    height: image.displayHeight,
+    image: videoFrame,
+    width: videoFrame.displayWidth,
+    height: videoFrame.displayHeight,
     needsClose: true, // VideoFrame은 close() 필요
   };
 
