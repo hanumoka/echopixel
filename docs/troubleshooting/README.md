@@ -24,10 +24,8 @@
 
 ## 문제 목록
 
-아직 기록된 문제가 없습니다.
-
 ### WebGL 관련
-<!-- - [문제명](./webgl-issue-name.md) -->
+- [React Strict Mode에서 WebGL Canvas 검은 화면](./react-strictmode-webgl-black-screen.md) - **Critical** (2026-01-18)
 
 ### DICOM 관련
 <!-- - [문제명](./dicom-issue-name.md) -->
