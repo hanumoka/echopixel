@@ -4,6 +4,88 @@
 
 ---
 
+## 2026-01-18 세션 #13 (Phase 2 핵심 구현)
+
+### 작업 내용
+
+**Phase 2a: 2D Array Texture 기반 TextureManager 리팩토링**
+- [x] TextureManager에 배열 텍스처 API 추가
+  - `initializeArrayTexture(width, height, count)`: texStorage3D로 불변 할당
+  - `uploadFrame(frameIndex, source)`: texSubImage3D로 특정 레이어 업로드
+  - `uploadAllFrames(frames)`: 모든 프레임 일괄 업로드
+  - `bindArrayTexture(unit)`: TEXTURE_2D_ARRAY 바인딩
+  - 기존 TEXTURE_2D API 유지 (하위 호환성)
+- [x] shaders.ts에 sampler2DArray 셰이더 추가
+  - `FRAGMENT_SHADER_ARRAY_SOURCE`: sampler2DArray + u_currentFrame uniform
+  - texture(sampler, vec3(u, v, layer))로 특정 레이어 샘플링
+- [x] ArrayTextureRenderer 클래스 구현
+  - `renderFrame(textureUnit, frameIndex, windowLevel?)` 메서드
+  - uniform만 변경하여 프레임 전환 (텍스처 바인딩 불필요)
+
+**Phase 2b: Single Canvas + ViewportManager**
+- [x] viewport/types.ts 생성
+  - Rect, WindowLevel, ViewportPlaybackState, ViewportSeriesInfo 인터페이스
+  - Viewport 인터페이스 (bounds, series, playback, windowLevel, textureUnit)
+  - LayoutType, LayoutConfig 타입
+- [x] ViewportManager 클래스 구현
+  - `createViewport(options)`: 뷰포트 생성 및 텍스처 유닛 자동 할당
+  - `setLayout(layout)`: 그리드 레이아웃 자동 계산 (1x1, 2x2, 3x3, 4x4)
+  - `setViewportSeries()`, `setViewportFrame()`, `setViewportPlaying()` 등
+  - `getViewportAtPosition()`: Canvas 좌표로 뷰포트 찾기
+
+**Phase 2c: RenderScheduler + FrameSyncEngine**
+- [x] sync/types.ts 생성
+  - SyncMode: 'frame-ratio' | 'time' | 'manual'
+  - SyncGroup, CreateSyncGroupOptions, RenderStats 인터페이스
+- [x] FrameSyncEngine 클래스 구현
+  - `calculateSyncedFrame()`: 프레임 비율 기반 동기화 계산
+  - `createSyncGroup()`: 마스터-슬레이브 동기화 그룹 생성
+  - `syncFromMaster()`: 마스터 프레임 변경 시 슬레이브 동기화
+- [x] RenderScheduler 클래스 구현
+  - 단일 requestAnimationFrame 루프
+  - 뷰포트별 FPS 기반 프레임 업데이트
+  - gl.scissor() + gl.viewport()로 렌더링 영역 제한
+  - 렌더링 통계 (FPS, frameTime, renderedViewports)
+
+**Phase 2d: React 통합**
+- [x] MultiViewport 컴포넌트 구현 (apps/demo/src/components/)
+  - ViewportManager, RenderScheduler, FrameSyncEngine 통합
+  - 레이아웃 선택, 동기화 모드, 재생/정지 컨트롤
+  - 뷰포트 클릭 선택, 통계 표시
+
+### 학습 포인트
+
+**2D Array Texture (TEXTURE_2D_ARRAY)**
+- `texStorage3D()`: 불변 스토리지 할당 (성능 최적화)
+- `texSubImage3D()`: 특정 레이어만 업데이트
+- `sampler2DArray` + `vec3(u, v, layer)`: 3D 좌표로 레이어 샘플링
+- 장점: 프레임 전환 시 uniform만 변경 (텍스처 바인딩 불필요)
+
+**Single Canvas Multi-Viewport**
+- `gl.scissor()`: 렌더링 영역 클리핑 (특정 영역만 그리기)
+- `gl.viewport()`: NDC → 화면 좌표 변환 영역 설정
+- 단일 Canvas로 16개 뷰포트 렌더링 가능
+
+**프레임 동기화 (Frame Ratio)**
+- 프레임 비율 기반: 마스터 47프레임의 10번째 = 슬레이브 94프레임의 20번째
+- 계산: slaveFrame = floor(masterFrame / masterTotal * slaveTotal)
+
+### 빌드 검증
+- [x] `pnpm --filter @echopixel/core run build` - 성공
+- [x] `pnpm --filter demo run build` - 성공
+
+### 다음 세션 할 일
+- [ ] 데모 앱에서 Multi-Viewport 테스트 (실제 DICOM 데이터)
+- [ ] 성능 측정 (16개 뷰포트, 30fps 목표)
+- [ ] status.md 업데이트 (Phase 2 진행상황 반영)
+
+### 메모
+- Phase 2 핵심 코드 완성!
+- 2D Array Texture, ViewportManager, RenderScheduler, FrameSyncEngine 구현
+- 다음: 실제 테스트 및 성능 최적화
+
+---
+
 ## 2026-01-18 세션 #12 (Phase 1e 완료! Phase 1 Foundation 완료!)
 
 ### 작업 내용

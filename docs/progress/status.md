@@ -4,9 +4,9 @@
 
 | 항목 | 상태 |
 |------|------|
-| **현재 Phase** | Phase 1e 완료 (에러 처리 + 반응형 기초) |
+| **현재 Phase** | Phase 2 진행중 (Multi-Viewport 핵심 구현 완료) |
 | **마지막 업데이트** | 2026-01-18 |
-| **다음 마일스톤** | Phase 1 완료 → npm 0.1.0-beta.1 배포 준비 |
+| **다음 마일스톤** | Phase 2 테스트 → 16개 뷰포트 30fps 검증 |
 
 ---
 
@@ -132,16 +132,29 @@
 #### Safari 폴백 (우선순위 낮음)
 - [ ] createImageBitmap 기반 (Phase 1e 또는 Phase 2)
 
-### Phase 2: Multi-Viewport & Quality ⏳ 대기
+### Phase 2: Multi-Viewport & Quality 🔄 진행중
 
-- [ ] Single Canvas 아키텍처 (16개 뷰포트)
-- [ ] 2D Array Texture
-- [ ] ViewportManager
-- [ ] FrameSyncEngine (프레임 동기화)
-  - [ ] Frame Ratio (프레임 비율 기반)
-  - [ ] R-wave (심박 주기 기준)
-  - [ ] Time (절대 시간 기준)
-  - [ ] FPS 정규화 (다른 프레임 수 조정)
+**Phase 2a: 2D Array Texture ✅ 완료**
+- [x] TextureManager 배열 텍스처 API (initializeArrayTexture, uploadFrame, uploadAllFrames)
+- [x] sampler2DArray 셰이더 (FRAGMENT_SHADER_ARRAY_SOURCE)
+- [x] ArrayTextureRenderer 클래스
+
+**Phase 2b: Single Canvas + ViewportManager ✅ 완료**
+- [x] Viewport 인터페이스 및 타입 정의
+- [x] ViewportManager 클래스 (레이아웃 관리, 뷰포트 생성/삭제)
+- [x] Scissor + Viewport 기반 다중 렌더링
+
+**Phase 2c: RenderScheduler + FrameSyncEngine ✅ 완료**
+- [x] RenderScheduler (단일 rAF 루프)
+- [x] FrameSyncEngine (frame-ratio 동기화)
+- [x] 동기화 그룹 관리 (마스터-슬레이브)
+
+**Phase 2d: React 통합 ✅ 완료**
+- [x] MultiViewport 컴포넌트
+
+**Phase 2 남은 작업 ⏳ 대기**
+- [ ] 실제 DICOM 데이터로 테스트
+- [ ] 16개 뷰포트 30fps 성능 검증
 - [ ] 캐시 관리
 - [ ] Progressive Quality Enhancement (PQE)
   - [ ] Thumbnail (64px) → Preview (256px) → Standard (512px) → Original
@@ -184,6 +197,24 @@
 ---
 
 ## 최근 활동
+
+### 2026-01-18 (세션 #13) - Phase 2 핵심 구현! 🎉
+- **Phase 2a: 2D Array Texture**
+  - TextureManager에 배열 텍스처 API 추가 (texStorage3D, texSubImage3D)
+  - sampler2DArray 셰이더 추가
+  - ArrayTextureRenderer 클래스 구현
+- **Phase 2b: Single Canvas + ViewportManager**
+  - Viewport 인터페이스 및 타입 정의
+  - ViewportManager 클래스 (레이아웃 관리, Scissor 기반 다중 렌더링)
+- **Phase 2c: RenderScheduler + FrameSyncEngine**
+  - 단일 rAF 루프로 모든 뷰포트 렌더링
+  - Frame Ratio 기반 프레임 동기화
+- **Phase 2d: React 통합**
+  - MultiViewport 컴포넌트 구현
+- **학습 포인트**
+  - TEXTURE_2D_ARRAY: 레이어 인덱스로 프레임 전환 (uniform만 변경)
+  - gl.scissor() + gl.viewport(): Canvas 내 렌더링 영역 제한
+  - 프레임 비율 동기화: 마스터 47프레임의 10번째 = 슬레이브 94프레임의 20번째
 
 ### 2026-01-18 (세션 #12) - Phase 1e 완료! 🎉
 - **렌더링 에러 처리 강화**
@@ -365,21 +396,25 @@
 
 ## 다음 단계
 
-### Phase 1 완료 → 배포 준비
+### Phase 2 테스트 및 검증
 
-Phase 1 (Foundation) 모든 하위 단계 완료! 다음 작업:
+Phase 2 핵심 코드 완료! 다음 작업:
 
-1. **npm 배포 준비**
+1. **실제 테스트**
+   - 데모 앱에서 Multi-Viewport 동작 확인
+   - 여러 DICOM 파일 로드 및 동시 재생
+   - 프레임 동기화 동작 확인
+
+2. **성능 검증**
+   - 16개 뷰포트에서 30fps 이상 유지 확인
+   - DevTools Performance 탭으로 프레임 시간 측정
+   - 메모리 사용량 모니터링 (1.5GB 미만 목표)
+
+3. **npm 배포 준비 (병행)**
    - vite-plugin-dts 설정 (.d.ts 파일 생성)
    - package.json exports 필드 확인
    - README.md 작성
    - CHANGELOG.md 작성
-   - npm publish (0.1.0-beta.1)
-
-2. **Phase 2 준비**
-   - Multi-Viewport 아키텍처 설계 (Single Canvas, 16개 뷰포트)
-   - 2D Array Texture 설계
-   - ViewportManager 설계
 
 ### Phase 1 세부 마일스톤
 

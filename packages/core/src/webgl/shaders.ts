@@ -2,6 +2,8 @@
  * Vertex Shader (정점 쉐이더)
  * - 사각형의 4개 꼭짓점 위치 설정
  * - 텍스처 좌표를 Fragment Shader로 전달
+ *
+ * 참고: 단일 텍스처와 배열 텍스처 모두 동일한 Vertex Shader 사용
  */
 export const VERTEX_SHADER_SOURCE = `#version 300 es
 
@@ -22,7 +24,7 @@ void main() {
 `;
 
 /**
- * Fragment Shader (프래그먼트 쉐이더)
+ * Fragment Shader (프래그먼트 쉐이더) - 단일 텍스처용
  * - 각 픽셀의 색상 결정
  * - 텍스처에서 색상 샘플링
  * - Window/Level 변환 적용 (GPU 기반)
@@ -62,6 +64,66 @@ void main() {
 
   // mix로 분기 제거: u_applyWL이 0이면 원본, 1이면 W/L 적용
   // 원본 색상과 W/L 적용 결과를 블렌딩
+  vec3 wlColor = vec3(wlOutput);
+  vec3 finalColor = mix(texColor.rgb, wlColor, u_applyWL);
+
+  fragColor = vec4(finalColor, texColor.a);
+}
+`;
+
+/**
+ * Fragment Shader (프래그먼트 쉐이더) - 배열 텍스처용 (Phase 2)
+ *
+ * 학습 포인트:
+ * - sampler2DArray: 2D 배열 텍스처용 샘플러 타입
+ * - texture(sampler, vec3(u, v, layer)): 3D 좌표로 특정 레이어 샘플링
+ * - u_currentFrame: int uniform으로 현재 프레임 인덱스 지정
+ *
+ * 장점 (vs TEXTURE_2D):
+ * - 프레임 전환 시 텍스처 바인딩 변경 불필요 (uniform만 변경)
+ * - GPU 상태 변경이 적어 드라이버 오버헤드 감소
+ * - 모든 프레임이 하나의 텍스처 객체에 저장되어 관리 용이
+ *
+ * 주의:
+ * - int uniform을 float으로 변환하여 texture() 함수에 전달
+ * - GLSL ES 3.0에서 texture()는 자동으로 레이어 인덱스를 반올림
+ */
+export const FRAGMENT_SHADER_ARRAY_SOURCE = `#version 300 es
+
+precision highp float;
+precision highp sampler2DArray;
+
+// 입력: Vertex Shader에서 전달받은 텍스처 좌표
+in vec2 v_texCoord;
+
+// 출력: 픽셀 색상
+out vec4 fragColor;
+
+// 배열 텍스처 샘플러 (sampler2D → sampler2DArray)
+uniform sampler2DArray u_frameSequence;
+
+// 현재 프레임 인덱스 (0부터 시작)
+uniform int u_currentFrame;
+
+// Window/Level uniforms (0.0 ~ 1.0 범위로 정규화된 값)
+uniform float u_windowCenter;  // 기본값: 0.5
+uniform float u_windowWidth;   // 기본값: 1.0
+uniform float u_applyWL;       // W/L 적용 여부 (0.0 = false, 1.0 = true)
+
+void main() {
+  // 배열 텍스처에서 색상 샘플링
+  // vec3(u, v, layer): u, v는 텍스처 좌표, layer는 프레임 인덱스
+  vec4 texColor = texture(u_frameSequence, vec3(v_texCoord, float(u_currentFrame)));
+
+  // Luminance 계산 (ITU-R BT.601)
+  float luminance = dot(texColor.rgb, vec3(0.299, 0.587, 0.114));
+
+  // Window/Level 변환
+  float safeWidth = max(u_windowWidth, 0.001);
+  float lower = u_windowCenter - safeWidth / 2.0;
+  float wlOutput = clamp((luminance - lower) / safeWidth, 0.0, 1.0);
+
+  // mix로 분기 제거
   vec3 wlColor = vec3(wlOutput);
   vec3 finalColor = mix(texColor.rgb, wlColor, u_applyWL);
 

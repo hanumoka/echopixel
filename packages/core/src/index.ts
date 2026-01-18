@@ -116,7 +116,7 @@ export type {
 } from './dicom';
 
 // WebGL
-export { TextureManager, QuadRenderer } from './webgl';
+export { TextureManager, QuadRenderer, ArrayTextureRenderer } from './webgl';
 export type { WindowLevelOptions } from './webgl';
 
 // Cache
@@ -136,3 +136,28 @@ export type {
   WadoRsConfig,
   LocalFileConfig,
 } from './datasource';
+
+// Viewport (Phase 2)
+export { ViewportManager } from './viewport';
+export type {
+  Rect,
+  WindowLevel,
+  ViewportPlaybackState,
+  ViewportSeriesInfo,
+  Viewport,
+  CreateViewportOptions,
+  LayoutType,
+  LayoutConfig,
+} from './viewport';
+
+// Sync (Phase 2)
+export { RenderScheduler, FrameSyncEngine } from './sync';
+export type {
+  SyncMode,
+  SyncGroup,
+  CreateSyncGroupOptions,
+  RenderSchedulerOptions,
+  RenderStats,
+  ViewportRenderCallback,
+  FrameUpdateCallback,
+} from './sync';

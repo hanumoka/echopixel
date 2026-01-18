@@ -1,4 +1,8 @@
 export { TextureManager } from './TextureManager';
-export { QuadRenderer } from './QuadRenderer';
+export { QuadRenderer, ArrayTextureRenderer } from './QuadRenderer';
 export type { WindowLevelOptions } from './QuadRenderer';
-export { VERTEX_SHADER_SOURCE, FRAGMENT_SHADER_SOURCE } from './shaders';
+export {
+  VERTEX_SHADER_SOURCE,
+  FRAGMENT_SHADER_SOURCE,
+  FRAGMENT_SHADER_ARRAY_SOURCE,
+} from './shaders';

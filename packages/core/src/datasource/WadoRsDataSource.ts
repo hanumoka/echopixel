@@ -213,6 +213,50 @@ export class WadoRsDataSource implements DataSource {
   }
 
   /**
+   * Series 내 모든 Instance UID 목록 조회
+   *
+   * WADO-RS 인스턴스 검색 엔드포인트:
+   * GET /studies/{studyUid}/series/{seriesUid}/instances
+   *
+   * @returns SOP Instance UID 배열
+   */
+  async listInstances(
+    studyInstanceUid: string,
+    seriesInstanceUid: string,
+    options?: LoadFrameOptions,
+  ): Promise<string[]> {
+    const url = `${this.config.baseUrl}/studies/${studyInstanceUid}/series/${seriesInstanceUid}/instances`;
+    const headers = {
+      ...this.getHeaders(),
+      Accept: 'application/dicom+json',
+    };
+
+    const response = await retryFetch(
+      url,
+      { headers, signal: options?.signal },
+      this.getRetryOptions(options),
+    );
+
+    const jsonArray = await response.json();
+
+    if (!Array.isArray(jsonArray)) {
+      throw new NetworkError('Invalid instances response', 'BAD_REQUEST');
+    }
+
+    // 각 인스턴스에서 SOP Instance UID 추출 (00080018)
+    const instanceUids: string[] = [];
+    for (const item of jsonArray) {
+      const sopElement = item['00080018'] as { Value?: string[] } | undefined;
+      const sopInstanceUid = sopElement?.Value?.[0];
+      if (sopInstanceUid) {
+        instanceUids.push(sopInstanceUid);
+      }
+    }
+
+    return instanceUids;
+  }
+
+  /**
    * 캐시 초기화
    */
   clearCache(): void {
