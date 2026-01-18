@@ -95,6 +95,7 @@ export {
   getStringValue,
   getImageInfo,
   isEncapsulated,
+  getTransferSyntaxName,
   extractPixelData,
   isImageDecoderSupported,
   decodeJpeg,
@@ -116,3 +117,4 @@ export type {
 
 // WebGL
 export { TextureManager, QuadRenderer } from './webgl';
+export type { WindowLevelOptions } from './webgl';

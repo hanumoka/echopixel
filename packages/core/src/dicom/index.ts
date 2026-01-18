@@ -9,6 +9,7 @@ export {
   getStringValue,
   getImageInfo,
   isEncapsulated,
+  getTransferSyntaxName,
   extractPixelData,
 } from './DicomParser';
 export type { DicomImageInfo } from './DicomParser';

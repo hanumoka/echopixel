@@ -1,6 +1,16 @@
 import { VERTEX_SHADER_SOURCE, FRAGMENT_SHADER_SOURCE } from './shaders';
 
 /**
+ * Window/Level 렌더링 옵션
+ */
+export interface WindowLevelOptions {
+  /** Window Center (0.0 ~ 1.0 정규화 값) */
+  windowCenter: number;
+  /** Window Width (0.0 ~ 1.0 정규화 값) */
+  windowWidth: number;
+}
+
+/**
  * 화면 전체를 덮는 사각형에 텍스처를 렌더링
  */
 export class QuadRenderer {
@@ -8,6 +18,9 @@ export class QuadRenderer {
   private program: WebGLProgram | null = null;
   private vao: WebGLVertexArrayObject | null = null;
   private textureLocation: WebGLUniformLocation | null = null;
+  private windowCenterLocation: WebGLUniformLocation | null = null;
+  private windowWidthLocation: WebGLUniformLocation | null = null;
+  private applyWLLocation: WebGLUniformLocation | null = null;
 
   constructor(gl: WebGL2RenderingContext) {
     this.gl = gl;
@@ -61,6 +74,9 @@ export class QuadRenderer {
 
     // uniform 위치 가져오기
     this.textureLocation = gl.getUniformLocation(this.program, 'u_texture');
+    this.windowCenterLocation = gl.getUniformLocation(this.program, 'u_windowCenter');
+    this.windowWidthLocation = gl.getUniformLocation(this.program, 'u_windowWidth');
+    this.applyWLLocation = gl.getUniformLocation(this.program, 'u_applyWL');
   }
 
   /**
@@ -113,8 +129,9 @@ export class QuadRenderer {
   /**
    * 텍스처를 화면에 렌더링
    * @param textureUnit - 텍스처가 바인딩된 유닛 번호
+   * @param windowLevel - Window/Level 옵션 (선택적)
    */
-  render(textureUnit: number = 0): void {
+  render(textureUnit: number = 0, windowLevel?: WindowLevelOptions): void {
     const gl = this.gl;
 
     // 쉐이더 프로그램 활성화
@@ -122,6 +139,18 @@ export class QuadRenderer {
 
     // 텍스처 유닛 설정
     gl.uniform1i(this.textureLocation, textureUnit);
+
+    // Window/Level uniform 설정
+    // 참고: bool 대신 float 사용 (크로스 플랫폼 호환성)
+    if (windowLevel) {
+      gl.uniform1f(this.windowCenterLocation, windowLevel.windowCenter);
+      gl.uniform1f(this.windowWidthLocation, windowLevel.windowWidth);
+      gl.uniform1f(this.applyWLLocation, 1.0); // true
+    } else {
+      gl.uniform1f(this.windowCenterLocation, 0.5);
+      gl.uniform1f(this.windowWidthLocation, 1.0);
+      gl.uniform1f(this.applyWLLocation, 0.0); // false
+    }
 
     // VAO 바인딩
     gl.bindVertexArray(this.vao);

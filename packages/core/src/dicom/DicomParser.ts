@@ -212,6 +212,58 @@ export function isEncapsulated(transferSyntax: string | undefined): boolean {
 }
 
 /**
+ * Transfer Syntax UID를 읽기 쉬운 문자열로 변환
+ */
+export function getTransferSyntaxName(transferSyntax: string | undefined): string {
+  if (!transferSyntax) return 'Unknown';
+
+  const transferSyntaxMap: Record<string, string> = {
+    // 비압축 (Native)
+    '1.2.840.10008.1.2': 'Implicit VR Little Endian',
+    '1.2.840.10008.1.2.1': 'Explicit VR Little Endian',
+    '1.2.840.10008.1.2.1.99': 'Deflated Explicit VR Little Endian',
+    '1.2.840.10008.1.2.2': 'Explicit VR Big Endian',
+
+    // JPEG Lossy
+    '1.2.840.10008.1.2.4.50': 'JPEG Baseline (Lossy)',
+    '1.2.840.10008.1.2.4.51': 'JPEG Extended (Lossy)',
+    '1.2.840.10008.1.2.4.57': 'JPEG Lossless',
+    '1.2.840.10008.1.2.4.70': 'JPEG Lossless SV1',
+
+    // JPEG-LS
+    '1.2.840.10008.1.2.4.80': 'JPEG-LS Lossless',
+    '1.2.840.10008.1.2.4.81': 'JPEG-LS Near-Lossless',
+
+    // JPEG 2000
+    '1.2.840.10008.1.2.4.90': 'JPEG 2000 Lossless',
+    '1.2.840.10008.1.2.4.91': 'JPEG 2000 Lossy',
+
+    // MPEG / H.264
+    '1.2.840.10008.1.2.4.100': 'MPEG2 Main Profile',
+    '1.2.840.10008.1.2.4.101': 'MPEG2 High Profile',
+    '1.2.840.10008.1.2.4.102': 'MPEG-4 AVC/H.264',
+    '1.2.840.10008.1.2.4.103': 'MPEG-4 AVC/H.264 BD',
+    '1.2.840.10008.1.2.4.104': 'MPEG-4 AVC/H.264 High',
+    '1.2.840.10008.1.2.4.105': 'MPEG-4 AVC/H.264 High BD',
+    '1.2.840.10008.1.2.4.106': 'MPEG-4 AVC/H.264 Stereo',
+
+    // HEVC / H.265
+    '1.2.840.10008.1.2.4.107': 'HEVC/H.265 Main',
+    '1.2.840.10008.1.2.4.108': 'HEVC/H.265 Main 10',
+
+    // RLE
+    '1.2.840.10008.1.2.5': 'RLE Lossless',
+
+    // HTJ2K (High-Throughput JPEG 2000)
+    '1.2.840.10008.1.2.4.201': 'HTJ2K Lossless',
+    '1.2.840.10008.1.2.4.202': 'HTJ2K Lossless RPCL',
+    '1.2.840.10008.1.2.4.203': 'HTJ2K Lossy',
+  };
+
+  return transferSyntaxMap[transferSyntax] || `Unknown (${transferSyntax})`;
+}
+
+/**
  * 픽셀 데이터 추출
  */
 export function extractPixelData(
