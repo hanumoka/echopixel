@@ -245,12 +245,45 @@ export function extractPixelData(
   const encapsulated = isEncapsulated(dataset.transferSyntax);
 
   if (!encapsulated) {
-    // Native (비압축) - 단일 프레임으로 처리
+    // Native (비압축) - 멀티프레임 지원
     const pixelData = new Uint8Array(buffer, offset, length);
+
+    // 이미지 정보로 프레임 크기 계산
+    const rows = getUint16Value(buffer, dataset, '0028,0010') || 0;
+    const columns = getUint16Value(buffer, dataset, '0028,0011') || 0;
+    const bitsAllocated = getUint16Value(buffer, dataset, '0028,0100') || 8;
+    const samplesPerPixel = getUint16Value(buffer, dataset, '0028,0002') || 1;
+
+    // Number of Frames 태그 (0028,0008) - 문자열로 저장됨
+    const numberOfFramesStr = getStringValue(buffer, dataset, '0028,0008');
+    const numberOfFrames = numberOfFramesStr ? parseInt(numberOfFramesStr, 10) : 1;
+
+    // 프레임당 바이트 크기
+    const bytesPerSample = bitsAllocated / 8;
+    const frameSize = rows * columns * samplesPerPixel * bytesPerSample;
+
+    if (numberOfFrames <= 1 || frameSize === 0) {
+      // 단일 프레임
+      return {
+        isEncapsulated: false,
+        frames: [pixelData],
+        frameCount: 1,
+      };
+    }
+
+    // 멀티프레임 분리
+    const frames: Uint8Array[] = [];
+    for (let i = 0; i < numberOfFrames; i++) {
+      const frameOffset = i * frameSize;
+      if (frameOffset + frameSize <= pixelData.length) {
+        frames.push(new Uint8Array(pixelData.buffer, pixelData.byteOffset + frameOffset, frameSize));
+      }
+    }
+
     return {
       isEncapsulated: false,
-      frames: [pixelData],
-      frameCount: 1,
+      frames,
+      frameCount: frames.length,
     };
   }
 

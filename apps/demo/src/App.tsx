@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   // DICOM 파싱
   isDicomFile,
@@ -35,10 +35,25 @@ export default function App() {
   const textureManagerRef = useRef<TextureManager | null>(null);
   const quadRendererRef = useRef<QuadRenderer | null>(null);
 
+  // 프레임 데이터 저장 (렌더링용)
+  const framesRef = useRef<Uint8Array[]>([]);
+  const imageInfoRef = useRef<DicomImageInfo | null>(null);
+  const isEncapsulatedRef = useRef<boolean>(false);
+
+  // Cine 재생 관련
+  const animationRef = useRef<number | null>(null);
+  const lastFrameTimeRef = useRef<number>(0);
+
   const [error, setError] = useState<string | null>(null);
   const [parseResult, setParseResult] = useState<ParseResult | null>(null);
   const [fileName, setFileName] = useState('');
   const [renderStatus, setRenderStatus] = useState<string>('');
+
+  // 프레임 상태
+  const [currentFrame, setCurrentFrame] = useState(0);
+  const [totalFrames, setTotalFrames] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [fps, setFps] = useState(30);
 
   // WebGL 초기화
   useEffect(() => {
@@ -71,15 +86,109 @@ export default function App() {
     }
 
     return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
       textureManagerRef.current?.dispose();
       quadRendererRef.current?.dispose();
     };
   }, []);
 
-  // DICOM 파일 처리 및 렌더링
+  // 특정 프레임 렌더링
+  const renderFrame = useCallback(async (frameIndex: number) => {
+    const frames = framesRef.current;
+    const imageInfo = imageInfoRef.current;
+    const textureManager = textureManagerRef.current;
+    const quadRenderer = quadRendererRef.current;
+    const gl = glRef.current;
+
+    if (!frames.length || !imageInfo || !textureManager || !quadRenderer || !gl) {
+      return;
+    }
+
+    if (frameIndex < 0 || frameIndex >= frames.length) {
+      return;
+    }
+
+    try {
+      const frameData = frames[frameIndex];
+      let decodedFrame;
+
+      if (isEncapsulatedRef.current) {
+        decodedFrame = await decodeJpeg(frameData);
+      } else {
+        decodedFrame = await decodeNative(frameData, { imageInfo });
+      }
+
+      textureManager.upload(decodedFrame.image);
+      gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+      textureManager.bind(0);
+      quadRenderer.render(0);
+
+      closeDecodedFrame(decodedFrame);
+    } catch (err) {
+      console.error('Frame render error:', err);
+    }
+  }, []);
+
+  // 프레임 변경 핸들러
+  const handleFrameChange = useCallback((newFrame: number) => {
+    setCurrentFrame(newFrame);
+    renderFrame(newFrame);
+  }, [renderFrame]);
+
+  // Cine 재생 루프
+  useEffect(() => {
+    if (!isPlaying || totalFrames === 0) {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
+      }
+      return;
+    }
+
+    const frameInterval = 1000 / fps;
+
+    const animate = (timestamp: number) => {
+      if (!lastFrameTimeRef.current) {
+        lastFrameTimeRef.current = timestamp;
+      }
+
+      const elapsed = timestamp - lastFrameTimeRef.current;
+
+      if (elapsed >= frameInterval) {
+        lastFrameTimeRef.current = timestamp - (elapsed % frameInterval);
+
+        setCurrentFrame((prev) => {
+          const nextFrame = (prev + 1) % totalFrames;
+          renderFrame(nextFrame);
+          return nextFrame;
+        });
+      }
+
+      animationRef.current = requestAnimationFrame(animate);
+    };
+
+    animationRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
+      }
+    };
+  }, [isPlaying, totalFrames, fps, renderFrame]);
+
+  // DICOM 파일 처리
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // 재생 중지
+    setIsPlaying(false);
+    setCurrentFrame(0);
+    setTotalFrames(0);
+    framesRef.current = [];
 
     setFileName(file.name);
     setParseResult(null);
@@ -110,53 +219,26 @@ export default function App() {
         tagCount: dataset.elements.size,
       });
 
-      // 4. 렌더링 시도
+      // 4. 렌더링 준비
       if (!pixelData || pixelData.frameCount === 0) {
         setRenderStatus('오류: 픽셀 데이터가 없습니다');
         return;
       }
 
+      // 프레임 데이터 저장
+      framesRef.current = pixelData.frames;
+      imageInfoRef.current = imageInfo;
+      isEncapsulatedRef.current = pixelData.isEncapsulated;
+      setTotalFrames(pixelData.frameCount);
+
       setRenderStatus(`디코딩 중... (${pixelData.frameCount} 프레임, ${pixelData.isEncapsulated ? '압축' : '비압축'})`);
 
-      // 5. 첫 번째 프레임 디코딩
-      const firstFrame = pixelData.frames[0];
-      let decodedFrame;
-
-      if (pixelData.isEncapsulated) {
-        // JPEG 압축 데이터 → WebCodecs로 디코딩
-        decodedFrame = await decodeJpeg(firstFrame);
-      } else {
-        // Native (비압축) 데이터 → 직접 변환
-        decodedFrame = await decodeNative(firstFrame, {
-          imageInfo,
-          // Window/Level은 자동 계산 (또는 DICOM 태그에서 읽어올 수 있음)
-        });
-      }
-
-      setRenderStatus('텍스처 업로드 중...');
-
-      // 6. 텍스처 업로드
-      const textureManager = textureManagerRef.current;
-      const quadRenderer = quadRendererRef.current;
-      const gl = glRef.current;
-
-      if (!textureManager || !quadRenderer || !gl) {
-        throw new Error('WebGL이 초기화되지 않았습니다');
-      }
-
-      textureManager.upload(decodedFrame.image);
-
-      // 7. 렌더링
-      gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-      textureManager.bind(0);
-      quadRenderer.render(0);
-
-      // 8. VideoFrame 리소스 해제
-      closeDecodedFrame(decodedFrame);
+      // 5. 첫 번째 프레임 렌더링
+      await renderFrame(0);
+      setCurrentFrame(0);
 
       setRenderStatus(
-        `렌더링 완료! (${decodedFrame.width}x${decodedFrame.height}, ` +
-        `${decodedFrame.needsClose ? 'VideoFrame' : 'ImageBitmap'})`
+        `렌더링 완료! (${imageInfo.columns}x${imageInfo.rows}, ${pixelData.frameCount} 프레임)`
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -166,6 +248,25 @@ export default function App() {
       });
       setRenderStatus(`오류: ${message}`);
     }
+  };
+
+  // 재생/일시정지 토글
+  const togglePlay = () => {
+    setIsPlaying((prev) => !prev);
+    lastFrameTimeRef.current = 0;
+  };
+
+  // 이전/다음 프레임
+  const prevFrame = () => {
+    if (totalFrames === 0) return;
+    const newFrame = (currentFrame - 1 + totalFrames) % totalFrames;
+    handleFrameChange(newFrame);
+  };
+
+  const nextFrame = () => {
+    if (totalFrames === 0) return;
+    const newFrame = (currentFrame + 1) % totalFrames;
+    handleFrameChange(newFrame);
   };
 
   if (error) {
@@ -206,6 +307,96 @@ export default function App() {
           marginBottom: '15px',
         }}
       />
+
+      {/* 프레임 컨트롤 (멀티프레임일 때만 표시) */}
+      {totalFrames > 1 && (
+        <div style={{
+          padding: '15px',
+          marginBottom: '15px',
+          background: '#1a1a2e',
+          borderRadius: '4px',
+          color: '#fff',
+        }}>
+          {/* 프레임 슬라이더 */}
+          <div style={{ marginBottom: '10px' }}>
+            <label style={{ display: 'block', marginBottom: '5px' }}>
+              프레임: {currentFrame + 1} / {totalFrames}
+            </label>
+            <input
+              type="range"
+              min={0}
+              max={totalFrames - 1}
+              value={currentFrame}
+              onChange={(e) => handleFrameChange(Number(e.target.value))}
+              disabled={isPlaying}
+              style={{ width: '100%', cursor: isPlaying ? 'not-allowed' : 'pointer' }}
+            />
+          </div>
+
+          {/* 재생 컨트롤 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <button
+              onClick={prevFrame}
+              disabled={isPlaying}
+              style={{
+                padding: '8px 16px',
+                fontSize: '16px',
+                cursor: isPlaying ? 'not-allowed' : 'pointer',
+              }}
+            >
+              ◀ 이전
+            </button>
+
+            <button
+              onClick={togglePlay}
+              style={{
+                padding: '8px 24px',
+                fontSize: '16px',
+                background: isPlaying ? '#c44' : '#4c4',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+              }}
+            >
+              {isPlaying ? '⏸ 정지' : '▶ 재생'}
+            </button>
+
+            <button
+              onClick={nextFrame}
+              disabled={isPlaying}
+              style={{
+                padding: '8px 16px',
+                fontSize: '16px',
+                cursor: isPlaying ? 'not-allowed' : 'pointer',
+              }}
+            >
+              다음 ▶
+            </button>
+
+            {/* FPS 조절 */}
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label>FPS:</label>
+              <input
+                type="number"
+                min={1}
+                max={60}
+                value={fps}
+                onChange={(e) => setFps(Math.max(1, Math.min(60, Number(e.target.value))))}
+                style={{ width: '50px', padding: '4px' }}
+              />
+              <input
+                type="range"
+                min={1}
+                max={60}
+                value={fps}
+                onChange={(e) => setFps(Number(e.target.value))}
+                style={{ width: '100px' }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 파일 선택 */}
       <div style={{ marginBottom: '20px' }}>
