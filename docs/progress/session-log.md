@@ -4,6 +4,44 @@
 
 ---
 
+## 2026-01-18 세션 #6 (Phase 1a 완료! 🎉)
+
+### 작업 내용
+- [x] ESLint + Prettier 설정
+  - .prettierrc 생성 (semi: true, singleQuote: true, trailingComma: all)
+  - eslint.config.js 생성 (ESLint 9 Flat Config)
+- [x] 루트 package.json에 devDependencies 추가
+- [x] apps/demo에 React 의존성 추가
+- [x] pnpm 설치 및 pnpm install 실행
+- [x] @echopixel/core 첫 구현
+  - packages/core/src/index.ts (createRenderer, WebGL2 컨텍스트)
+- [x] apps/demo React 앱 구현
+  - index.html, main.tsx, App.tsx
+- [x] core 빌드 → demo 개발 서버 실행
+- [x] **WebGL2 파란색 캔버스 렌더링 성공!**
+
+### 학습 내용
+- ESLint 9 Flat Config 방식
+- pnpm 전역 설치 방법
+- Canvas와 WebGL2의 관계:
+  - Canvas = 도화지 (픽셀 버퍼)
+  - WebGL2 Context = GPU 가속 그림 도구
+  - gl.clearColor() + gl.clear() = 화면 채우기
+- 브라우저 → GPU 통신 흐름:
+  - JavaScript → 브라우저 렌더링 엔진 → GPU 드라이버 → GPU
+- 모노레포에서 패키지 빌드 → 앱에서 사용 워크플로우
+
+### 다음 세션 할 일
+- [ ] Phase 1b 시작: DICOM 파서 구현
+- [ ] DICOM Part 10 기본 파싱
+- [ ] 멀티프레임 픽셀 데이터 분리
+
+### 메모
+- Phase 1a 완료! 첫 번째 마일스톤 달성
+- WebGL2 동작 확인 완료, 이제 DICOM 이미지 로드 단계로 진입
+
+---
+
 ## 2026-01-17 세션 #5 (Phase 1a 계속 - 개발 환경 설정)
 
 ### 작업 내용

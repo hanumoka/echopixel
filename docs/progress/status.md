@@ -4,9 +4,9 @@
 
 | 항목 | 상태 |
 |------|------|
-| **현재 Phase** | Phase 1 (Foundation) |
-| **마지막 업데이트** | 2026-01-17 |
-| **다음 마일스톤** | 모노레포 초기화 + 기본 설정 |
+| **현재 Phase** | Phase 1b (DICOM 파싱 + 디코딩) |
+| **마지막 업데이트** | 2026-01-18 |
+| **다음 마일스톤** | DICOM 파서 구현 |
 
 ---
 
@@ -65,17 +65,17 @@
 
 ### Phase 1: Foundation 🚧 진행중 (세분화)
 
-#### Phase 1a: 프로젝트 설정 + 기본 렌더링 🚧 진행중
+#### Phase 1a: 프로젝트 설정 + 기본 렌더링 ✅ 완료
 - [x] 모노레포 초기화 (pnpm workspace)
 - [x] packages/core 구조 생성
 - [x] apps/demo 구조 생성
 - [x] apps/demo/package.json 생성
 - [x] TypeScript 설정 (tsconfig.json - 루트, core, demo)
 - [x] Vite 설정 (vite.config.ts - core, demo)
-- [ ] ESLint + Prettier
-- [ ] 첫 번째 pnpm install 실행
-- [ ] WebGL2 컨텍스트 초기화
-- [ ] 정적 텍스처 렌더링
+- [x] ESLint + Prettier 설정
+- [x] pnpm install 실행
+- [x] WebGL2 컨텍스트 초기화
+- [x] 테스트 색상 렌더링 (파란색 캔버스)
 
 #### Phase 1b: DICOM 파싱 + 디코딩 ⏳
 - [ ] DICOM 파서 (Lazy 파싱)
@@ -155,6 +155,14 @@
 ---
 
 ## 최근 활동
+
+### 2026-01-18 (세션 #6) - Phase 1a 완료! 🎉
+- ESLint + Prettier 설정 완료
+- pnpm 설치 및 의존성 설치
+- @echopixel/core 첫 구현 (createRenderer, WebGL2 컨텍스트)
+- apps/demo React 앱 구현 (index.html, main.tsx, App.tsx)
+- **WebGL2 파란색 캔버스 렌더링 성공!**
+- 학습: Canvas-WebGL-브라우저-GPU 관계, core 빌드 워크플로우
 
 ### 2026-01-17 (세션 #5)
 - Phase 1a 계속: 개발 환경 설정
