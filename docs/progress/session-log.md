@@ -4,7 +4,7 @@
 
 ---
 
-## 2026-01-18 세션 #6 (Phase 1a 완료! 🎉)
+## 2026-01-18 세션 #6 (Phase 1a 완료 + Phase 1b 설계)
 
 ### 작업 내용
 - [x] ESLint + Prettier 설정
@@ -19,6 +19,7 @@
   - index.html, main.tsx, App.tsx
 - [x] core 빌드 → demo 개발 서버 실행
 - [x] **WebGL2 파란색 캔버스 렌더링 성공!**
+- [x] Phase 1b 설계 문서 작성 (docs/design/phase-1b-design.md)
 
 ### 학습 내용
 - ESLint 9 Flat Config 방식
@@ -31,14 +32,32 @@
   - JavaScript → 브라우저 렌더링 엔진 → GPU 드라이버 → GPU
 - 모노레포에서 패키지 빌드 → 앱에서 사용 워크플로우
 
+### Phase 1b 설계 결정사항
+1. **DICOM 파일 식별**: 확장자가 아닌 파일 내용으로 판단
+   - DICM prefix (offset 128~131) 확인
+   - 레거시 DICOM은 첫 번째 태그 유효성 검사
+   - .dcm, .dicom, .dic, 확장자 없음 모두 지원
+
+2. **Modality 검증**: 범용 DICOM 뷰어로 설계
+   - 심장초음파(US) 전용 필터링 하지 않음
+   - DICOM 메타데이터는 신뢰할 수 없음 (누락, 오류 흔함)
+   - 뷰어의 역할은 "이미지를 잘 보여주는 것"
+   - 검증: DICOM 파일인지 + 픽셀 데이터 존재 여부만 확인
+
+3. **단계적 구현 전략**:
+   - Phase 1b-1: 단일 프레임 먼저 구현
+   - Phase 1b-2: 멀티프레임 확장
+
 ### 다음 세션 할 일
-- [ ] Phase 1b 시작: DICOM 파서 구현
-- [ ] DICOM Part 10 기본 파싱
-- [ ] 멀티프레임 픽셀 데이터 분리
+- [ ] Phase 1b-1 시작: 단일 프레임 DICOM 파싱
+- [ ] DICOM 파일 식별 함수 (isDicomFile)
+- [ ] 기본 태그 파싱 (Rows, Columns, Bits Allocated 등)
+- [ ] 픽셀 데이터 추출
 
 ### 메모
 - Phase 1a 완료! 첫 번째 마일스톤 달성
-- WebGL2 동작 확인 완료, 이제 DICOM 이미지 로드 단계로 진입
+- WebGL2 동작 확인 완료
+- Phase 1b 설계 완료, 구현 준비 완료
 
 ---
 

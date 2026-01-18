@@ -77,11 +77,23 @@
 - [x] WebGL2 컨텍스트 초기화
 - [x] 테스트 색상 렌더링 (파란색 캔버스)
 
-#### Phase 1b: DICOM 파싱 + 디코딩 ⏳
-- [ ] DICOM 파서 (Lazy 파싱)
-- [ ] **WebCodecs ImageDecoder** (하드웨어 가속)
-- [ ] **VideoFrame → WebGL 텍스처 직접 업로드** (제로카피)
-- [ ] Local File DataSource
+#### Phase 1b: DICOM 파싱 + 디코딩 🚧 진행중
+
+> 상세 설계: [phase-1b-design.md](../design/phase-1b-design.md)
+
+**Phase 1b-1: 단일 프레임**
+- [ ] DICOM 파일 식별 (확장자 무관, 내용 기반)
+- [ ] DICOM 파서 기본 구현 (태그 읽기, 메타데이터 추출)
+- [ ] 픽셀 데이터 추출 (7FE0,0010)
+- [ ] WebCodecs ImageDecoder (JPEG → VideoFrame)
+- [ ] WebGL 텍스처 업로드 + 렌더링
+- [ ] 단일 프레임 DICOM 화면 표시
+
+**Phase 1b-2: 멀티프레임**
+- [ ] Basic Offset Table 파싱
+- [ ] 멀티프레임 픽셀 데이터 분리
+- [ ] 특정 프레임 추출/표시
+- [ ] 프레임 선택 UI (슬라이더/버튼)
 
 #### Phase 1c: Cine 재생 + React 컴포넌트 ⏳
 - [ ] Cine 재생 (rAF, 가변 FPS)
