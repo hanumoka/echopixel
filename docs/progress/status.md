@@ -6,7 +6,7 @@
 |------|------|
 | **현재 Phase** | Phase 1b (DICOM 파싱 + 디코딩) |
 | **마지막 업데이트** | 2026-01-18 |
-| **다음 마일스톤** | Phase 1b-2: 멀티프레임 재생 |
+| **다음 마일스톤** | Phase 1c: Cine 재생 + React 컴포넌트 |
 
 ---
 
@@ -93,17 +93,17 @@
 - [x] WebGL 쉐이더 렌더링 (QuadRenderer)
 - [x] 단일 프레임 DICOM 화면 표시 (심초음파 테스트 성공!)
 
-**Phase 1b-2: 멀티프레임**
-- [ ] Basic Offset Table 파싱
-- [ ] 멀티프레임 픽셀 데이터 분리
-- [ ] 특정 프레임 추출/표시
-- [ ] 프레임 선택 UI (슬라이더/버튼)
+**Phase 1b-2: 멀티프레임 ✅ 완료**
+- [x] Native 멀티프레임 픽셀 데이터 분리 (Number of Frames 태그 파싱)
+- [x] 특정 프레임 추출/표시
+- [x] 프레임 선택 UI (슬라이더)
+- [x] Cine 재생 (requestAnimationFrame, 가변 FPS)
+- [x] Play/Pause, 이전/다음 프레임 버튼
 
-#### Phase 1c: Cine 재생 + React 컴포넌트 ⏳
-- [ ] Cine 재생 (rAF, 가변 FPS)
-- [ ] React Viewport 컴포넌트
+#### Phase 1c: React 컴포넌트 + Window/Level ⏳
+- [ ] React Viewport 컴포넌트 분리
 - [ ] Window/Level 마우스 조정
-- [ ] Play/Pause 제어
+- [ ] 키보드 단축키 (Space: 재생/정지, 방향키: 프레임 이동)
 
 #### Phase 1d: DataSource + 네트워크 기초 ⏳
 - [ ] WADO-RS DataSource
@@ -172,19 +172,18 @@
 
 ## 최근 활동
 
-### 2026-01-18 (세션 #9) - Phase 1b-1 완료! 🎉
-- **단일 프레임 DICOM 렌더링 성공!**
+### 2026-01-18 (세션 #9) - Phase 1b 완료! 🎉
+- **Phase 1b-1: 단일 프레임 DICOM 렌더링 성공!**
   - 픽셀 데이터 추출 (Native + Encapsulated 모두 지원)
   - WebCodecs ImageDecoder (JPEG 압축)
   - Native 픽셀 디코더 (Window/Level 자동 계산)
   - WebGL TextureManager + QuadRenderer
-- 심초음파 DICOM 파일 테스트 성공 (640x480, 68 프레임)
-- 새로 추가된 파일:
-  - `ImageDecoder.ts`: WebCodecs 기반 JPEG 디코딩
-  - `NativeDecoder.ts`: 비압축 픽셀 데이터 처리
-  - `webgl/TextureManager.ts`: 텍스처 관리
-  - `webgl/QuadRenderer.ts`: 쉐이더 렌더링
-  - `webgl/shaders.ts`: GLSL 쉐이더 소스
+- **Phase 1b-2: 멀티프레임 재생 완료!**
+  - Native 멀티프레임 픽셀 데이터 분리 (Number of Frames 태그)
+  - 프레임 슬라이더 UI
+  - Cine 재생 (requestAnimationFrame, 가변 FPS 1-60)
+  - Play/Pause, 이전/다음 프레임 버튼
+- 테스트 성공: 47프레임 Color Doppler 심초음파 (1016x708)
 
 ### 2026-01-18 (세션 #8) - DICOM 파서 구현
 - DICOM 파서 기본 구현 완료
