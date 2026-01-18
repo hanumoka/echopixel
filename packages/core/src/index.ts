@@ -88,5 +88,31 @@ export function createRenderer(canvas: HTMLCanvasElement, options?: RendererOpti
 }
 
 // DICOM
-export { isDicomFile, parseDicom, getUint16Value, getStringValue, getImageInfo } from './dicom';
-export type { DicomTag, DicomElement, DicomDataset, DicomImageInfo } from './dicom';
+export {
+  isDicomFile,
+  parseDicom,
+  getUint16Value,
+  getStringValue,
+  getImageInfo,
+  isEncapsulated,
+  extractPixelData,
+  isImageDecoderSupported,
+  decodeJpeg,
+  closeDecodedFrame,
+  // Native Decoder
+  decodeNative,
+  applyWindowLevel,
+  calculateMinMax,
+} from './dicom';
+export type {
+  DicomTag,
+  DicomElement,
+  DicomDataset,
+  DicomImageInfo,
+  PixelDataInfo,
+  DecodedFrame,
+  NativeDecodeOptions,
+} from './dicom';
+
+// WebGL
+export { TextureManager, QuadRenderer } from './webgl';

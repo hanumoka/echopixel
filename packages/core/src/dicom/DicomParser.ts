@@ -1,4 +1,4 @@
-import type { DicomDataset, DicomElement, DicomTag } from './types';
+import type { DicomDataset, DicomElement, DicomTag, PixelDataInfo } from './types';
 
 // 긴 형식을 사용하는 VR 목록
 const LONG_VRS = ['OB', 'OD', 'OF', 'OL', 'OW', 'SQ', 'UC', 'UN', 'UR', 'UT'];
@@ -194,5 +194,104 @@ export function getImageInfo(
     pixelRepresentation: getUint16Value(buffer, dataset, '00280103') ?? 0,
     photometricInterpretation: getStringValue(buffer, dataset, '00280004') ?? 'MONOCHROME2',
     samplesPerPixel: getUint16Value(buffer, dataset, '00280002') ?? 1,
+  };
+}
+/**
+ * Transfer Syntax가 압축(Encapsulated)인지 확인
+ */
+export function isEncapsulated(transferSyntax: string | undefined): boolean {
+  if (!transferSyntax) return false;
+
+  // 압축 Transfer Syntax들 (JPEG, JPEG2000, JPEG-LS, RLE 등)
+  const encapsulatedPrefixes = [
+    '1.2.840.10008.1.2.4', // JPEG 계열
+    '1.2.840.10008.1.2.5', // RLE
+  ];
+
+  return encapsulatedPrefixes.some((prefix) => transferSyntax.startsWith(prefix));
+}
+
+/**
+ * 픽셀 데이터 추출
+ */
+export function extractPixelData(
+  buffer: ArrayBuffer,
+  dataset: DicomDataset,
+): PixelDataInfo | undefined {
+  if (dataset.pixelDataOffset === undefined) {
+    return undefined;
+  }
+
+  const view = new DataView(buffer);
+  let offset = dataset.pixelDataOffset;
+
+  // VR 읽기 (OB 또는 OW)
+  const vr = String.fromCharCode(view.getUint8(offset), view.getUint8(offset + 1));
+  offset += 2;
+
+  // 길이 읽기
+  let length: number;
+  if (vr === 'OB' || vr === 'OW') {
+    offset += 2; // 예약 필드
+    length = view.getUint32(offset, true);
+    offset += 4;
+  } else {
+    // Implicit VR인 경우 (VR 없이 바로 길이)
+    offset = dataset.pixelDataOffset;
+    length = view.getUint32(offset, true);
+    offset += 4;
+  }
+
+  const encapsulated = isEncapsulated(dataset.transferSyntax);
+
+  if (!encapsulated) {
+    // Native (비압축) - 단일 프레임으로 처리
+    const pixelData = new Uint8Array(buffer, offset, length);
+    return {
+      isEncapsulated: false,
+      frames: [pixelData],
+      frameCount: 1,
+    };
+  }
+
+  // Encapsulated (압축) - Fragment 파싱
+  const frames: Uint8Array[] = [];
+
+  // 무한 길이 (0xFFFFFFFF)인 경우 Fragment 파싱
+  while (offset < buffer.byteLength - 8) {
+    // Item 태그 읽기
+    const itemGroup = view.getUint16(offset, true);
+    const itemElement = view.getUint16(offset + 2, true);
+    offset += 4;
+
+    // Sequence Delimitation Item (FFFE,E0DD) - 끝
+    if (itemGroup === 0xfffe && itemElement === 0xe0dd) {
+      break;
+    }
+
+    // Item (FFFE,E000)
+    if (itemGroup === 0xfffe && itemElement === 0xe000) {
+      const itemLength = view.getUint32(offset, true);
+      offset += 4;
+
+      if (itemLength > 0) {
+        const frameData = new Uint8Array(buffer, offset, itemLength);
+        frames.push(frameData);
+      }
+
+      offset += itemLength;
+    }
+  }
+
+  // 첫 번째 프레임이 BOT(Basic Offset Table)인 경우 제거
+  // BOT는 보통 비어있거나 오프셋 목록만 포함
+  if (frames.length > 1 && frames[0].length === 0) {
+    frames.shift();
+  }
+
+  return {
+    isEncapsulated: true,
+    frames,
+    frameCount: frames.length,
   };
 }
