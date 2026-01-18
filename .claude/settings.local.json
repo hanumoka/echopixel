@@ -9,7 +9,8 @@
       "Bash(pip install:*)",
       "Bash(start \"\" \"c:/Users/amagr/projects/echopixcel/python/viewer.html\")",
       "Bash(ls:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(python:*)"
     ]
   }
 }
