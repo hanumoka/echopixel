@@ -27,6 +27,7 @@ import {
 import { DicomViewport } from './components/DicomViewport';
 import { MultiCanvasGrid } from './components/MultiCanvasGrid';
 import { HybridMultiViewport, type SeriesData as HybridSeriesData } from './components/HybridViewport';
+import { HardwareInfoPanel } from './components/HardwareInfoPanel';
 
 type ViewMode = 'single' | 'multi' | 'multi-canvas' | 'hybrid';
 type DataSourceMode = 'local' | 'wado-rs';
@@ -706,6 +707,14 @@ export default function App() {
 
   return (
     <div style={{ padding: '20px', fontFamily: 'system-ui, sans-serif', maxWidth: '1200px' }}>
+      {/* Hardware Info Panel */}
+      <HardwareInfoPanel
+        gl={glRef.current}
+        renderStats={multiViewportReady ? { fps: multiStats.fps, frameTime: multiStats.frameTime, lastRenderTime: multiStats.frameTime } : undefined}
+        defaultOpen={false}
+        position="right"
+      />
+
       <h1 style={{ marginBottom: '20px' }}>EchoPixel Demo - DICOM Viewer</h1>
 
       {/* 뷰 모드 선택 (Single / Multi / Multi-Canvas) */}

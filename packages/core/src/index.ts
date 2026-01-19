@@ -232,3 +232,22 @@ export type {
   ViewportManagerLike,
   DefaultToolBindings,
 } from './tools';
+
+// Hardware Info Utils
+export {
+  getGPUInfo,
+  getCPUMemoryInfo,
+  getDisplayInfo,
+  getPlatformInfo,
+  collectHardwareInfo,
+  formatBytes,
+  estimateTextureMemory,
+  getDicomViewerRecommendations,
+} from './utils/hardwareInfo';
+export type {
+  GPUInfo,
+  CPUMemoryInfo,
+  DisplayInfo,
+  PlatformInfo,
+  HardwareInfo,
+} from './utils/hardwareInfo';
