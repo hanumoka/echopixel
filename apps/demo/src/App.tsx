@@ -868,6 +868,24 @@ export default function App() {
       {/* === 단일 뷰포트 모드 === */}
       {viewMode === 'single' && (
         <>
+          {/* 모드 설명 패널 */}
+          <div style={{
+            padding: '15px',
+            marginBottom: '15px',
+            background: '#2d1f3d',
+            border: '1px solid #a47',
+            borderRadius: '4px',
+          }}>
+            <h3 style={{ margin: '0 0 10px 0', color: '#e8b4f8', fontSize: '16px' }}>
+              🖼️ Single Viewport
+            </h3>
+            <p style={{ margin: 0, color: '#b8a8c8', fontSize: '13px', lineHeight: '1.5' }}>
+              단일 DICOM 파일을 로드하여 하나의 뷰포트에서 재생합니다.
+              로컬 파일 또는 WADO-RS 서버에서 데이터를 가져올 수 있습니다.
+              Window/Level, Pan, Zoom, 프레임 탐색 등 기본 도구를 테스트할 수 있습니다.
+            </p>
+          </div>
+
           {/* 데이터 소스 모드 선택 */}
           <div style={{
             display: 'flex',
@@ -878,29 +896,31 @@ export default function App() {
               onClick={() => handleModeChange('local')}
               style={{
                 padding: '10px 20px',
-                background: mode === 'local' ? '#4a7' : '#333',
-                color: '#fff',
-                border: 'none',
+                background: mode === 'local' ? '#3d2d4d' : '#252525',
+                color: mode === 'local' ? '#e8b4f8' : '#888',
+                border: mode === 'local' ? '1px solid #a47' : '1px solid #444',
                 borderRadius: '4px',
                 cursor: 'pointer',
                 fontWeight: mode === 'local' ? 'bold' : 'normal',
+                transition: 'all 0.2s',
               }}
             >
-              Local File
+              📁 Local File
             </button>
             <button
               onClick={() => handleModeChange('wado-rs')}
               style={{
                 padding: '10px 20px',
-                background: mode === 'wado-rs' ? '#47a' : '#333',
-                color: '#fff',
-                border: 'none',
+                background: mode === 'wado-rs' ? '#3d2d4d' : '#252525',
+                color: mode === 'wado-rs' ? '#e8b4f8' : '#888',
+                border: mode === 'wado-rs' ? '1px solid #a47' : '1px solid #444',
                 borderRadius: '4px',
                 cursor: 'pointer',
                 fontWeight: mode === 'wado-rs' ? 'bold' : 'normal',
+                transition: 'all 0.2s',
               }}
             >
-              WADO-RS
+              🌐 WADO-RS
             </button>
           </div>
 
@@ -1192,6 +1212,24 @@ export default function App() {
       {/* === 멀티 뷰포트 모드 === */}
       {viewMode === 'multi' && (
         <div>
+          {/* 모드 설명 패널 */}
+          <div style={{
+            padding: '15px',
+            marginBottom: '15px',
+            background: '#1f3d2d',
+            border: '1px solid #7a4',
+            borderRadius: '4px',
+          }}>
+            <h3 style={{ margin: '0 0 10px 0', color: '#b4f8c8', fontSize: '16px' }}>
+              🎯 Multi (Single Canvas)
+            </h3>
+            <p style={{ margin: 0, color: '#a8c8b8', fontSize: '13px', lineHeight: '1.5' }}>
+              <strong>단일 WebGL Canvas</strong>에서 여러 뷰포트를 렌더링합니다.
+              gl.scissor()와 gl.viewport()로 영역을 분할하여 각 뷰포트를 그립니다.
+              텍스처 공유가 가능하여 메모리 효율적이지만, 16개 이상 뷰포트에서 성능 테스트가 필요합니다.
+            </p>
+          </div>
+
           {/* 에러 표시 */}
           {error && (
             <div style={{
@@ -1210,12 +1248,12 @@ export default function App() {
           <div style={{
             padding: '15px',
             marginBottom: '15px',
-            background: '#1a3a2a',
+            background: '#1a2a1a',
             border: '1px solid #4a7',
             borderRadius: '4px',
           }}>
             <h3 style={{ margin: '0 0 15px 0', color: '#8f8', fontSize: '16px' }}>
-              Multi-Viewport 설정 (WADO-RS)
+              WADO-RS 설정
             </h3>
 
             <div style={{ display: 'grid', gap: '10px', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
@@ -1709,6 +1747,24 @@ export default function App() {
       {/* === 멀티 캔버스 모드 (Multiple Canvas) === */}
       {viewMode === 'multi-canvas' && (
         <div>
+          {/* 모드 설명 패널 */}
+          <div style={{
+            padding: '15px',
+            marginBottom: '15px',
+            background: '#1f2d3d',
+            border: '1px solid #47a',
+            borderRadius: '4px',
+          }}>
+            <h3 style={{ margin: '0 0 10px 0', color: '#b4d8f8', fontSize: '16px' }}>
+              🔲 Multi (Multi Canvas)
+            </h3>
+            <p style={{ margin: 0, color: '#a8b8c8', fontSize: '13px', lineHeight: '1.5' }}>
+              각 뷰포트마다 <strong>별도의 Canvas와 WebGL Context</strong>를 생성합니다.
+              구현이 단순하지만 브라우저 제한으로 <strong>최대 8~16개</strong> Context만 동시 사용 가능합니다.
+              16개 이상 뷰포트가 필요한 경우 Hybrid-Multi 모드를 사용하세요.
+            </p>
+          </div>
+
           {/* 에러 표시 */}
           {error && (
             <div style={{
@@ -1727,12 +1783,12 @@ export default function App() {
           <div style={{
             padding: '15px',
             marginBottom: '15px',
-            background: '#1a2a4a',
+            background: '#1a1a2a',
             border: '1px solid #47a',
             borderRadius: '4px',
           }}>
             <h3 style={{ margin: '0 0 15px 0', color: '#8cf', fontSize: '16px' }}>
-              Multi-Canvas Grid 설정 (Multiple WebGL Contexts)
+              WADO-RS 설정
             </h3>
 
             <div style={{ display: 'grid', gap: '10px', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
@@ -1999,6 +2055,25 @@ export default function App() {
       {/* === Hybrid-Multi 모드 (DOM + WebGL) === */}
       {viewMode === 'hybrid' && (
         <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 150px)', minHeight: '400px' }}>
+          {/* 모드 설명 패널 */}
+          <div style={{
+            padding: '15px',
+            marginBottom: '15px',
+            background: '#1f3d3d',
+            border: '1px solid #4a7',
+            borderRadius: '4px',
+            flexShrink: 0,
+          }}>
+            <h3 style={{ margin: '0 0 10px 0', color: '#b4f8e8', fontSize: '16px' }}>
+              ⚡ Hybrid-Multi
+            </h3>
+            <p style={{ margin: 0, color: '#a8c8c8', fontSize: '13px', lineHeight: '1.5' }}>
+              <strong>단일 WebGL Canvas + DOM 슬롯</strong> 하이브리드 아키텍처입니다.
+              WebGL Context 1개만 사용하여 <strong>16개 이상 뷰포트</strong>를 지원합니다.
+              각 뷰포트는 독립적으로 Pan, Zoom, W/L, 재생/정지를 제어할 수 있습니다. (프로젝트 목표 달성)
+            </p>
+          </div>
+
           {/* 에러 표시 */}
           {error && (
             <div style={{
@@ -2017,18 +2092,18 @@ export default function App() {
           <div style={{
             padding: '15px',
             marginBottom: '15px',
-            background: '#3a1a3a',
-            border: '1px solid #a47',
+            background: '#1a2a2a',
+            border: '1px solid #4a7',
             borderRadius: '4px',
             flexShrink: 0,
           }}>
-            <h3 style={{ margin: '0 0 15px 0', color: '#f8c', fontSize: '16px' }}>
-              Hybrid Multi-Viewport (Single Canvas + DOM Slots)
+            <h3 style={{ margin: '0 0 15px 0', color: '#8fc', fontSize: '16px' }}>
+              WADO-RS 설정
             </h3>
 
             <div style={{ display: 'grid', gap: '10px', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
               <div>
-                <label style={{ display: 'block', color: '#f8c', marginBottom: '5px', fontSize: '13px' }}>
+                <label style={{ display: 'block', color: '#8fc', marginBottom: '5px', fontSize: '13px' }}>
                   DICOM Web Base URL
                 </label>
                 <input
@@ -2047,7 +2122,7 @@ export default function App() {
                 />
               </div>
               <div>
-                <label style={{ display: 'block', color: '#f8c', marginBottom: '5px', fontSize: '13px' }}>
+                <label style={{ display: 'block', color: '#8fc', marginBottom: '5px', fontSize: '13px' }}>
                   Study Instance UID
                 </label>
                 <input
@@ -2066,7 +2141,7 @@ export default function App() {
                 />
               </div>
               <div>
-                <label style={{ display: 'block', color: '#f8c', marginBottom: '5px', fontSize: '13px' }}>
+                <label style={{ display: 'block', color: '#8fc', marginBottom: '5px', fontSize: '13px' }}>
                   Series Instance UID
                 </label>
                 <input
@@ -2085,7 +2160,7 @@ export default function App() {
                 />
               </div>
               <div>
-                <label style={{ display: 'block', color: '#f8c', marginBottom: '5px', fontSize: '13px' }}>
+                <label style={{ display: 'block', color: '#8fc', marginBottom: '5px', fontSize: '13px' }}>
                   Layout
                 </label>
                 <select
