@@ -161,3 +161,22 @@ export type {
   ViewportRenderCallback,
   FrameUpdateCallback,
 } from './sync';
+
+// Hybrid DOM-WebGL Architecture
+export {
+  HybridViewportManager,
+  HybridRenderScheduler,
+  domRectToWebGLViewport,
+  webglViewportToCssRect,
+  clientToWebGL,
+  createCoordinateContext,
+  updateCoordinateContext,
+} from './hybrid';
+export type {
+  WebGLViewportBounds,
+  ViewportSlotInfo,
+  HybridViewport,
+  CoordinateContext,
+  SyncOptions,
+  HybridViewportManagerOptions,
+} from './hybrid';

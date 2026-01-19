@@ -26,8 +26,9 @@ import {
 } from '@echopixel/core';
 import { DicomViewport } from './components/DicomViewport';
 import { MultiCanvasGrid } from './components/MultiCanvasGrid';
+import { HybridMultiViewport, type SeriesData as HybridSeriesData } from './components/HybridViewport';
 
-type ViewMode = 'single' | 'multi' | 'multi-canvas';
+type ViewMode = 'single' | 'multi' | 'multi-canvas' | 'hybrid';
 type DataSourceMode = 'local' | 'wado-rs';
 
 interface ParseResult {
@@ -98,6 +99,10 @@ export default function App() {
   const [multiCanvasLoaded, setMultiCanvasLoaded] = useState(false);
   const [multiCanvasUids, setMultiCanvasUids] = useState<string[]>([]);
   const [multiCanvasCount, setMultiCanvasCount] = useState<number>(1); // 1~4개
+
+  // Hybrid 모드용 상태
+  const [hybridSeriesMap, setHybridSeriesMap] = useState<Map<string, HybridSeriesData>>(new Map());
+  const [hybridLoading, setHybridLoading] = useState(false);
 
   // Multi Canvas용 DataSource (안정적인 참조 유지)
   const multiCanvasDataSource = useMemo(() => {
@@ -241,6 +246,9 @@ export default function App() {
     // Multi Canvas 상태 초기화
     setMultiCanvasLoaded(false);
     setMultiCanvasUids([]);
+    // Hybrid 상태 초기화
+    setHybridSeriesMap(new Map());
+    setHybridLoading(false);
   };
 
   // === 멀티 뷰포트 관련 함수 ===
@@ -643,6 +651,59 @@ export default function App() {
     };
   }, []);
 
+  // === Hybrid 모드 로드 함수 ===
+  const handleHybridLoad = async () => {
+    const uidsToLoad = Array.from(selectedUids).slice(0, getMaxSelect());
+    if (uidsToLoad.length === 0) {
+      setError('로드할 Instance를 선택하세요');
+      return;
+    }
+
+    setHybridLoading(true);
+    setError(null);
+
+    const dataSource = new WadoRsDataSource({
+      baseUrl: wadoBaseUrl,
+      timeout: 60000,
+      maxRetries: 3,
+    });
+
+    const seriesMap = new Map<string, HybridSeriesData>();
+
+    for (let i = 0; i < uidsToLoad.length; i++) {
+      const uid = uidsToLoad[i];
+      setMultiLoadingStatus(`로딩 중... (${i + 1}/${uidsToLoad.length})`);
+
+      try {
+        const { metadata, frames } = await dataSource.loadAllFrames({
+          studyInstanceUid: studyUid,
+          seriesInstanceUid: seriesUid,
+          sopInstanceUid: uid,
+        });
+
+        seriesMap.set(uid, {
+          info: {
+            seriesId: uid,
+            frameCount: metadata.frameCount,
+            imageWidth: metadata.imageInfo.columns,
+            imageHeight: metadata.imageInfo.rows,
+            isEncapsulated: metadata.isEncapsulated,
+            bitsStored: metadata.imageInfo.bitsStored,
+          },
+          frames,
+          imageInfo: metadata.imageInfo,
+          isEncapsulated: metadata.isEncapsulated,
+        });
+      } catch (err) {
+        console.error(`[Hybrid] Failed to load ${uid}:`, err);
+      }
+    }
+
+    setHybridSeriesMap(seriesMap);
+    setHybridLoading(false);
+    setMultiLoadingStatus('');
+  };
+
   return (
     <div style={{ padding: '20px', fontFamily: 'system-ui, sans-serif', maxWidth: '1200px' }}>
       <h1 style={{ marginBottom: '20px' }}>EchoPixel Demo - DICOM Viewer</h1>
@@ -695,6 +756,20 @@ export default function App() {
           }}
         >
           Multi (Multi Canvas)
+        </button>
+        <button
+          onClick={() => handleViewModeChange('hybrid')}
+          style={{
+            padding: '10px 20px',
+            background: viewMode === 'hybrid' ? '#a47' : '#333',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontWeight: viewMode === 'hybrid' ? 'bold' : 'normal',
+          }}
+        >
+          Hybrid (DOM+WebGL)
         </button>
       </div>
 
@@ -1824,6 +1899,295 @@ export default function App() {
               'Instance 스캔' 버튼을 클릭하여 Series 내 Instance를 조회하세요.
               <br />
               스캔 후 로드할 Instance를 선택하면 자동으로 뷰포트가 생성됩니다.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* === Hybrid 모드 (DOM + WebGL) === */}
+      {viewMode === 'hybrid' && (
+        <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 150px)', minHeight: '400px' }}>
+          {/* 에러 표시 */}
+          {error && (
+            <div style={{
+              padding: '15px',
+              marginBottom: '15px',
+              background: '#3a1a1a',
+              border: '1px solid #a44',
+              borderRadius: '4px',
+              color: '#f88',
+            }}>
+              Error: {error}
+            </div>
+          )}
+
+          {/* 설정 패널 */}
+          <div style={{
+            padding: '15px',
+            marginBottom: '15px',
+            background: '#3a1a3a',
+            border: '1px solid #a47',
+            borderRadius: '4px',
+            flexShrink: 0,
+          }}>
+            <h3 style={{ margin: '0 0 15px 0', color: '#f8c', fontSize: '16px' }}>
+              Hybrid Multi-Viewport (Single Canvas + DOM Slots)
+            </h3>
+
+            <div style={{ display: 'grid', gap: '10px', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+              <div>
+                <label style={{ display: 'block', color: '#f8c', marginBottom: '5px', fontSize: '13px' }}>
+                  DICOM Web Base URL
+                </label>
+                <input
+                  type="text"
+                  value={wadoBaseUrl}
+                  onChange={(e) => setWadoBaseUrl(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    fontSize: '13px',
+                    background: '#2a2a3a',
+                    border: '1px solid #555',
+                    borderRadius: '4px',
+                    color: '#fff',
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', color: '#f8c', marginBottom: '5px', fontSize: '13px' }}>
+                  Study Instance UID
+                </label>
+                <input
+                  type="text"
+                  value={studyUid}
+                  onChange={(e) => setStudyUid(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    fontSize: '13px',
+                    background: '#2a2a3a',
+                    border: '1px solid #555',
+                    borderRadius: '4px',
+                    color: '#fff',
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', color: '#f8c', marginBottom: '5px', fontSize: '13px' }}>
+                  Series Instance UID
+                </label>
+                <input
+                  type="text"
+                  value={seriesUid}
+                  onChange={(e) => setSeriesUid(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    fontSize: '13px',
+                    background: '#2a2a3a',
+                    border: '1px solid #555',
+                    borderRadius: '4px',
+                    color: '#fff',
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', color: '#f8c', marginBottom: '5px', fontSize: '13px' }}>
+                  Layout
+                </label>
+                <select
+                  value={layout}
+                  onChange={(e) => setLayout(e.target.value as LayoutType)}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    fontSize: '13px',
+                    background: '#2a2a3a',
+                    border: '1px solid #555',
+                    borderRadius: '4px',
+                    color: '#fff',
+                  }}
+                >
+                  <option value="grid-2x2">2x2 (4 viewports)</option>
+                  <option value="grid-3x3">3x3 (9 viewports)</option>
+                  <option value="grid-4x4">4x4 (16 viewports)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* 액션 버튼들 */}
+            <div style={{ marginTop: '15px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <button
+                onClick={handleScanInstances}
+                disabled={!!scanningStatus || hybridLoading}
+                style={{
+                  padding: '10px 20px',
+                  background: scanningStatus ? '#555' : '#a47',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: scanningStatus ? 'not-allowed' : 'pointer',
+                  fontSize: '14px',
+                }}
+              >
+                {scanningStatus || 'Instance 스캔'}
+              </button>
+
+              <button
+                onClick={handleHybridLoad}
+                disabled={hybridLoading || !!scanningStatus || selectedUids.size === 0}
+                style={{
+                  padding: '10px 20px',
+                  background: (hybridLoading || selectedUids.size === 0) ? '#555' : '#7a4',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: (hybridLoading || selectedUids.size === 0) ? 'not-allowed' : 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                }}
+              >
+                {hybridLoading ? multiLoadingStatus : `Hybrid 로드 (${selectedUids.size}개)`}
+              </button>
+            </div>
+
+            {/* Instance 선택 목록 */}
+            {scannedInstances.length > 0 && (
+              <div style={{ marginTop: '15px' }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '10px',
+                }}>
+                  <span style={{ color: '#f8c', fontSize: '13px' }}>
+                    Instance 선택 ({selectedUids.size} / {getMaxSelect()}개)
+                  </span>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={selectAllPlayable}
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '11px',
+                        background: '#363',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '3px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      영상만 선택
+                    </button>
+                    <button
+                      onClick={clearSelection}
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '11px',
+                        background: '#633',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '3px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      선택 해제
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{
+                  background: '#1a1a2a',
+                  borderRadius: '4px',
+                  maxHeight: '200px',
+                  overflowY: 'auto',
+                }}>
+                  {scannedInstances.map((instance, idx) => {
+                    const isSelected = selectedUids.has(instance.uid);
+                    const maxSelect = getMaxSelect();
+                    const canSelect = isSelected || selectedUids.size < maxSelect;
+
+                    return (
+                      <div
+                        key={instance.uid}
+                        onClick={() => !instance.error && canSelect && toggleInstanceSelection(instance.uid)}
+                        style={{
+                          padding: '6px 10px',
+                          borderBottom: '1px solid #333',
+                          cursor: instance.error ? 'not-allowed' : (canSelect ? 'pointer' : 'not-allowed'),
+                          background: isSelected ? '#3a2a3a' : 'transparent',
+                          opacity: instance.error ? 0.5 : (canSelect ? 1 : 0.6),
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          fontSize: '11px',
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          disabled={instance.error !== undefined || !canSelect}
+                          onChange={() => {}}
+                          style={{ cursor: 'inherit' }}
+                        />
+                        <span style={{ color: '#666', minWidth: '20px' }}>{idx + 1}.</span>
+                        <span style={{
+                          color: instance.isPlayable ? '#8f8' : '#fa8',
+                          minWidth: '35px',
+                        }}>
+                          {instance.isPlayable ? '영상' : '정지'}
+                        </span>
+                        <span style={{ color: '#f8c', minWidth: '50px' }}>
+                          {instance.frameCount}f
+                        </span>
+                        <span style={{ fontFamily: 'monospace', color: '#aaa', flex: 1 }}>
+                          ...{instance.uid.slice(-20)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* 스캔 전 안내 */}
+            {scannedInstances.length === 0 && !scanningStatus && (
+              <div style={{ marginTop: '15px', fontSize: '12px', color: '#888' }}>
+                'Instance 스캔' 버튼을 클릭하여 Series 내 Instance를 조회하세요.
+              </div>
+            )}
+          </div>
+
+          {/* HybridMultiViewport 렌더링 */}
+          {hybridSeriesMap.size > 0 && (
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              <HybridMultiViewport
+                key={`hybrid-${layout}-${hybridSeriesMap.size}`}
+                layout={layout}
+                seriesMap={hybridSeriesMap}
+                syncMode="frame-ratio"
+                onViewportClick={(id) => console.log('[Hybrid] Clicked:', id)}
+              />
+            </div>
+          )}
+
+          {/* 로드 전 안내 */}
+          {hybridSeriesMap.size === 0 && !hybridLoading && (
+            <div style={{
+              padding: '40px',
+              background: '#1a1a2a',
+              borderRadius: '4px',
+              textAlign: 'center',
+              color: '#888',
+            }}>
+              <p style={{ marginBottom: '10px' }}>
+                Instance를 스캔하고 선택한 후 'Hybrid 로드' 버튼을 클릭하세요.
+              </p>
+              <p style={{ fontSize: '12px', color: '#666' }}>
+                Hybrid 모드는 Single WebGL Canvas 위에 DOM 기반 슬롯을 오버레이하여
+                <br />
+                유연한 이벤트 처리와 고성능 렌더링을 동시에 달성합니다.
+              </p>
             </div>
           )}
         </div>
