@@ -767,7 +767,15 @@ export default function App() {
   };
 
   return (
-    <div style={{ padding: '20px', fontFamily: 'system-ui, sans-serif', maxWidth: '1200px' }}>
+    <div style={{
+      padding: '20px',
+      fontFamily: 'system-ui, sans-serif',
+      maxWidth: '1400px',
+      margin: '0 auto',
+      minHeight: '100vh',
+      background: '#121218',
+      color: '#e0e0e0',
+    }}>
       {/* Hardware Info Panel */}
       <HardwareInfoPanel
         gl={glRef.current}
@@ -777,7 +785,7 @@ export default function App() {
         position="right"
       />
 
-      <h1 style={{ marginBottom: '20px' }}>EchoPixel Demo - DICOM Viewer</h1>
+      <h1 style={{ marginBottom: '20px', color: '#fff' }}>EchoPixel Demo - DICOM Viewer</h1>
 
       {/* 뷰 모드 선택 탭 */}
       <div style={{
