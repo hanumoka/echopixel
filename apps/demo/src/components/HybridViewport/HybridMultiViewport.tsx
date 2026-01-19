@@ -22,6 +22,7 @@ import {
   decodeJpeg,
   decodeNative,
   closeDecodedFrame,
+  useToolGroup,
   type LayoutType,
   type Viewport,
   type ViewportSeriesInfo,
@@ -116,6 +117,11 @@ export function HybridMultiViewport({
   const [stats, setStats] = useState({ fps: 0, frameTime: 0 });
   const [isInitialized, setIsInitialized] = useState(false);
 
+  // Tool System용 뷰포트 요소 맵
+  const [viewportElements] = useState(() => new Map<string, HTMLElement>());
+  // viewportElements Map 변경 감지용 카운터
+  const [viewportElementsVersion, setViewportElementsVersion] = useState(0);
+
   // DPR
   const [dpr] = useState(() => Math.min(window.devicePixelRatio || 1, 2));
 
@@ -126,6 +132,24 @@ export function HybridMultiViewport({
   // 실제 사용할 크기 (props 우선, 없으면 측정된 크기)
   const effectiveWidth = width ?? containerSize.width;
   const effectiveHeight = height ?? containerSize.height;
+
+  // 정지 이미지 여부 판단: 모든 뷰포트가 frameCount <= 1이면 정지 이미지 모드
+  // - 정지 이미지: 휠 → Zoom
+  // - 동영상: 휠 → StackScroll (프레임 전환)
+  const isStaticImage = viewports.length > 0 && viewports.every((v) =>
+    !v.series || v.series.frameCount <= 1
+  );
+
+  // Tool System 통합
+  // - 기본 도구: WindowLevel(우클릭), Pan(중클릭), Zoom(Shift+좌클릭), StackScroll/Zoom(휠)
+  const { resetAllViewports } = useToolGroup({
+    toolGroupId: 'hybrid-main',
+    viewportManager: hybridManagerRef.current,
+    viewportElements,
+    viewportElementsKey: viewportElementsVersion, // Map 변경 시 재등록 트리거
+    disabled: !isInitialized,
+    isStaticImage, // 정지/동영상 모드에 따라 휠 동작 변경
+  });
 
   // ResizeObserver로 컨테이너 크기 자동 감지
   useEffect(() => {
@@ -502,6 +526,15 @@ export function HybridMultiViewport({
               onClick={handleViewportClick}
               onMouseEnter={handleViewportMouseEnter}
               onMouseLeave={handleViewportMouseLeave}
+              onElementRef={(element) => {
+                if (element) {
+                  viewportElements.set(id, element);
+                  setViewportElementsVersion((v) => v + 1);
+                } else {
+                  viewportElements.delete(id);
+                  setViewportElementsVersion((v) => v + 1);
+                }
+              }}
             >
               <ViewportOverlay
                 viewport={viewport}

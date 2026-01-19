@@ -320,6 +320,43 @@ export class HybridViewportManager {
     return this.viewportManager.getViewportCount();
   }
 
+  // ===== Transform 관련 메서드 (Tool System용) =====
+
+  /**
+   * 뷰포트 Pan 설정
+   */
+  setViewportPan(viewportId: string, pan: { x: number; y: number }): void {
+    this.viewportManager.setViewportPan(viewportId, pan);
+  }
+
+  /**
+   * 뷰포트 Zoom 설정
+   */
+  setViewportZoom(viewportId: string, zoom: number): void {
+    this.viewportManager.setViewportZoom(viewportId, zoom);
+  }
+
+  /**
+   * 뷰포트 Rotation 설정
+   */
+  setViewportRotation(viewportId: string, rotation: number): void {
+    this.viewportManager.setViewportRotation(viewportId, rotation);
+  }
+
+  /**
+   * 뷰포트 Transform 초기화
+   */
+  resetViewportTransform(viewportId: string): void {
+    this.viewportManager.resetViewportTransform(viewportId);
+  }
+
+  /**
+   * 뷰포트 전체 리셋 (Transform + Window/Level)
+   */
+  resetViewport(viewportId: string): void {
+    this.viewportManager.resetViewport(viewportId);
+  }
+
   /**
    * 내부 ViewportManager 접근 (고급 사용)
    */

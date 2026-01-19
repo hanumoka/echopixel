@@ -123,8 +123,8 @@
 > 참고: `docs/architecture/multi-viewport-strategy-analysis.md`
 
 #### 남은 작업 ⏳
-- [ ] 실제 DICOM 데이터 테스트
-- [ ] 16개 뷰포트 30fps 성능 검증
+- [x] 실제 DICOM 데이터 테스트 ✅
+- [x] 16개 뷰포트 30fps 성능 검증 ✅ (60fps 달성)
 - [ ] Progressive Quality Enhancement (PQE)
 - [ ] QIDO-RS (검색)
 - [ ] 캐시 관리 고도화

@@ -68,6 +68,20 @@ export interface ViewportSeriesInfo {
 }
 
 /**
+ * 이미지 변환 상태 (Pan, Zoom, Rotation)
+ *
+ * Tool System에서 사용하는 이미지 조작 상태
+ */
+export interface ViewportTransform {
+  /** 이동 오프셋 (픽셀 단위) */
+  pan: { x: number; y: number };
+  /** 확대 배율 (1.0 = 원본 크기) */
+  zoom: number;
+  /** 회전 각도 (degree, 미래용) */
+  rotation: number;
+}
+
+/**
  * 뷰포트 구성
  *
  * 하나의 DICOM 시리즈를 표시하는 뷰포트의 전체 상태
@@ -87,6 +101,9 @@ export interface Viewport {
 
   /** Window/Level 설정 (null이면 기본값 사용) */
   windowLevel: WindowLevel | null;
+
+  /** 이미지 변환 상태 (Pan, Zoom, Rotation) */
+  transform: ViewportTransform;
 
   /** 텍스처 유닛 번호 (이 뷰포트의 배열 텍스처가 바인딩될 유닛) */
   textureUnit: number;

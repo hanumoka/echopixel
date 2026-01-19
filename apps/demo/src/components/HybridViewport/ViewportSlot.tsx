@@ -32,6 +32,8 @@ export interface ViewportSlotProps {
   onMouseEnter?: (viewportId: string) => void;
   /** 마우스 이탈 핸들러 */
   onMouseLeave?: (viewportId: string) => void;
+  /** DOM 요소 참조 콜백 (Tool System용) */
+  onElementRef?: (element: HTMLDivElement | null) => void;
   /** 자식 요소 (ViewportOverlay) */
   children?: React.ReactNode;
 }
@@ -51,6 +53,7 @@ export function ViewportSlot({
   onClick,
   onMouseEnter,
   onMouseLeave,
+  onElementRef,
   children,
 }: ViewportSlotProps) {
   const slotRef = useRef<HTMLDivElement>(null);
@@ -74,6 +77,12 @@ export function ViewportSlot({
       currentManager.unregisterSlot(viewportId);
     };
   }, [viewportId]); // manager는 ref로 관리하므로 의존성에서 제외
+
+  // Tool System용 DOM 요소 참조 콜백
+  useEffect(() => {
+    onElementRef?.(slotRef.current);
+    return () => onElementRef?.(null);
+  }, [onElementRef]);
 
   // 클릭 핸들러
   const handleClick = useCallback(() => {

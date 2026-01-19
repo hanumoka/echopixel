@@ -13,9 +13,13 @@ export default defineConfig({
       fileName: (format) => `index.${format === "es" ? "js" : "cjs"}`,
     },
     rollupOptions: {
-      external: [],
+      // React는 peer dependency로 외부화
+      external: ['react', 'react-dom'],
       output: {
-        globals: {},
+        globals: {
+          react: 'React',
+          'react-dom': 'ReactDOM',
+        },
       },
     },
     sourcemap: true,

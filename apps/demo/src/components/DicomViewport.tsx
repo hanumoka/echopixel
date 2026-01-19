@@ -1,15 +1,18 @@
-import { useEffect, useRef, useState, useCallback, useImperativeHandle, forwardRef } from 'react';
+import { useEffect, useRef, useState, useCallback, useImperativeHandle, forwardRef, useMemo } from 'react';
 import {
   decodeJpeg,
   decodeNative,
   closeDecodedFrame,
   TextureManager,
   QuadRenderer,
+  useToolGroup,
   type DicomImageInfo,
   type WindowLevelOptions,
   type DataSource,
   type DicomInstanceId,
   type DicomMetadata,
+  type ViewportManagerLike,
+  type Viewport,
 } from '@echopixel/core';
 
 /**
@@ -99,9 +102,8 @@ export const DicomViewport = forwardRef<DicomViewportHandle, DicomViewportProps>
   const animationRef = useRef<number | null>(null);
   const lastFrameTimeRef = useRef<number>(0);
 
-  // Window/Level 드래그 관련
-  const isDraggingRef = useRef(false);
-  const lastMousePosRef = useRef({ x: 0, y: 0 });
+  // Tool System용 캔버스 컨테이너 ref
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
 
   // W/L 값을 ref로도 관리 (렌더링 함수에서 최신 값 사용)
   const windowCenterRef = useRef<number | undefined>(undefined);
@@ -130,8 +132,128 @@ export const DicomViewport = forwardRef<DicomViewportHandle, DicomViewportProps>
   const [renderError, setRenderError] = useState<string | null>(null); // 렌더링 에러 상태
   const [dpr, setDpr] = useState(() => Math.min(window.devicePixelRatio || 1, 2)); // DPI 배율 (최대 2로 제한)
 
+  // Tool System용 상태
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1.0);
+  const [viewportElements] = useState(() => new Map<string, HTMLElement>());
+  // viewportElements Map 변경 시 re-render를 트리거하기 위한 카운터
+  const [viewportElementsVersion, setViewportElementsVersion] = useState(0);
+
   // 반응형 모드를 위한 계산된 크기
   const [computedSize, setComputedSize] = useState({ width: propWidth, height: propHeight });
+
+  // Tool System용 뷰포트 ID (고정)
+  const viewportId = 'single-viewport';
+
+  // W/L 기본값 계산용 ref (imageInfo 변경 시 업데이트)
+  const defaultBitsRef = useRef(8);
+  useEffect(() => {
+    if (imageInfo) {
+      defaultBitsRef.current = isEncapsulated ? 8 : (imageInfo.bitsStored ?? 8);
+    }
+  }, [imageInfo, isEncapsulated]);
+
+  // ViewportManagerLike 어댑터 생성
+  // Tool System이 호출하는 메서드들을 DicomViewport 상태에 연결
+  const viewportManager = useMemo<ViewportManagerLike>(() => ({
+    getViewport: (id: string): Viewport | null => {
+      if (id !== viewportId) return null;
+
+      // W/L 기본값 계산: W/L이 설정되지 않았으면 bitsStored 기반 기본값 사용
+      let wl: { center: number; width: number } | null = null;
+      if (windowCenter !== undefined && windowWidth !== undefined) {
+        wl = { center: windowCenter, width: windowWidth };
+      } else if (imageInfo) {
+        // 기본값: center = 2^(bits-1), width = 2^bits
+        const bits = isEncapsulated ? 8 : (imageInfo.bitsStored ?? 8);
+        wl = { center: Math.pow(2, bits - 1), width: Math.pow(2, bits) };
+      }
+
+      return {
+        id: viewportId,
+        textureUnit: 0,
+        windowLevel: wl,
+        transform: { pan, zoom, rotation: 0 },
+        playback: {
+          isPlaying,
+          currentFrame,
+          fps,
+        },
+        series: imageInfo ? {
+          frameCount: frames.length,
+          imageWidth: imageInfo.columns,
+          imageHeight: imageInfo.rows,
+          isEncapsulated,
+          bitsStored: imageInfo.bitsStored,
+        } : null,
+      };
+    },
+    setViewportWindowLevel: (id: string, wl: { center: number; width: number } | null) => {
+      if (id !== viewportId) return;
+      if (wl) {
+        windowCenterRef.current = wl.center;
+        windowWidthRef.current = wl.width;
+        setWindowCenter(wl.center);
+        setWindowWidth(wl.width);
+      } else {
+        windowCenterRef.current = undefined;
+        windowWidthRef.current = undefined;
+        setWindowCenter(undefined);
+        setWindowWidth(undefined);
+      }
+    },
+    setViewportPan: (id: string, newPan: { x: number; y: number }) => {
+      if (id !== viewportId) return;
+      setPan(newPan);
+    },
+    setViewportZoom: (id: string, newZoom: number) => {
+      if (id !== viewportId) return;
+      setZoom(Math.max(0.1, Math.min(10, newZoom)));
+    },
+    setViewportFrame: (id: string, frameIndex: number) => {
+      if (id !== viewportId) return;
+      const clampedFrame = Math.max(0, Math.min(frames.length - 1, frameIndex));
+      setCurrentFrame(clampedFrame);
+    },
+  }), [viewportId, windowCenter, windowWidth, pan, zoom, isPlaying, currentFrame, fps, imageInfo, frames.length, isEncapsulated]);
+
+  // 정지 이미지 여부 (프레임이 1개면 정지 이미지)
+  const isStaticImage = frames.length <= 1;
+
+  // Tool System 통합
+  // 정지 이미지: 휠 → Zoom
+  // 동영상: 휠 → StackScroll (프레임 전환)
+  const { resetAllViewports } = useToolGroup({
+    toolGroupId: 'single-viewport-tools',
+    viewportManager,
+    viewportElements,
+    viewportElementsKey: viewportElementsVersion, // Map 변경 시 재등록 트리거
+    disabled: !webglReady || frames.length === 0,
+    isStaticImage, // 정지/동영상 모드에 따라 도구 바인딩 변경
+  });
+
+  // Tool System에 캔버스 컨테이너 요소 등록
+  // 주의: Map을 mutate해도 React가 변경을 감지하지 못하므로
+  // viewportElementsVersion을 증가시켜 re-render 트리거
+  useEffect(() => {
+    const element = canvasContainerRef.current;
+    if (element && webglReady) {
+      viewportElements.set(viewportId, element);
+      // Map 변경 후 re-render 트리거 → useToolGroup이 새 요소 감지
+      setViewportElementsVersion((v) => v + 1);
+      return () => {
+        viewportElements.delete(viewportId);
+        setViewportElementsVersion((v) => v + 1);
+      };
+    }
+  }, [viewportId, viewportElements, webglReady]);
+
+  // W/L 또는 프레임 변경 시 재렌더링 (Tool System에서 변경 시)
+  useEffect(() => {
+    if (webglReady && frames.length > 0) {
+      renderFrame(currentFrame);
+    }
+  }, [windowCenter, windowWidth, currentFrame]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 최종 사용할 Canvas 크기 (반응형이면 계산된 크기, 아니면 prop 크기)
   const width = responsive ? computedSize.width : propWidth;
@@ -615,64 +737,22 @@ export const DicomViewport = forwardRef<DicomViewportHandle, DicomViewportProps>
     handleFrameChange(newFrame);
   }, [currentFrame, totalFrames, isPlaying, handleFrameChange]);
 
-  // Window/Level 리셋
-  const resetWindowLevel = useCallback(() => {
+  // 전체 리셋 (W/L + Pan + Zoom)
+  const resetViewport = useCallback(() => {
+    // W/L 리셋
     windowCenterRef.current = undefined;
     windowWidthRef.current = undefined;
     setWindowCenter(undefined);
     setWindowWidth(undefined);
+    // Pan/Zoom 리셋
+    setPan({ x: 0, y: 0 });
+    setZoom(1.0);
     renderFrame(currentFrame);
   }, [currentFrame, renderFrame]);
 
-  // 마우스 이벤트 핸들러 (Window/Level 조정)
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    // 우클릭 또는 Ctrl+클릭으로 Window/Level 조정
-    if (e.button === 2 || e.ctrlKey) {
-      e.preventDefault();
-      isDraggingRef.current = true;
-      lastMousePosRef.current = { x: e.clientX, y: e.clientY };
-    }
-  }, []);
-
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!isDraggingRef.current || !imageInfo) return;
-
-    const deltaX = e.clientX - lastMousePosRef.current.x;
-    const deltaY = e.clientY - lastMousePosRef.current.y;
-    lastMousePosRef.current = { x: e.clientX, y: e.clientY };
-
-    // 현재 Window/Level 값 (없으면 기본값 계산)
-    // JPEG (Encapsulated)는 8비트 기준, Native는 원본 bitsStored 기준
-    const defaultBits = isEncapsulated ? 8 : (imageInfo.bitsStored ?? 8);
-    const currentWC = windowCenterRef.current ?? Math.pow(2, defaultBits - 1);
-    const currentWW = windowWidthRef.current ?? Math.pow(2, defaultBits);
-
-    // 드래그 감도 (이미지 크기에 비례)
-    const sensitivity = Math.max(1, currentWW / 256);
-
-    // 수평 드래그: Window Width 조정
-    // 수직 드래그: Window Center 조정
-    const newWW = Math.max(1, currentWW + deltaX * sensitivity);
-    const newWC = currentWC - deltaY * sensitivity;
-
-    // ref 먼저 업데이트 (renderFrame에서 사용)
-    windowWidthRef.current = newWW;
-    windowCenterRef.current = newWC;
-
-    // 상태 업데이트 (UI 표시용)
-    setWindowWidth(newWW);
-    setWindowCenter(newWC);
-
-    // 즉시 재렌더링
-    renderFrame(currentFrame);
-  }, [imageInfo, currentFrame, renderFrame, isEncapsulated]);
-
-  const handleMouseUp = useCallback(() => {
-    isDraggingRef.current = false;
-  }, []);
-
+  // 우클릭 메뉴 방지 (Tool System이 우클릭 사용)
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
-    e.preventDefault(); // 우클릭 메뉴 방지
+    e.preventDefault();
   }, []);
 
   // 키보드 이벤트 핸들러
@@ -698,55 +778,18 @@ export const DicomViewport = forwardRef<DicomViewportHandle, DicomViewportProps>
         e.preventDefault();
         setFps((prev) => Math.max(1, prev - 5));
         break;
-      case 'r': // Window/Level 리셋
+      case 'r': // 전체 리셋 (W/L + Pan + Zoom)
       case 'R':
         e.preventDefault();
-        resetWindowLevel();
+        resetViewport();
         break;
     }
-  }, [togglePlay, prevFrame, nextFrame, resetWindowLevel]);
+  }, [togglePlay, prevFrame, nextFrame, resetViewport]);
 
-  // 로딩 상태 UI
-  if (isLoading) {
-    return (
-      <div style={{
-        // 반응형 모드면 부모 채우기, 아니면 고정 크기
-        ...(responsive ? { width: '100%', height: '100%' } : { width, height }),
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: '#1a1a2e',
-        border: '1px solid #444',
-        borderRadius: '4px',
-        color: '#8cf',
-        fontSize: '14px',
-      }}>
-        Loading DICOM data...
-      </div>
-    );
-  }
-
-  // 에러 상태 UI
-  if (loadError) {
-    return (
-      <div style={{
-        // 반응형 모드면 부모 채우기, 아니면 고정 크기
-        ...(responsive ? { width: '100%', height: '100%' } : { width, height }),
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: '#2a1a1a',
-        border: '1px solid #a44',
-        borderRadius: '4px',
-        color: '#f88',
-        fontSize: '14px',
-        padding: '20px',
-        textAlign: 'center',
-      }}>
-        Error: {loadError.message}
-      </div>
-    );
-  }
+  // 로딩/에러 상태에서도 캔버스 컨테이너는 항상 렌더링 (Tool System 이벤트 리스너 유지)
+  // 조건부 렌더링하면 DOM 요소가 재생성되어 이벤트 리스너가 끊어짐
+  const showLoadingOverlay = isLoading;
+  const showErrorOverlay = !isLoading && loadError;
 
   return (
     <div
@@ -786,22 +829,32 @@ export const DicomViewport = forwardRef<DicomViewportHandle, DicomViewportProps>
             W/L: {Math.round(windowWidth)} / {Math.round(windowCenter)}
           </span>
         )}
+        {(zoom !== 1.0 || pan.x !== 0 || pan.y !== 0) && (
+          <span style={{ color: '#cf8' }}>
+            Zoom: {zoom.toFixed(1)}x | Pan: ({Math.round(pan.x)}, {Math.round(pan.y)})
+          </span>
+        )}
       </div>
 
-      {/* 캔버스 컨테이너 (렌더 에러 오버레이 포함) */}
-      <div style={{
-        position: 'relative',
-        width,
-        height,
-        marginBottom: '10px',
-        // 반응형 모드일 때 남은 공간 채우기
-        ...(responsive && {
-          flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }),
-      }}>
+      {/* 캔버스 컨테이너 (Tool System + 렌더 에러 오버레이 포함) */}
+      <div
+        ref={canvasContainerRef}
+        style={{
+          position: 'relative',
+          width,
+          height,
+          marginBottom: '10px',
+          overflow: 'hidden', // Pan/Zoom 시 캔버스가 컨테이너를 벗어나지 않도록
+          // 반응형 모드일 때 남은 공간 채우기
+          ...(responsive && {
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }),
+        }}
+        onContextMenu={handleContextMenu}
+      >
         <canvas
           ref={canvasRef}
           // 드로잉 버퍼 크기: DPR 배율 적용 (Retina에서 선명한 렌더링)
@@ -814,13 +867,11 @@ export const DicomViewport = forwardRef<DicomViewportHandle, DicomViewportProps>
             // CSS 크기: 원래 크기 유지 (화면 표시 크기)
             width: `${width}px`,
             height: `${height}px`,
-            cursor: isDraggingRef.current ? 'crosshair' : 'default',
+            // Pan/Zoom 적용 (CSS Transform)
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            transformOrigin: 'center center',
+            cursor: 'crosshair',
           }}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-          onContextMenu={handleContextMenu}
         />
 
         {/* 렌더링 에러 오버레이 */}
@@ -858,6 +909,48 @@ export const DicomViewport = forwardRef<DicomViewportHandle, DicomViewportProps>
             >
               Retry
             </button>
+          </div>
+        )}
+
+        {/* 로딩 오버레이 - 캔버스 컨테이너 위에 표시하여 DOM 요소 유지 */}
+        {showLoadingOverlay && (
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(26, 26, 46, 0.95)',
+            color: '#8cf',
+            fontSize: '14px',
+            zIndex: 10,
+          }}>
+            Loading DICOM data...
+          </div>
+        )}
+
+        {/* 에러 오버레이 - 캔버스 컨테이너 위에 표시하여 DOM 요소 유지 */}
+        {showErrorOverlay && (
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(42, 26, 26, 0.95)',
+            color: '#f88',
+            fontSize: '14px',
+            padding: '20px',
+            textAlign: 'center',
+            zIndex: 10,
+          }}>
+            Error: {loadError?.message}
           </div>
         )}
       </div>
@@ -949,13 +1042,74 @@ export const DicomViewport = forwardRef<DicomViewportHandle, DicomViewportProps>
               />
             </div>
           </div>
-
-          {/* 도움말 */}
-          <div style={{ marginTop: '10px', fontSize: '11px', color: '#888' }}>
-            Space: 재생/정지 | ← →: 프레임 이동 | ↑ ↓: FPS 조절 | 우클릭 드래그: W/L 조정 | R: W/L 리셋
-          </div>
         </div>
       )}
+
+      {/* 도구 설명 - 항상 표시, 정지/동영상 모드에 따라 다르게 표시 */}
+      <div style={{
+        marginTop: '12px',
+        padding: '10px',
+        background: '#1a1a2e',
+        borderRadius: '4px',
+        fontSize: '12px',
+        color: '#aaa',
+      }}>
+        <div style={{ marginBottom: '8px', color: '#8cf', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          🖱️ 마우스 도구
+          <span style={{
+            fontSize: '10px',
+            padding: '2px 6px',
+            borderRadius: '3px',
+            background: isStaticImage ? '#2a4a2a' : '#2a2a4a',
+            color: isStaticImage ? '#8f8' : '#88f',
+          }}>
+            {isStaticImage ? '정지 이미지' : '동영상'}
+          </span>
+        </div>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(2, 1fr)',
+          gap: '6px 16px',
+        }}>
+          <div><span style={{ color: '#fff' }}>우클릭 드래그</span> → Window/Level (밝기/대비)</div>
+          <div><span style={{ color: '#fff' }}>중클릭 드래그</span> → Pan (이미지 이동)</div>
+          <div><span style={{ color: '#fff' }}>Shift + 좌클릭</span> → Zoom (확대/축소)</div>
+          {/* 휠 동작: 정지 이미지=줌, 동영상=프레임 전환 */}
+          <div>
+            <span style={{ color: '#fff' }}>휠 스크롤</span> →{' '}
+            {isStaticImage ? (
+              <span style={{ color: '#cf8' }}>Zoom (확대/축소)</span>
+            ) : (
+              <span>프레임 전환</span>
+            )}
+          </div>
+        </div>
+        {/* 키보드 단축키 - 동영상 모드에서만 표시 */}
+        {!isStaticImage && (
+          <>
+            <div style={{ marginTop: '10px', marginBottom: '6px', color: '#cf8', fontWeight: 'bold' }}>
+              ⌨️ 키보드 단축키
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px' }}>
+              <span><span style={{ color: '#fff' }}>Space</span> 재생/정지</span>
+              <span><span style={{ color: '#fff' }}>← →</span> 프레임 이동</span>
+              <span><span style={{ color: '#fff' }}>↑ ↓</span> FPS 조절</span>
+              <span><span style={{ color: '#fff' }}>R</span> 전체 리셋</span>
+            </div>
+          </>
+        )}
+        {/* 정지 이미지 모드 - R 키 설명만 표시 */}
+        {isStaticImage && (
+          <>
+            <div style={{ marginTop: '10px', marginBottom: '6px', color: '#cf8', fontWeight: 'bold' }}>
+              ⌨️ 키보드 단축키
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px' }}>
+              <span><span style={{ color: '#fff' }}>R</span> 전체 리셋</span>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 });

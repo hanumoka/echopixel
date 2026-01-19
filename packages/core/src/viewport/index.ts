@@ -4,6 +4,7 @@ export type {
   WindowLevel,
   ViewportPlaybackState,
   ViewportSeriesInfo,
+  ViewportTransform,
   Viewport,
   CreateViewportOptions,
   LayoutType,

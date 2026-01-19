@@ -17,12 +17,24 @@
 import type {
   Viewport,
   ViewportSeriesInfo,
+  ViewportTransform,
   Rect,
   CreateViewportOptions,
   LayoutType,
   LayoutConfig,
   WindowLevel,
 } from './types';
+
+/**
+ * 기본 변환 상태 생성
+ */
+function createDefaultTransform(): ViewportTransform {
+  return {
+    pan: { x: 0, y: 0 },
+    zoom: 1.0,
+    rotation: 0,
+  };
+}
 
 /**
  * 고유 ID 생성 함수
@@ -96,6 +108,7 @@ export class ViewportManager {
         lastFrameTime: 0,
       },
       windowLevel: null,
+      transform: createDefaultTransform(),
       textureUnit,
       active: true,
     };
@@ -228,6 +241,94 @@ export class ViewportManager {
     }
 
     viewport.active = active;
+  }
+
+  // ===== Transform 관련 메서드 (Tool System용) =====
+
+  /**
+   * 뷰포트 Pan 설정
+   *
+   * 이미지 이동 오프셋을 설정합니다.
+   *
+   * @param viewportId - 뷰포트 ID
+   * @param pan - 이동 오프셋 { x, y } (픽셀 단위)
+   */
+  setViewportPan(viewportId: string, pan: { x: number; y: number }): void {
+    const viewport = this.viewports.get(viewportId);
+    if (!viewport) {
+      throw new Error(`Viewport not found: ${viewportId}`);
+    }
+
+    viewport.transform.pan = { ...pan };
+  }
+
+  /**
+   * 뷰포트 Zoom 설정
+   *
+   * 이미지 확대 배율을 설정합니다.
+   *
+   * @param viewportId - 뷰포트 ID
+   * @param zoom - 확대 배율 (1.0 = 원본 크기)
+   */
+  setViewportZoom(viewportId: string, zoom: number): void {
+    const viewport = this.viewports.get(viewportId);
+    if (!viewport) {
+      throw new Error(`Viewport not found: ${viewportId}`);
+    }
+
+    // 범위 제한 (0.1 ~ 10.0)
+    viewport.transform.zoom = Math.max(0.1, Math.min(10.0, zoom));
+  }
+
+  /**
+   * 뷰포트 Rotation 설정
+   *
+   * 이미지 회전 각도를 설정합니다 (미래용).
+   *
+   * @param viewportId - 뷰포트 ID
+   * @param rotation - 회전 각도 (degree)
+   */
+  setViewportRotation(viewportId: string, rotation: number): void {
+    const viewport = this.viewports.get(viewportId);
+    if (!viewport) {
+      throw new Error(`Viewport not found: ${viewportId}`);
+    }
+
+    // 0 ~ 360 범위로 정규화
+    viewport.transform.rotation = ((rotation % 360) + 360) % 360;
+  }
+
+  /**
+   * 뷰포트 Transform 초기화
+   *
+   * Pan, Zoom, Rotation을 기본값으로 리셋합니다.
+   *
+   * @param viewportId - 뷰포트 ID
+   */
+  resetViewportTransform(viewportId: string): void {
+    const viewport = this.viewports.get(viewportId);
+    if (!viewport) {
+      throw new Error(`Viewport not found: ${viewportId}`);
+    }
+
+    viewport.transform = createDefaultTransform();
+  }
+
+  /**
+   * 뷰포트 전체 리셋
+   *
+   * Transform과 Window/Level을 모두 기본값으로 리셋합니다.
+   *
+   * @param viewportId - 뷰포트 ID
+   */
+  resetViewport(viewportId: string): void {
+    const viewport = this.viewports.get(viewportId);
+    if (!viewport) {
+      throw new Error(`Viewport not found: ${viewportId}`);
+    }
+
+    viewport.transform = createDefaultTransform();
+    viewport.windowLevel = null;
   }
 
   /**

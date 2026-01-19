@@ -144,6 +144,7 @@ export type {
   WindowLevel,
   ViewportPlaybackState,
   ViewportSeriesInfo,
+  ViewportTransform,
   Viewport,
   CreateViewportOptions,
   LayoutType,
@@ -180,3 +181,54 @@ export type {
   SyncOptions,
   HybridViewportManagerOptions,
 } from './hybrid';
+
+// Tool System
+export {
+  // Types and Enums
+  MouseBindings,
+  KeyboardModifiers,
+  ToolModes,
+  // Base Tool
+  BaseTool,
+  // Registry
+  ToolRegistry,
+  addTool,
+  removeTool,
+  hasTool,
+  getRegisteredToolNames,
+  // Tool Management
+  ToolGroup,
+  ToolGroupManager,
+  // Event Normalizer
+  normalizeMouseEvent,
+  normalizeWheelEvent,
+  matchesBinding,
+  // Manipulation Tools
+  WindowLevelTool,
+  PanTool,
+  ZoomTool,
+  StackScrollTool,
+  // React Integration
+  useToolGroup,
+} from './tools';
+
+export type {
+  // Tool Types
+  ToolBinding,
+  NormalizedMouseEvent,
+  ToolConfiguration,
+  ToolState,
+  ToolActivationOptions,
+  ToolConstructor,
+  ITool,
+  // Tool Configuration Types
+  WindowLevelToolConfiguration,
+  PanToolConfiguration,
+  ZoomToolConfiguration,
+  StackScrollToolConfiguration,
+  // React Hook Types
+  UseToolGroupOptions,
+  UseToolGroupReturn,
+  ViewportManagerLike,
+  DefaultToolBindings,
+} from './tools';
