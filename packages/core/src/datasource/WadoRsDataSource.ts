@@ -45,6 +45,10 @@ export class WadoRsDataSource implements DataSource {
 
   // 진행 중인 요청 (중복 방지)
   private pendingMetadata: Map<string, Promise<DicomMetadata>> = new Map();
+  // TODO: pendingFrames 중복 요청 방지 로직 미구현
+  // - 현재: 선언만 되어 있고 실제 사용되지 않음
+  // - 필요 시점: 프리페칭 기능 구현 시 (Phase 2 네트워크 고급)
+  // - 구현 방법: pendingMetadata와 동일한 패턴으로 loadFrameWithFormat()에 적용
   private pendingFrames: Map<string, Promise<Uint8Array>> = new Map();
 
   constructor(config: WadoRsConfig) {
