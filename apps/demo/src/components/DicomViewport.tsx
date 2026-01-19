@@ -62,6 +62,8 @@ export interface DicomViewportProps {
   instanceId?: DicomInstanceId;
 
   // === 공통 ===
+  /** 뷰포트 고유 ID (Multi Canvas 모드에서 각 뷰포트를 구분하기 위해 필요) */
+  viewportId?: string;
   /** 캔버스 너비 (responsive=false일 때 사용) */
   width?: number;
   /** 캔버스 높이 (responsive=false일 때 사용) */
@@ -84,6 +86,7 @@ export const DicomViewport = forwardRef<DicomViewportHandle, DicomViewportProps>
   isEncapsulated: propIsEncapsulated,
   dataSource,
   instanceId,
+  viewportId: propViewportId,
   width: propWidth = 512,
   height: propHeight = 512,
   responsive = false,
@@ -142,8 +145,11 @@ export const DicomViewport = forwardRef<DicomViewportHandle, DicomViewportProps>
   // 반응형 모드를 위한 계산된 크기
   const [computedSize, setComputedSize] = useState({ width: propWidth, height: propHeight });
 
-  // Tool System용 뷰포트 ID (고정)
-  const viewportId = 'single-viewport';
+  // Tool System용 뷰포트 ID
+  // Multi Canvas 모드에서는 각 뷰포트마다 고유한 ID가 필요함
+  // 기본값 'single-viewport'는 Single Viewport 모드 호환성을 위해 유지
+  const viewportId = propViewportId ?? 'single-viewport';
+  const toolGroupId = `${viewportId}-tools`;
 
   // W/L 기본값 계산용 ref (imageInfo 변경 시 업데이트)
   const defaultBitsRef = useRef(8);
@@ -224,7 +230,7 @@ export const DicomViewport = forwardRef<DicomViewportHandle, DicomViewportProps>
   // 정지 이미지: 휠 → Zoom
   // 동영상: 휠 → StackScroll (프레임 전환)
   const { resetAllViewports } = useToolGroup({
-    toolGroupId: 'single-viewport-tools',
+    toolGroupId,  // 뷰포트별 고유 ID 사용
     viewportManager,
     viewportElements,
     viewportElementsKey: viewportElementsVersion, // Map 변경 시 재등록 트리거

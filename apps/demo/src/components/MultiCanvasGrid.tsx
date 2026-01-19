@@ -534,8 +534,10 @@ export function MultiCanvasGrid({
               }}
             >
               {/* DicomViewport - ref로 외부 제어 가능 */}
+              {/* viewportId: Tool System에서 각 뷰포트를 구분하기 위한 고유 ID */}
               <DicomViewport
                 ref={(handle) => setViewportRef(slot.id, handle)}
+                viewportId={slot.id}
                 dataSource={dataSource}
                 instanceId={{
                   studyInstanceUid: studyUid,
