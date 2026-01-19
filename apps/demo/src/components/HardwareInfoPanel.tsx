@@ -16,11 +16,30 @@ import {
   type RenderStats,
 } from '@echopixel/core';
 
+/**
+ * 텍스처 메모리 사용 정보
+ */
+export interface TextureMemoryInfo {
+  /** 뷰포트별 텍스처 메모리 (bytes) */
+  viewports: {
+    viewportId: string;
+    width: number;
+    height: number;
+    layers: number;
+    bytesPerPixel: number;
+    totalBytes: number;
+  }[];
+  /** 전체 텍스처 메모리 합계 (bytes) */
+  totalBytes: number;
+}
+
 interface HardwareInfoPanelProps {
   /** WebGL 컨텍스트 (선택적, 없으면 자체 생성) */
   gl?: WebGL2RenderingContext | null;
   /** 런타임 성능 통계 */
   renderStats?: RenderStats | null;
+  /** 텍스처 메모리 사용 정보 */
+  textureMemory?: TextureMemoryInfo | null;
   /** 패널 초기 열림 상태 */
   defaultOpen?: boolean;
   /** 패널 위치 */
@@ -33,6 +52,7 @@ interface HardwareInfoPanelProps {
 export function HardwareInfoPanel({
   gl,
   renderStats,
+  textureMemory,
   defaultOpen = false,
   position = 'right',
 }: HardwareInfoPanelProps) {
@@ -192,6 +212,51 @@ export function HardwareInfoPanel({
                   label="Anisotropy"
                   value={hardwareInfo.gpu.maxAnisotropy ? `${hardwareInfo.gpu.maxAnisotropy}x` : 'N/A'}
                 />
+
+                {/* Texture Memory Estimation */}
+                <SectionTitle>Estimated GPU Memory (Textures)</SectionTitle>
+                {textureMemory && textureMemory.viewports.length > 0 ? (
+                  <>
+                    <InfoRow
+                      label="Total Texture Memory"
+                      value={formatBytes(textureMemory.totalBytes)}
+                      highlight
+                    />
+                    <div
+                      style={{
+                        marginTop: '8px',
+                        padding: '8px',
+                        backgroundColor: '#1a1a1a',
+                        borderRadius: '4px',
+                        fontSize: '10px',
+                      }}
+                    >
+                      <div style={{ color: '#888', marginBottom: '4px' }}>
+                        Loaded Viewports ({textureMemory.viewports.length})
+                      </div>
+                      {textureMemory.viewports.map((vp) => (
+                        <div
+                          key={vp.viewportId}
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            padding: '2px 0',
+                            borderBottom: '1px solid #333',
+                          }}
+                        >
+                          <span style={{ color: '#aaa' }}>
+                            {vp.viewportId.slice(0, 8)}... ({vp.width}x{vp.height}x{vp.layers})
+                          </span>
+                          <span style={{ color: '#4cf' }}>{formatBytes(vp.totalBytes)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ color: '#888', fontStyle: 'italic', fontSize: '11px' }}>
+                    No textures loaded. Load DICOM files to see memory usage.
+                  </div>
+                )}
 
                 {/* Extensions Toggle */}
                 <button

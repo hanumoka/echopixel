@@ -27,7 +27,7 @@ import {
 import { DicomViewport } from './components/DicomViewport';
 import { MultiCanvasGrid } from './components/MultiCanvasGrid';
 import { HybridMultiViewport, type SeriesData as HybridSeriesData } from './components/HybridViewport';
-import { HardwareInfoPanel } from './components/HardwareInfoPanel';
+import { HardwareInfoPanel, type TextureMemoryInfo } from './components/HardwareInfoPanel';
 
 type ViewMode = 'single' | 'multi' | 'multi-canvas' | 'hybrid';
 type DataSourceMode = 'local' | 'wado-rs';
@@ -124,6 +124,67 @@ export default function App() {
   const textureManagersRef = useRef<Map<string, TextureManager>>(new Map());
   const arrayRendererRef = useRef<ArrayTextureRenderer | null>(null);
   const [viewports, setViewports] = useState<Viewport[]>([]);
+
+  // 텍스처 메모리 사용량 계산 (Multi 모드에서 viewports 기반)
+  const textureMemoryInfo = useMemo<TextureMemoryInfo | null>(() => {
+    if (viewports.length === 0) return null;
+
+    const viewportMemory = viewports
+      .filter((vp) => vp.series)
+      .map((vp) => {
+        const width = vp.series!.imageWidth;
+        const height = vp.series!.imageHeight;
+        const layers = vp.series!.frameCount;
+        // RGBA = 4 bytes per pixel
+        const bytesPerPixel = 4;
+        const totalBytes = width * height * layers * bytesPerPixel;
+
+        return {
+          viewportId: vp.id,
+          width,
+          height,
+          layers,
+          bytesPerPixel,
+          totalBytes,
+        };
+      });
+
+    const totalBytes = viewportMemory.reduce((sum, vp) => sum + vp.totalBytes, 0);
+
+    return {
+      viewports: viewportMemory,
+      totalBytes,
+    };
+  }, [viewports]);
+
+  // Hybrid 모드용 텍스처 메모리 계산
+  const hybridTextureMemoryInfo = useMemo<TextureMemoryInfo | null>(() => {
+    if (hybridSeriesMap.size === 0) return null;
+
+    const viewportMemory = Array.from(hybridSeriesMap.entries()).map(([uid, data]) => {
+      const width = data.info.imageWidth;
+      const height = data.info.imageHeight;
+      const layers = data.info.frameCount;
+      const bytesPerPixel = 4;
+      const totalBytes = width * height * layers * bytesPerPixel;
+
+      return {
+        viewportId: uid,
+        width,
+        height,
+        layers,
+        bytesPerPixel,
+        totalBytes,
+      };
+    });
+
+    const totalBytes = viewportMemory.reduce((sum, vp) => sum + vp.totalBytes, 0);
+
+    return {
+      viewports: viewportMemory,
+      totalBytes,
+    };
+  }, [hybridSeriesMap]);
 
   // DICOM 파일 처리
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -711,6 +772,7 @@ export default function App() {
       <HardwareInfoPanel
         gl={glRef.current}
         renderStats={multiViewportReady ? { fps: multiStats.fps, frameTime: multiStats.frameTime, lastRenderTime: multiStats.frameTime } : undefined}
+        textureMemory={viewMode === 'multi' ? textureMemoryInfo : viewMode === 'hybrid' ? hybridTextureMemoryInfo : null}
         defaultOpen={false}
         position="right"
       />
