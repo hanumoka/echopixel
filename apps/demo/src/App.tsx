@@ -757,7 +757,7 @@ export default function App() {
           isEncapsulated: metadata.isEncapsulated,
         });
       } catch (err) {
-        console.error(`[Hybrid] Failed to load ${uid}:`, err);
+        console.error(`[Hybrid-Multi] Failed to load ${uid}:`, err);
       }
     }
 
@@ -840,7 +840,7 @@ export default function App() {
             fontWeight: viewMode === 'hybrid' ? 'bold' : 'normal',
           }}
         >
-          Hybrid (DOM+WebGL)
+          Hybrid-Multi
         </button>
       </div>
 
@@ -1975,7 +1975,7 @@ export default function App() {
         </div>
       )}
 
-      {/* === Hybrid 모드 (DOM + WebGL) === */}
+      {/* === Hybrid-Multi 모드 (DOM + WebGL) === */}
       {viewMode === 'hybrid' && (
         <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 150px)', minHeight: '400px' }}>
           {/* 에러 표시 */}
@@ -2119,7 +2119,7 @@ export default function App() {
                   fontWeight: 'bold',
                 }}
               >
-                {hybridLoading ? multiLoadingStatus : `Hybrid 로드 (${selectedUids.size}개)`}
+                {hybridLoading ? multiLoadingStatus : `Hybrid-Multi 로드 (${selectedUids.size}개)`}
               </button>
             </div>
 
@@ -2237,7 +2237,7 @@ export default function App() {
                 layout={layout}
                 seriesMap={hybridSeriesMap}
                 syncMode="frame-ratio"
-                onViewportClick={(id) => console.log('[Hybrid] Clicked:', id)}
+                onViewportClick={(id) => console.log('[Hybrid-Multi] Clicked:', id)}
               />
             </div>
           )}
@@ -2252,10 +2252,10 @@ export default function App() {
               color: '#888',
             }}>
               <p style={{ marginBottom: '10px' }}>
-                Instance를 스캔하고 선택한 후 'Hybrid 로드' 버튼을 클릭하세요.
+                Instance를 스캔하고 선택한 후 'Hybrid-Multi 로드' 버튼을 클릭하세요.
               </p>
               <p style={{ fontSize: '12px', color: '#666' }}>
-                Hybrid 모드는 Single WebGL Canvas 위에 DOM 기반 슬롯을 오버레이하여
+                Hybrid-Multi 모드는 Single WebGL Canvas 위에 DOM 기반 슬롯을 오버레이하여
                 <br />
                 유연한 이벤트 처리와 고성능 렌더링을 동시에 달성합니다.
               </p>
