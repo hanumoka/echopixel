@@ -504,31 +504,33 @@ export default function App() {
         // 모든 프레임 디코딩 및 텍스처 업로드
         const decodedFrames: ImageBitmap[] = [];
 
-        for (const frameData of frames) {
-          let decoded;
-          if (metadata.isEncapsulated) {
-            decoded = await decodeJpeg(frameData);
-          } else {
-            decoded = await decodeNative(frameData, {
-              imageInfo: metadata.imageInfo,
-            });
+        try {
+          for (const frameData of frames) {
+            let decoded;
+            if (metadata.isEncapsulated) {
+              decoded = await decodeJpeg(frameData);
+            } else {
+              decoded = await decodeNative(frameData, {
+                imageInfo: metadata.imageInfo,
+              });
+            }
+
+            // ImageBitmap으로 변환
+            if (decoded.image instanceof VideoFrame) {
+              const bitmap = await createImageBitmap(decoded.image);
+              closeDecodedFrame(decoded);
+              decodedFrames.push(bitmap);
+            } else {
+              decodedFrames.push(decoded.image as ImageBitmap);
+            }
           }
 
-          // ImageBitmap으로 변환
-          if (decoded.image instanceof VideoFrame) {
-            const bitmap = await createImageBitmap(decoded.image);
-            closeDecodedFrame(decoded);
-            decodedFrames.push(bitmap);
-          } else {
-            decodedFrames.push(decoded.image as ImageBitmap);
-          }
+          // 배열 텍스처에 업로드
+          textureManager.uploadAllFrames(decodedFrames);
+        } finally {
+          // ImageBitmap 정리 (성공/실패 모두 반드시 실행)
+          decodedFrames.forEach((bmp) => bmp.close());
         }
-
-        // 배열 텍스처에 업로드
-        textureManager.uploadAllFrames(decodedFrames);
-
-        // ImageBitmap 정리
-        decodedFrames.forEach((bmp) => bmp.close());
 
         console.log(`[MultiViewport] Loaded ${frames.length} frames for viewport ${i + 1}`);
       } catch (err) {
