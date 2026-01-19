@@ -67,17 +67,16 @@ export async function retryFetch(
   let lastError: NetworkError | null = null;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      // AbortController로 타임아웃 구현
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeout);
+    // AbortController로 타임아웃 구현
+    // try 밖에서 선언하여 finally에서 항상 정리 가능하도록 함
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+    try {
       const response = await fetch(url, {
         ...fetchOptions,
         signal: controller.signal,
       });
-
-      clearTimeout(timeoutId);
 
       // HTTP 에러 처리
       if (!response.ok) {
@@ -113,6 +112,9 @@ export async function retryFetch(
       }
 
       await sleep(delay);
+    } finally {
+      // 타이머 정리 (성공/실패 모두)
+      clearTimeout(timeoutId);
     }
   }
 
