@@ -3,35 +3,44 @@
 ## 시스템 구조
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                      EchoPixel Library                          │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│   ┌─────────────┐    ┌─────────────┐    ┌─────────────┐        │
-│   │ React Layer │    │ Core Engine │    │ Data Layer  │        │
-│   ├─────────────┤    ├─────────────┤    ├─────────────┤        │
-│   │ DicomViewport│◄──►│ViewportMgr │◄──►│LocalFile DS │        │
-│   │ MultiViewport│    │FrameSync   │    │WadoRs DS    │        │
-│   │ MultiCanvas │    │RenderSched │    │LRU Cache    │        │
-│   └─────────────┘    └─────────────┘    └─────────────┘        │
-│          │                  │                  │                │
-│          ▼                  ▼                  ▼                │
-│   ┌─────────────────────────────────────────────────────┐      │
-│   │                  WebGL Renderer                      │      │
-│   ├─────────────────────────────────────────────────────┤      │
-│   │ TextureManager │ QuadRenderer │ ArrayTextureRenderer│      │
-│   │ (2D / 2D Array)│ (single tex) │ (multi-frame)       │      │
-│   └─────────────────────────────────────────────────────┘      │
-│                            │                                    │
-│                            ▼                                    │
-│   ┌─────────────────────────────────────────────────────┐      │
-│   │                  DICOM Services                      │      │
-│   ├─────────────────────────────────────────────────────┤      │
-│   │  DicomParser  │  ImageDecoder  │  NativeDecoder     │      │
-│   │  (tag parsing)│  (WebCodecs)   │  (raw pixels)      │      │
-│   └─────────────────────────────────────────────────────┘      │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                        EchoPixel Library                             │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│   ┌──────────────┐   ┌──────────────┐   ┌──────────────┐            │
+│   │  React Layer │   │  Core Engine │   │  Data Layer  │            │
+│   ├──────────────┤   ├──────────────┤   ├──────────────┤            │
+│   │DicomViewport │◄─►│ViewportMgr   │◄─►│LocalFile DS  │            │
+│   │MultiViewport │   │HybridVPMgr   │   │WadoRs DS     │            │
+│   │HybridViewport│   │FrameSync     │   │LRU Cache     │            │
+│   └──────────────┘   │RenderSched   │   └──────────────┘            │
+│          │           └──────────────┘          │                     │
+│          │                  │                  │                     │
+│          ▼                  ▼                  ▼                     │
+│   ┌─────────────────────────────────────────────────────────┐       │
+│   │                     Tool System                          │       │
+│   ├─────────────────────────────────────────────────────────┤       │
+│   │ ToolRegistry │ ToolGroup │ BaseTool │ useToolGroup Hook │       │
+│   │ WindowLevel  │ Pan       │ Zoom     │ StackScroll       │       │
+│   └─────────────────────────────────────────────────────────┘       │
+│          │                  │                  │                     │
+│          ▼                  ▼                  ▼                     │
+│   ┌─────────────────────────────────────────────────────────┐       │
+│   │                  WebGL Renderer                          │       │
+│   ├─────────────────────────────────────────────────────────┤       │
+│   │ TextureManager │ QuadRenderer │ ArrayTextureRenderer    │       │
+│   │ (2D / 2D Array)│ (single tex) │ (multi-frame)           │       │
+│   └─────────────────────────────────────────────────────────┘       │
+│                            │                                         │
+│                            ▼                                         │
+│   ┌─────────────────────────────────────────────────────────┐       │
+│   │                  DICOM Services                          │       │
+│   ├─────────────────────────────────────────────────────────┤       │
+│   │  DicomParser  │  ImageDecoder  │  NativeDecoder         │       │
+│   │  (tag parsing)│  (WebCodecs)   │  (raw pixels)          │       │
+│   └─────────────────────────────────────────────────────────┘       │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -61,13 +70,28 @@ echopixel/
 │       │   ├── types.ts          # 동기화 타입
 │       │   ├── FrameSyncEngine.ts # 프레임 동기화
 │       │   └── RenderScheduler.ts # 렌더 스케줄러
+│       ├── tools/                # Tool System
+│       │   ├── types.ts          # 도구 타입 정의
+│       │   ├── BaseTool.ts       # 추상 기본 클래스
+│       │   ├── ToolRegistry.ts   # 전역 도구 등록
+│       │   ├── ToolGroup.ts      # 뷰포트별 도구 그룹
+│       │   ├── ToolManager.ts    # 도구 그룹 관리
+│       │   ├── useToolGroup.ts   # React 훅
+│       │   ├── eventNormalizer.ts # 이벤트 정규화
+│       │   └── manipulation/     # 기본 도구
+│       │       ├── WindowLevelTool.ts
+│       │       ├── PanTool.ts
+│       │       ├── ZoomTool.ts
+│       │       └── StackScrollTool.ts
 │       ├── viewport/
 │       │   ├── types.ts          # 뷰포트 타입
-│       │   └── ViewportManager.ts # 뷰포트 관리
+│       │   ├── ViewportManager.ts # 뷰포트 관리
+│       │   └── HybridViewportManager.ts # DOM-WebGL 좌표 동기화
 │       └── webgl/
 │           ├── shaders.ts        # GLSL 셰이더
 │           ├── TextureManager.ts # 텍스처 관리
-│           └── QuadRenderer.ts   # 렌더러 (Quad, ArrayTexture)
+│           ├── QuadRenderer.ts   # 단일 텍스처 렌더러
+│           └── ArrayTextureRenderer.ts # 배열 텍스처 렌더러
 │
 ├── apps/
 │   └── demo/src/                 # 데모 앱
@@ -75,7 +99,11 @@ echopixel/
 │       └── components/
 │           ├── DicomViewport.tsx # 단일 뷰포트
 │           ├── MultiViewport.tsx # 멀티뷰포트 (Phase 2)
-│           └── MultiCanvasGrid.tsx
+│           ├── MultiCanvasGrid.tsx
+│           └── HybridViewport/   # Hybrid DOM-WebGL
+│               ├── HybridMultiViewport.tsx
+│               ├── ViewportSlot.tsx
+│               └── ViewportOverlay.tsx
 │
 └── docs/                         # 문서
 ```
@@ -173,7 +201,39 @@ interface DataSource {
 
 ---
 
-### 5. React Components
+### 5. Tool System
+
+#### ToolRegistry
+- 전역 도구 클래스 등록
+- `addTool(ToolClass)`, `getTool(name)`, `hasTool(name)`
+
+#### ToolGroup
+- 뷰포트별 도구 그룹 관리
+- 마우스 바인딩 설정 (Primary, Secondary, Auxiliary, Wheel)
+- 키보드 수정자 지원 (Shift, Ctrl, Alt)
+- 도구 모드: Active, Passive, Enabled, Disabled
+
+#### 기본 도구 (manipulation/)
+| 도구 | 기본 바인딩 | 설명 |
+|------|-------------|------|
+| WindowLevelTool | 우클릭 드래그 | Window/Level 조정 |
+| PanTool | 중클릭 드래그 | 이미지 이동 |
+| ZoomTool | Shift+좌클릭, 휠 | 확대/축소 |
+| StackScrollTool | 휠 스크롤 | 프레임 전환 |
+
+#### useToolGroup 훅
+```typescript
+const { toolGroup, setToolActive, resetAllViewports } = useToolGroup({
+  toolGroupId: 'main',
+  viewportManager,
+  viewportElements,
+  isStaticImage: false,  // 정지 이미지: 휠 → Zoom
+});
+```
+
+---
+
+### 6. React Components
 
 #### DicomViewport
 - 단일 DICOM 뷰포트
@@ -188,6 +248,13 @@ interface DataSource {
 - ViewportManager + RenderScheduler + FrameSyncEngine 통합
 - 동기화 재생, FPS 제어
 - 뷰포트 선택, 통계 표시
+
+#### HybridMultiViewport (Phase 2)
+- **Hybrid DOM-WebGL 아키텍처**
+- DOM 오버레이로 이벤트 처리 (ViewportSlot)
+- WebGL로 고성능 렌더링 (Single Canvas)
+- Tool System 통합 (useToolGroup)
+- ResizeObserver 기반 좌표 동기화
 
 ---
 
@@ -254,10 +321,22 @@ Display 16 frames at 30fps, synchronized
 
 ---
 
-## 향후 계획 (Phase 3~5)
+## 향후 계획 (Phase 2.5~5)
 
 | Phase | 내용 |
 |-------|------|
-| Phase 3 | SVG 오버레이, 측정 도구 (거리, 영역, Doppler) |
-| Phase 4 | Plugin System |
-| Phase 5 | npm v1.0.0 배포, 멀티 벤더 테스트 |
+| **Phase 2.5** | Robustness (WebGL 컨텍스트 복구, LRU Texture Cache) |
+| **Phase 3** | Annotations (좌표 변환, SVG 오버레이, 측정 도구) |
+| **Phase 4** | Plugin System, 16-bit 텍스처 지원 |
+| **Phase 5** | npm v1.0.0 배포, 멀티 벤더 테스트 |
+
+### 메모리 아키텍처 결정 사항
+
+| 항목 | 전략 | 상태 |
+|------|------|------|
+| GPU-only 메모리 | Upload & Release 패턴 | ✅ 확정 |
+| Context Loss 복구 | 하이브리드 (압축캐시 → IndexedDB → 서버) | ⏳ Phase 2.5 |
+| VRAM 관리 | LRU Texture Cache | ⏳ Phase 2.5 |
+| 16-bit 지원 | R16UI, R16F 인터페이스 설계 | ⏳ Phase 4+ |
+
+> 상세: [memory-architecture-analysis.md](./memory-architecture-analysis.md)

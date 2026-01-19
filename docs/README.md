@@ -9,6 +9,7 @@ docs/
 ├── README.md                     # 이 파일 (문서 인덱스)
 ├── architecture/                 # 아키텍처 설계
 │   ├── overview.md               # 전체 아키텍처 개요
+│   ├── memory-architecture-analysis.md  # 메모리 아키텍처 ⭐
 │   └── multi-viewport-strategy-analysis.md  # 멀티뷰포트 전략
 ├── design/                       # 상세 설계
 │   ├── technical-stack.md        # 기술 스택 결정
@@ -32,6 +33,7 @@ docs/
 | 문서 | 설명 |
 |------|------|
 | [아키텍처 개요](./architecture/overview.md) | 시스템 구조, 모듈 구성 |
+| [메모리 아키텍처](./architecture/memory-architecture-analysis.md) | GPU 메모리, Context Loss, 16-bit 지원 ⭐ |
 | [멀티뷰포트 전략](./architecture/multi-viewport-strategy-analysis.md) | Hybrid DOM-WebGL, Tiered Rendering |
 | [기술 스택](./design/technical-stack.md) | 사용 기술 및 선정 이유 |
 | [성능 전략](./design/performance-strategy.md) | 16개 뷰포트 최적화 방법 |

@@ -6,8 +6,9 @@
 |-------|------|------|
 | 1 | Foundation (단일 뷰포트 cine 재생) | ✅ 완료 |
 | 2 | Multi-Viewport & Quality | 🔄 진행중 |
+| 2.5 | Robustness (안정성 강화) | ⏳ 대기 |
 | 3 | Annotations | ⏳ 대기 |
-| 4 | Plugin System | ⏳ 대기 |
+| 4 | Plugin System & Extensions | ⏳ 대기 |
 | 5 | Release | ⏳ 대기 |
 
 ### 성능 목표
@@ -115,19 +116,39 @@
 - [x] MultiViewport 컴포넌트
 - [x] MultiCanvasGrid 컴포넌트 (비교용)
 
-#### Hybrid DOM-WebGL (선택적 개선) ⏳
-- [ ] DOM Overlay Layer 추가 (이벤트/UI용)
-- [ ] ViewportSlot 컴포넌트 (getBoundingClientRect 동기화)
-- [ ] ResizeObserver 기반 좌표 동기화
+#### Hybrid DOM-WebGL 아키텍처 ✅
+- [x] HybridViewportManager (DOM-WebGL 좌표 동기화)
+- [x] ViewportSlot 컴포넌트 (DOM 오버레이)
+- [x] HybridMultiViewport 컴포넌트
+- [x] ResizeObserver 기반 좌표 동기화
+- [x] DOM 이벤트와 WebGL 렌더링 분리
 
 > 참고: `docs/architecture/multi-viewport-strategy-analysis.md`
+
+#### Tool System ✅
+- [x] BaseTool 추상 클래스 및 타입 시스템
+- [x] ToolRegistry (전역 도구 등록)
+- [x] ToolGroup (뷰포트별 도구 그룹)
+- [x] ToolGroupManager (도구 그룹 관리)
+- [x] 이벤트 정규화 (eventNormalizer)
+- [x] 마우스 바인딩 시스템 (Primary, Secondary, Auxiliary, Wheel)
+- [x] 키보드 수정자 지원 (Shift, Ctrl, Alt)
+
+**기본 도구 (manipulation/)**:
+- [x] WindowLevelTool (우클릭 드래그)
+- [x] PanTool (중클릭 드래그)
+- [x] ZoomTool (Shift+좌클릭 드래그, 휠)
+- [x] StackScrollTool (휠 스크롤)
+
+**React 통합**:
+- [x] useToolGroup 훅 (도구 시스템 통합)
+- [x] isStaticImage 옵션 (정지 이미지 모드)
 
 #### 남은 작업 ⏳
 - [x] 실제 DICOM 데이터 테스트 ✅
 - [x] 16개 뷰포트 30fps 성능 검증 ✅ (60fps 달성)
 - [ ] Progressive Quality Enhancement (PQE)
 - [ ] QIDO-RS (검색)
-- [ ] 캐시 관리 고도화
 - [ ] 디바이스 성능 감지
 - [ ] OffscreenCanvas 렌더링 옵션
 - [ ] H.264 스트림 옵션 (WebCodecs VideoDecoder)
@@ -135,8 +156,52 @@
 - [ ] 반응형 레이아웃 (브레이크포인트, 터치 제스처)
 - [ ] 네트워크 고급 (프리페칭, 대역폭 감지, SW 캐싱)
   - [ ] WadoRsDataSource.pendingFrames 중복 요청 방지 (선언만 됨, 미구현)
-- [ ] 에러 처리 고급 (컨텍스트 복구, 메모리 관리)
-- [ ] 스크롤/가시성 최적화 (IntersectionObserver)
+
+---
+
+## Phase 2.5: Robustness (안정성 강화) ⏳ 대기
+
+> **목표**: 프로덕션 환경에서의 안정성 확보
+> - WebGL 컨텍스트 손실 복구
+> - GPU 메모리 관리 최적화
+> - 에러 복구 및 graceful degradation
+
+### 작업 항목
+
+#### WebGL Context Loss Recovery ⏳
+WebGL 컨텍스트가 손실될 때 (탭 전환, GPU 리셋 등) 자동 복구:
+
+- [ ] webglcontextlost / webglcontextrestored 이벤트 핸들러
+- [ ] CompressedFrameCache (LZ4/Brotli 압축 캐시)
+- [ ] IndexedDB 백업 캐시 (선택적, 대용량/오프라인용)
+- [ ] 복구 UI (로딩 표시, 진행률)
+- [ ] 복구 실패 시 서버 재요청 폴백
+
+**복구 우선순위**:
+```
+1순위: 압축 캐시 (메모리) → 빠름, ~50ms
+2순위: IndexedDB 캐시 (디스크) → 중간, ~200ms
+3순위: 서버 재요청 (네트워크) → 느림, ~2-5s
+```
+
+> 참고: `docs/architecture/memory-architecture-analysis.md`
+
+#### LRU Texture Cache ⏳
+16개 뷰포트 동시 운영 시 GPU VRAM 관리:
+
+- [ ] TextureCacheManager (LRU 기반 텍스처 캐시)
+- [ ] VRAM 사용량 추적 (예측 기반)
+- [ ] 자동 텍스처 해제 (inactive viewport)
+- [ ] 우선순위 기반 로딩 (visible viewport 우선)
+
+**Phase 3+ 선택적 확장**:
+- [ ] IntersectionObserver 기반 가시성 감지
+- [ ] 썸네일 텍스처 폴백 (VRAM 부족 시)
+
+#### 메모리 모니터링 ⏳
+- [ ] GPU 메모리 사용량 대시보드 (개발자용)
+- [ ] 메모리 경고 시스템
+- [ ] 자동 GC 트리거
 
 ---
 
@@ -148,9 +213,26 @@
 
 ### 작업 항목
 
+#### 좌표 변환 시스템 (선행 작업)
+어노테이션 구현 전 필수 인프라:
+
+- [ ] CoordinateTransformer 클래스
+  - Screen → Canvas 변환
+  - Canvas → Viewport (정규화 좌표)
+  - Viewport → DICOM Pixel (이미지 좌표)
+  - DICOM Pixel → World (mm 단위)
+- [ ] Pan/Zoom 상태 반영
+- [ ] 역변환 지원 (World → Screen)
+
+#### DicomMetadataCache ⏳
+DICOM 메타데이터 캐싱 (좌표 변환, 측정에 필요):
+
+- [ ] Pixel Spacing 추출 및 캐싱
+- [ ] Image Position/Orientation
+- [ ] Calibration 정보
+
 #### 어노테이션 엔진
 - [ ] DOM Overlay 기반 SVG 레이어
-- [ ] 좌표 변환 시스템 (Screen → Canvas → DICOM Pixel → World)
 - [ ] 핸들/그립 인터랙션 (DOM 이벤트 활용)
 - [ ] 상태 머신 (생성/편집/선택)
 
@@ -171,7 +253,7 @@
 
 ---
 
-## Phase 4: Plugin System ⏳ 대기
+## Phase 4: Plugin System & Extensions ⏳ 대기
 
 ### 작업 항목
 
@@ -190,6 +272,27 @@
 - [ ] usePlugin 훅
 - [ ] 플러그인 설정 UI
 - [ ] 동적 플러그인 로딩
+
+#### 16-bit 텍스처 지원 (미래 확장)
+> **참고**: 심초음파의 99%+ 임상 데이터는 8-bit JPEG.
+> 16-bit는 연구용/특수 케이스에만 필요.
+
+**구현 작업**:
+- [ ] R16UI 텍스처 포맷 지원
+- [ ] R16F 텍스처 포맷 지원 (HDR용)
+- [ ] 16-bit 전용 Fragment Shader
+- [ ] RawPixelDecoder 16-bit 처리
+
+**인터페이스 설계** (선행 가능):
+```typescript
+interface TextureFormat {
+  type: 'R8' | 'R16UI' | 'R16F' | 'RGBA8';
+  bitsPerSample: 8 | 16;
+  internalFormat: GLenum;
+}
+```
+
+> 상세: `docs/architecture/memory-architecture-analysis.md` 섹션 10
 
 ---
 
@@ -267,17 +370,34 @@ Phase 2 (Multi-Viewport) 🔄 ────────────────�
     │                      │
     ├── ViewportManager ✅ ┼── FrameSyncEngine ✅
     │                      │
-    ├── CacheManager ⏳ ───┴── Prefetcher ⏳
+    ├── Hybrid DOM-WebGL ✅ ┼── Tool System ✅
+    │                      │
+    └── useToolGroup ✅ ───┴── DOM Overlay Layer ✅
+                                    │
+                                    v
+Phase 2.5 (Robustness) ⏳ ───────────────────────
     │
-    └── Hybrid DOM-WebGL ⏳ ── DOM Overlay Layer
+    ├── Context Loss Recovery ⏳
+    │   ├── CompressedFrameCache
+    │   └── IndexedDB Cache (선택적)
+    │
+    └── LRU Texture Cache ⏳
+        └── VRAM 관리
                                     │
                                     v
 Phase 3 (Annotations) ⏳ ────────────────────────
-    │                        (DOM Overlay 기반)
-    v
-Phase 4 (Plugin System) ⏳ ──────────────────────
     │
-    v
+    ├── CoordinateTransformer (선행)
+    ├── DicomMetadataCache
+    └── SVG Overlay Layer
+                                    │
+                                    v
+Phase 4 (Plugin & Extensions) ⏳ ────────────────
+    │
+    ├── Plugin API
+    └── 16-bit Texture 지원 (미래)
+                                    │
+                                    v
 Phase 5 (Release) ⏳ ────────────────────────────
 ```
 
@@ -291,4 +411,22 @@ Phase 5 (Release) ⏳ ───────────────────�
 | Safari WebCodecs 미지원 | 일부 성능 저하 | createImageBitmap 폴백 | ✅ 구현 |
 | GPU 메모리 부족 | 성능 저하 | LRU 캐시 | ✅ 구현 |
 | 스크롤 영역 WebGL 드리프트 | UI 불일치 | Tiered Rendering 전략 | ✅ 설계 완료 |
+| **WebGL 컨텍스트 손실** | 화면 블랙아웃 | 하이브리드 복구 전략 | ⏳ Phase 2.5 |
+| **VRAM 초과 (16 뷰포트)** | 렌더링 실패/지연 | LRU Texture Cache | ⏳ Phase 2.5 |
+| gl.readPixels 8-bit 제한 | 16-bit 데이터 손실 | 8-bit 유지 (임상 99%+) | ✅ 설계 확정 |
 | 벤더별 DICOM 차이 | 호환성 이슈 | 다양한 샘플 테스트 | ⏳ Phase 5 |
+
+### 위험 완화 상세
+
+#### WebGL 컨텍스트 손실 (Phase 2.5)
+- **발생 원인**: 탭 전환, GPU 드라이버 리셋, 메모리 부족
+- **완화 전략**: 3단계 하이브리드 복구
+  1. 압축 캐시에서 복구 (~50ms)
+  2. IndexedDB에서 복구 (~200ms)
+  3. 서버 재요청 (~2-5s)
+- **참고**: `docs/architecture/memory-architecture-analysis.md`
+
+#### VRAM 관리 (Phase 2.5)
+- **추정 VRAM**: 16개 뷰포트 × 100프레임 × 512×512 ≈ 400MB
+- **완화 전략**: LRU 기반 텍스처 캐시로 inactive 뷰포트 해제
+- **확장 계획**: Phase 3+에서 가시성 기반 최적화 추가

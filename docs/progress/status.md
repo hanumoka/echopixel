@@ -4,9 +4,9 @@
 
 | 항목 | 상태 |
 |------|------|
-| **현재 Phase** | Phase 2 성능 목표 달성 ✅ |
+| **현재 Phase** | Phase 2 핵심 기능 완료 ✅ |
 | **마지막 업데이트** | 2026-01-19 |
-| **다음 마일스톤** | Hybrid DOM-WebGL 또는 Phase 3 진입 |
+| **다음 마일스톤** | Phase 2.5 (Robustness) 또는 Phase 3 (Annotations) |
 
 ---
 
@@ -44,7 +44,7 @@
 | 1d | DataSource + 네트워크 기초 | ✅ |
 | 1e | 에러 처리 + 반응형 기초 | ✅ |
 
-### Phase 2: Multi-Viewport & Quality 🔄 진행중
+### Phase 2: Multi-Viewport & Quality ✅ 핵심 완료
 
 | 단계 | 내용 | 상태 |
 |------|------|------|
@@ -52,16 +52,20 @@
 | 2b | Single Canvas + ViewportManager | ✅ |
 | 2c | RenderScheduler + FrameSyncEngine | ✅ |
 | 2d | React 통합 (MultiViewport) | ✅ |
+| 2e | Hybrid DOM-WebGL 아키텍처 | ✅ |
+| 2f | Tool System | ✅ |
 | - | 실제 DICOM 테스트 | ✅ |
 | - | 16개 뷰포트 성능 검증 | ✅ 60fps 달성 |
-| - | Hybrid DOM-WebGL (선택적) | ⏳ |
-| - | PQE (Progressive Quality Enhancement) | ⏳ |
+| - | PQE (Progressive Quality Enhancement) | ⏳ 선택적 |
 
-### Phase 3~5: 대기
+### Phase 2.5~5: 대기
 
-- Phase 3: Annotations (SVG 오버레이, 측정 도구)
-- Phase 4: Plugin System
-- Phase 5: npm v1.0.0 배포
+- **Phase 2.5**: Robustness (안정성 강화)
+  - WebGL 컨텍스트 손실 복구
+  - LRU Texture Cache (VRAM 관리)
+- **Phase 3**: Annotations (좌표 변환, SVG 오버레이, 측정 도구)
+- **Phase 4**: Plugin System & 16-bit 확장
+- **Phase 5**: npm v1.0.0 배포
 
 ---
 
@@ -76,11 +80,18 @@
 | | NativeDecoder.ts | 비압축 픽셀 디코딩, W/L 처리 |
 | **webgl/** | TextureManager.ts | 2D/2D Array 텍스처 관리 |
 | | QuadRenderer.ts | 단일 텍스처 렌더링 |
-| | ArrayTextureRenderer | 배열 텍스처 렌더링 |
+| | ArrayTextureRenderer.ts | 배열 텍스처 렌더링 |
 | | shaders.ts | GLSL 셰이더 |
 | **viewport/** | ViewportManager.ts | 그리드 레이아웃, 뷰포트 관리 |
+| | HybridViewportManager.ts | DOM-WebGL 좌표 동기화 |
 | **sync/** | FrameSyncEngine.ts | 프레임 동기화 |
 | | RenderScheduler.ts | 단일 rAF 루프 |
+| **tools/** | BaseTool.ts | 도구 추상 클래스 |
+| | ToolRegistry.ts | 전역 도구 등록 |
+| | ToolGroup.ts | 뷰포트별 도구 그룹 |
+| | ToolManager.ts | 도구 그룹 관리 |
+| | useToolGroup.ts | React 훅 |
+| | manipulation/*.ts | WindowLevel, Pan, Zoom, StackScroll |
 | **datasource/** | LocalFileDataSource.ts | 로컬 파일 |
 | | WadoRsDataSource.ts | WADO-RS 서버 |
 | **cache/** | LRUCache.ts | LRU 캐시 |
@@ -94,6 +105,7 @@
 | DicomViewport.tsx | 단일 뷰포트 컴포넌트 |
 | MultiViewport.tsx | Phase 2 멀티뷰포트 |
 | MultiCanvasGrid.tsx | 멀티 캔버스 (비교용) |
+| HybridViewport/* | Hybrid DOM-WebGL 컴포넌트 |
 
 ---
 
@@ -110,9 +122,36 @@
 ## 다음 단계
 
 1. ~~**성능 검증**: 16개 뷰포트 30fps 테스트~~ ✅ 완료 (60fps 달성)
-2. **선택**: Hybrid DOM-WebGL 구현 또는 Phase 3 Annotations 진입
-3. **PQE 구현**: 점진적 품질 향상 (선택적)
-4. **npm 배포 준비**: vite-plugin-dts, README, CHANGELOG
+2. ~~**Hybrid DOM-WebGL**: 아키텍처 구현~~ ✅ 완료
+3. ~~**Tool System**: 기본 도구 구현~~ ✅ 완료
+4. **선택**: Phase 2.5 (Robustness) 또는 Phase 3 (Annotations) 진입
+   - Phase 2.5: WebGL 컨텍스트 복구, LRU Texture Cache
+   - Phase 3: 좌표 변환, 측정 도구
+5. **npm 배포 준비**: vite-plugin-dts, README, CHANGELOG (Phase 5)
+
+---
+
+## 아키텍처 결정 사항
+
+### 메모리 전략 (확정)
+- **GPU-only 메모리 전략**: Upload & Release 패턴
+- **CPU 메모리 최소화**: 디코딩 후 즉시 GPU 업로드, CPU 데이터 해제
+
+### Context Loss 복구 (Phase 2.5 예정)
+- **하이브리드 복구 전략**:
+  1. 압축 캐시 (메모리) → 50ms
+  2. IndexedDB (디스크) → 200ms
+  3. 서버 재요청 (네트워크) → 2-5s
+
+### VRAM 관리 (Phase 2.5 예정)
+- **LRU Texture Cache**: inactive 뷰포트 텍스처 자동 해제
+- **Phase 3+ 확장**: 가시성 기반 최적화
+
+### 16-bit 지원 (Phase 4+ 예정)
+- **현재**: 8-bit 유지 (심초음파 임상 99%+)
+- **미래**: R16UI, R16F 텍스처 포맷 인터페이스 설계
+
+> 상세: [memory-architecture-analysis.md](../architecture/memory-architecture-analysis.md)
 
 ---
 
