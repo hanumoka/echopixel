@@ -301,13 +301,14 @@ export function extractPixelData(
     const pixelData = new Uint8Array(buffer, offset, length);
 
     // 이미지 정보로 프레임 크기 계산
-    const rows = getUint16Value(buffer, dataset, '0028,0010') || 0;
-    const columns = getUint16Value(buffer, dataset, '0028,0011') || 0;
-    const bitsAllocated = getUint16Value(buffer, dataset, '0028,0100') || 8;
-    const samplesPerPixel = getUint16Value(buffer, dataset, '0028,0002') || 1;
+    // 주의: 태그 형식은 콤마 없이 '00280010' 형태 사용 (tagToString과 일치)
+    const rows = getUint16Value(buffer, dataset, '00280010') || 0;
+    const columns = getUint16Value(buffer, dataset, '00280011') || 0;
+    const bitsAllocated = getUint16Value(buffer, dataset, '00280100') || 8;
+    const samplesPerPixel = getUint16Value(buffer, dataset, '00280002') || 1;
 
-    // Number of Frames 태그 (0028,0008) - 문자열로 저장됨
-    const numberOfFramesStr = getStringValue(buffer, dataset, '0028,0008');
+    // Number of Frames 태그 (00280008) - 문자열로 저장됨
+    const numberOfFramesStr = getStringValue(buffer, dataset, '00280008');
     const numberOfFrames = numberOfFramesStr ? parseInt(numberOfFramesStr, 10) : 1;
 
     // 프레임당 바이트 크기
@@ -340,7 +341,10 @@ export function extractPixelData(
   }
 
   // Encapsulated (압축) - Fragment 파싱
+  // DICOM 표준: 첫 번째 Item은 항상 BOT(Basic Offset Table)
+  // BOT는 비어있거나 오프셋 목록을 포함할 수 있음 (프레임 데이터가 아님)
   const frames: Uint8Array[] = [];
+  let isFirstItem = true;
 
   // 무한 길이 (0xFFFFFFFF)인 경우 Fragment 파싱
   while (offset < buffer.byteLength - 8) {
@@ -359,19 +363,17 @@ export function extractPixelData(
       const itemLength = view.getUint32(offset, true);
       offset += 4;
 
-      if (itemLength > 0) {
+      if (isFirstItem) {
+        // 첫 번째 Item은 BOT - 건너뛰기 (프레임 데이터 아님)
+        isFirstItem = false;
+      } else if (itemLength > 0) {
+        // 실제 프레임 데이터
         const frameData = new Uint8Array(buffer, offset, itemLength);
         frames.push(frameData);
       }
 
       offset += itemLength;
     }
-  }
-
-  // 첫 번째 프레임이 BOT(Basic Offset Table)인 경우 제거
-  // BOT는 보통 비어있거나 오프셋 목록만 포함
-  if (frames.length > 1 && frames[0].length === 0) {
-    frames.shift();
   }
 
   return {
