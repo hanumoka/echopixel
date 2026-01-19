@@ -21,6 +21,7 @@ export class QuadRenderer {
   private gl: WebGL2RenderingContext;
   private program: WebGLProgram | null = null;
   private vao: WebGLVertexArrayObject | null = null;
+  private vbo: WebGLBuffer | null = null;
   private textureLocation: WebGLUniformLocation | null = null;
   private windowCenterLocation: WebGLUniformLocation | null = null;
   private windowWidthLocation: WebGLUniformLocation | null = null;
@@ -103,9 +104,9 @@ export class QuadRenderer {
       1, 1, 1, 1, // 우상단
     ]);
 
-    // VBO 생성 및 데이터 업로드
-    const vbo = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    // VBO 생성 및 데이터 업로드 (클래스 멤버에 저장하여 dispose에서 해제)
+    this.vbo = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
     gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
 
     // 정점 속성 설정
@@ -179,6 +180,11 @@ export class QuadRenderer {
   dispose(): void {
     const gl = this.gl;
 
+    if (this.vbo) {
+      gl.deleteBuffer(this.vbo);
+      this.vbo = null;
+    }
+
     if (this.vao) {
       gl.deleteVertexArray(this.vao);
       this.vao = null;
@@ -208,6 +214,7 @@ export class ArrayTextureRenderer {
   private gl: WebGL2RenderingContext;
   private program: WebGLProgram | null = null;
   private vao: WebGLVertexArrayObject | null = null;
+  private vbo: WebGLBuffer | null = null;
 
   // Uniform locations
   private frameSequenceLocation: WebGLUniformLocation | null = null;
@@ -293,9 +300,9 @@ export class ArrayTextureRenderer {
       1, 1, 1, 1, // 우상단
     ]);
 
-    // VBO 생성 및 데이터 업로드
-    const vbo = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    // VBO 생성 및 데이터 업로드 (클래스 멤버에 저장하여 dispose에서 해제)
+    this.vbo = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
     gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
 
     // 정점 속성 설정
@@ -376,6 +383,11 @@ export class ArrayTextureRenderer {
    */
   dispose(): void {
     const gl = this.gl;
+
+    if (this.vbo) {
+      gl.deleteBuffer(this.vbo);
+      this.vbo = null;
+    }
 
     if (this.vao) {
       gl.deleteVertexArray(this.vao);
