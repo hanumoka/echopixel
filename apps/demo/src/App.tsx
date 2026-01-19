@@ -237,6 +237,7 @@ export default function App() {
     setMultiLoadingStatus('');
     setIsPlaying(false);
     setViewports([]);  // 뷰포트 목록 초기화
+    setSelectedUids(new Set());  // 선택된 Instance 초기화
     // Multi Canvas 상태 초기화
     setMultiCanvasLoaded(false);
     setMultiCanvasUids([]);
@@ -307,9 +308,8 @@ export default function App() {
       setScannedInstances(results);
       setScanningStatus('');
 
-      // 성공적으로 스캔된 것들 중 첫 N개 자동 선택 (레이아웃에 맞게)
-      const gridSize = layout === 'grid-2x2' ? 2 : layout === 'grid-3x3' ? 3 : 4;
-      const maxSelect = gridSize * gridSize;
+      // 성공적으로 스캔된 것들 중 첫 N개 자동 선택 (현재 viewMode에 맞게)
+      const maxSelect = getMaxSelect();
       const validUids = results.filter(r => !r.error).slice(0, maxSelect).map(r => r.uid);
       setSelectedUids(new Set(validUids));
 
