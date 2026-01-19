@@ -28,6 +28,7 @@ import {
   type ViewportSeriesInfo,
   type DicomImageInfo,
   type WindowLevelOptions,
+  type TransformOptions,
   type SyncMode,
 } from '@echopixel/core';
 
@@ -268,9 +269,24 @@ export function HybridMultiViewport({
         };
       }
 
+      // Pan/Zoom 옵션 변환 (픽셀 → NDC)
+      // NDC 좌표계: -1 ~ 1, 중앙이 (0, 0)
+      // 픽셀 → NDC: panNDC = panPixel * (2 / viewportSize)
+      // Y축 반전: WebGL은 Y가 위로 +, CSS는 아래로 +
+      let transform: TransformOptions | undefined;
+      if (viewport.transform && (viewport.transform.pan.x !== 0 || viewport.transform.pan.y !== 0 || viewport.transform.zoom !== 1.0)) {
+        const viewportWidth = bounds.width || 1;
+        const viewportHeight = bounds.height || 1;
+        transform = {
+          panX: viewport.transform.pan.x * (2 / viewportWidth),
+          panY: -viewport.transform.pan.y * (2 / viewportHeight), // Y축 반전
+          zoom: viewport.transform.zoom,
+        };
+      }
+
       // 텍스처 바인딩 및 렌더링
       textureManager.bindArrayTexture(viewport.textureUnit);
-      arrayRenderer.renderFrame(viewport.textureUnit, frameIndex, wl);
+      arrayRenderer.renderFrame(viewport.textureUnit, frameIndex, wl, transform);
     });
 
     // 프레임 업데이트 콜백

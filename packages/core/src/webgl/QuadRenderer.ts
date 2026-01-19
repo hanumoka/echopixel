@@ -15,6 +15,21 @@ export interface WindowLevelOptions {
 }
 
 /**
+ * Transform 렌더링 옵션 (Pan/Zoom)
+ *
+ * Pan은 NDC 좌표 (-1 ~ 1 범위)로 전달해야 함
+ * 픽셀 → NDC 변환: panNDC = panPixel * (2 / viewportSize)
+ */
+export interface TransformOptions {
+  /** Pan X (NDC 좌표, -1 ~ 1) */
+  panX: number;
+  /** Pan Y (NDC 좌표, -1 ~ 1) */
+  panY: number;
+  /** Zoom 배율 (기본값 1.0) */
+  zoom: number;
+}
+
+/**
  * 화면 전체를 덮는 사각형에 텍스처를 렌더링
  */
 export class QuadRenderer {
@@ -26,6 +41,9 @@ export class QuadRenderer {
   private windowCenterLocation: WebGLUniformLocation | null = null;
   private windowWidthLocation: WebGLUniformLocation | null = null;
   private applyWLLocation: WebGLUniformLocation | null = null;
+  // Pan/Zoom uniform locations
+  private panLocation: WebGLUniformLocation | null = null;
+  private zoomLocation: WebGLUniformLocation | null = null;
 
   constructor(gl: WebGL2RenderingContext) {
     this.gl = gl;
@@ -82,6 +100,9 @@ export class QuadRenderer {
     this.windowCenterLocation = gl.getUniformLocation(this.program, 'u_windowCenter');
     this.windowWidthLocation = gl.getUniformLocation(this.program, 'u_windowWidth');
     this.applyWLLocation = gl.getUniformLocation(this.program, 'u_applyWL');
+    // Pan/Zoom uniform locations
+    this.panLocation = gl.getUniformLocation(this.program, 'u_pan');
+    this.zoomLocation = gl.getUniformLocation(this.program, 'u_zoom');
   }
 
   /**
@@ -135,8 +156,9 @@ export class QuadRenderer {
    * 텍스처를 화면에 렌더링
    * @param textureUnit - 텍스처가 바인딩된 유닛 번호
    * @param windowLevel - Window/Level 옵션 (선택적)
+   * @param transform - Pan/Zoom 옵션 (선택적)
    */
-  render(textureUnit: number = 0, windowLevel?: WindowLevelOptions): void {
+  render(textureUnit: number = 0, windowLevel?: WindowLevelOptions, transform?: TransformOptions): void {
     const gl = this.gl;
 
     // 쉐이더 프로그램 활성화
@@ -155,6 +177,15 @@ export class QuadRenderer {
       gl.uniform1f(this.windowCenterLocation, 0.5);
       gl.uniform1f(this.windowWidthLocation, 1.0);
       gl.uniform1f(this.applyWLLocation, 0.0); // false
+    }
+
+    // Pan/Zoom uniform 설정
+    if (transform) {
+      gl.uniform2f(this.panLocation, transform.panX, transform.panY);
+      gl.uniform1f(this.zoomLocation, transform.zoom);
+    } else {
+      gl.uniform2f(this.panLocation, 0.0, 0.0);
+      gl.uniform1f(this.zoomLocation, 1.0);
     }
 
     // VAO 바인딩
@@ -222,6 +253,9 @@ export class ArrayTextureRenderer {
   private windowCenterLocation: WebGLUniformLocation | null = null;
   private windowWidthLocation: WebGLUniformLocation | null = null;
   private applyWLLocation: WebGLUniformLocation | null = null;
+  // Pan/Zoom uniform locations
+  private panLocation: WebGLUniformLocation | null = null;
+  private zoomLocation: WebGLUniformLocation | null = null;
 
   constructor(gl: WebGL2RenderingContext) {
     this.gl = gl;
@@ -279,6 +313,9 @@ export class ArrayTextureRenderer {
     this.windowCenterLocation = gl.getUniformLocation(this.program, 'u_windowCenter');
     this.windowWidthLocation = gl.getUniformLocation(this.program, 'u_windowWidth');
     this.applyWLLocation = gl.getUniformLocation(this.program, 'u_applyWL');
+    // Pan/Zoom uniform locations
+    this.panLocation = gl.getUniformLocation(this.program, 'u_pan');
+    this.zoomLocation = gl.getUniformLocation(this.program, 'u_zoom');
   }
 
   /**
@@ -333,11 +370,13 @@ export class ArrayTextureRenderer {
    * @param textureUnit - 배열 텍스처가 바인딩된 유닛 번호
    * @param frameIndex - 표시할 프레임 인덱스 (0부터 시작)
    * @param windowLevel - Window/Level 옵션 (선택적)
+   * @param transform - Pan/Zoom 옵션 (선택적)
    */
   renderFrame(
     textureUnit: number = 0,
     frameIndex: number = 0,
     windowLevel?: WindowLevelOptions,
+    transform?: TransformOptions,
   ): void {
     const gl = this.gl;
 
@@ -359,6 +398,15 @@ export class ArrayTextureRenderer {
       gl.uniform1f(this.windowCenterLocation, 0.5);
       gl.uniform1f(this.windowWidthLocation, 1.0);
       gl.uniform1f(this.applyWLLocation, 0.0);
+    }
+
+    // Pan/Zoom uniform 설정
+    if (transform) {
+      gl.uniform2f(this.panLocation, transform.panX, transform.panY);
+      gl.uniform1f(this.zoomLocation, transform.zoom);
+    } else {
+      gl.uniform2f(this.panLocation, 0.0, 0.0);
+      gl.uniform1f(this.zoomLocation, 1.0);
     }
 
     // VAO 바인딩

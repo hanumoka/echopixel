@@ -2,6 +2,7 @@
  * Vertex Shader (정점 쉐이더)
  * - 사각형의 4개 꼭짓점 위치 설정
  * - 텍스처 좌표를 Fragment Shader로 전달
+ * - Pan/Zoom 변환 적용
  *
  * 참고: 단일 텍스처와 배열 텍스처 모두 동일한 Vertex Shader 사용
  */
@@ -11,12 +12,24 @@ export const VERTEX_SHADER_SOURCE = `#version 300 es
 layout(location = 0) in vec2 a_position;
 layout(location = 1) in vec2 a_texCoord;
 
+// Pan/Zoom uniforms
+// u_pan: NDC 좌표 (-1 ~ 1 범위, 픽셀 → NDC 변환 필요)
+// u_zoom: 확대 배율 (기본값 1.0)
+uniform vec2 u_pan;
+uniform float u_zoom;
+
 // 출력: Fragment Shader로 전달할 텍스처 좌표
 out vec2 v_texCoord;
 
 void main() {
+  // Zoom 적용 (중앙 기준 스케일)
+  vec2 scaledPos = a_position * u_zoom;
+
+  // Pan 적용 (NDC 좌표)
+  vec2 finalPos = scaledPos + u_pan;
+
   // 정점 위치 설정 (NDC: -1 ~ 1)
-  gl_Position = vec4(a_position, 0.0, 1.0);
+  gl_Position = vec4(finalPos, 0.0, 1.0);
 
   // 텍스처 좌표 전달
   v_texCoord = a_texCoord;

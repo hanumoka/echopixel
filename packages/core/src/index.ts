@@ -117,7 +117,7 @@ export type {
 
 // WebGL
 export { TextureManager, QuadRenderer, ArrayTextureRenderer } from './webgl';
-export type { WindowLevelOptions } from './webgl';
+export type { WindowLevelOptions, TransformOptions } from './webgl';
 
 // Cache
 export { LRUCache } from './cache';
