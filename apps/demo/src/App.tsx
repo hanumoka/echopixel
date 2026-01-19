@@ -216,6 +216,14 @@ export default function App() {
 
   // 뷰 모드 변경 핸들러
   const handleViewModeChange = (newViewMode: ViewMode) => {
+    // 기존 Multi Viewport (Single Canvas) 리소스 정리
+    const existingCleanup = (window as unknown as { multiViewportCleanup?: () => void }).multiViewportCleanup;
+    if (existingCleanup) {
+      console.log('[ViewMode] Cleaning up Multi Viewport resources...');
+      existingCleanup();
+      (window as unknown as { multiViewportCleanup?: () => void }).multiViewportCleanup = undefined;
+    }
+
     setViewMode(newViewMode);
     // 모드 변경 시 상태 초기화
     setViewportData(null);
@@ -228,6 +236,7 @@ export default function App() {
     setMultiViewportReady(false);
     setMultiLoadingStatus('');
     setIsPlaying(false);
+    setViewports([]);  // 뷰포트 목록 초기화
     // Multi Canvas 상태 초기화
     setMultiCanvasLoaded(false);
     setMultiCanvasUids([]);
@@ -409,6 +418,8 @@ export default function App() {
     viewportManagerRef.current = null;
     syncEngineRef.current = null;
     arrayRendererRef.current = null;
+    // 기존 TextureManagers 직접 정리 (cleanup이 설정되지 않았을 경우를 대비)
+    textureManagersRef.current.forEach((tm) => tm.dispose());
     textureManagersRef.current = new Map();
     setViewports([]);
 
