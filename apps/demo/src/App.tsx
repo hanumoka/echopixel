@@ -779,68 +779,81 @@ export default function App() {
 
       <h1 style={{ marginBottom: '20px' }}>EchoPixel Demo - DICOM Viewer</h1>
 
-      {/* 뷰 모드 선택 (Single / Multi / Multi-Canvas) */}
+      {/* 뷰 모드 선택 탭 */}
       <div style={{
         display: 'flex',
-        gap: '10px',
-        marginBottom: '15px',
-        flexWrap: 'wrap',
+        gap: '4px',
+        marginBottom: '20px',
+        borderBottom: '2px solid #333',
+        paddingBottom: '0',
       }}>
         <button
           onClick={() => handleViewModeChange('single')}
           style={{
-            padding: '10px 20px',
-            background: viewMode === 'single' ? '#a47' : '#333',
-            color: '#fff',
+            padding: '12px 24px',
+            background: viewMode === 'single' ? '#2d1f3d' : '#1a1a1a',
+            color: viewMode === 'single' ? '#e8b4f8' : '#888',
             border: 'none',
-            borderRadius: '4px',
+            borderRadius: '8px 8px 0 0',
             cursor: 'pointer',
             fontWeight: viewMode === 'single' ? 'bold' : 'normal',
+            fontSize: '14px',
+            borderBottom: viewMode === 'single' ? '3px solid #a47' : '3px solid transparent',
+            transition: 'all 0.2s',
           }}
         >
-          Single Viewport
+          🖼️ Single Viewport
         </button>
         <button
           onClick={() => handleViewModeChange('multi')}
           style={{
-            padding: '10px 20px',
-            background: viewMode === 'multi' ? '#7a4' : '#333',
-            color: '#fff',
+            padding: '12px 24px',
+            background: viewMode === 'multi' ? '#1f3d2d' : '#1a1a1a',
+            color: viewMode === 'multi' ? '#b4f8c8' : '#888',
             border: 'none',
-            borderRadius: '4px',
+            borderRadius: '8px 8px 0 0',
             cursor: 'pointer',
             fontWeight: viewMode === 'multi' ? 'bold' : 'normal',
+            fontSize: '14px',
+            borderBottom: viewMode === 'multi' ? '3px solid #7a4' : '3px solid transparent',
+            transition: 'all 0.2s',
           }}
         >
-          Multi (Single Canvas)
+          🎯 Multi (Single Canvas)
         </button>
         <button
           onClick={() => handleViewModeChange('multi-canvas')}
           style={{
-            padding: '10px 20px',
-            background: viewMode === 'multi-canvas' ? '#47a' : '#333',
-            color: '#fff',
+            padding: '12px 24px',
+            background: viewMode === 'multi-canvas' ? '#1f2d3d' : '#1a1a1a',
+            color: viewMode === 'multi-canvas' ? '#b4d8f8' : '#888',
             border: 'none',
-            borderRadius: '4px',
+            borderRadius: '8px 8px 0 0',
             cursor: 'pointer',
             fontWeight: viewMode === 'multi-canvas' ? 'bold' : 'normal',
+            fontSize: '14px',
+            borderBottom: viewMode === 'multi-canvas' ? '3px solid #47a' : '3px solid transparent',
+            transition: 'all 0.2s',
           }}
         >
-          Multi (Multi Canvas)
+          🔲 Multi (Multi Canvas)
         </button>
         <button
           onClick={() => handleViewModeChange('hybrid')}
           style={{
-            padding: '10px 20px',
-            background: viewMode === 'hybrid' ? '#a47' : '#333',
-            color: '#fff',
+            padding: '12px 24px',
+            background: viewMode === 'hybrid' ? '#1f3d3d' : '#1a1a1a',
+            color: viewMode === 'hybrid' ? '#b4f8e8' : '#888',
             border: 'none',
-            borderRadius: '4px',
+            borderRadius: '8px 8px 0 0',
             cursor: 'pointer',
             fontWeight: viewMode === 'hybrid' ? 'bold' : 'normal',
+            fontSize: '14px',
+            borderBottom: viewMode === 'hybrid' ? '3px solid #4a7' : '3px solid transparent',
+            transition: 'all 0.2s',
           }}
         >
-          Hybrid-Multi
+          ⚡ Hybrid-Multi
         </button>
       </div>
 
