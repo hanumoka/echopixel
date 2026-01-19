@@ -236,6 +236,194 @@ function readPixelsFromGPU(
 
 ---
 
+## 심초음파 비트 깊이 분석
+
+### 일반적인 경우: 8-bit
+
+| 모드 | 일반적 비트 깊이 | 이유 |
+|------|----------------|------|
+| B-mode (2D) | 8-bit | 디스플레이용 grayscale |
+| M-mode | 8-bit | 동일 |
+| Color Doppler | 8-bit RGB | 컬러 오버레이 |
+| Cine Loop | 8-bit JPEG | 용량 최적화 (수십~수백 프레임) |
+
+**대부분의 임상 DICOM은 8-bit JPEG 압축**으로 저장됩니다.
+
+### 예외: 8-bit 초과 케이스
+
+| 케이스 | 비트 깊이 | 용도 |
+|--------|----------|------|
+| **Raw/RF 데이터** | 12-16 bit | 연구용, Speckle Tracking 원본 |
+| **IQ 데이터** | 16+ bit | 신호 처리 연구 |
+| **고급 장비 내보내기** | 10-12 bit | 일부 GE, Philips 고급 옵션 |
+| **Lossless 압축** | 10-16 bit | 연구/아카이브 목적 |
+
+### 실무적 결론
+
+```
+임상 환경 (99%+):
+├── JPEG 압축 (Transfer Syntax: 1.2.840.10008.1.2.4.50)
+├── Bits Stored: 8
+└── EchoPixel GPU-only 전략에 문제 없음
+
+연구/특수 환경 (1% 미만):
+├── Raw RF / IQ 데이터
+├── Bits Stored: 12-16
+└── gl.readPixels 8-bit 한계가 문제될 수 있음
+```
+
+---
+
+## 미래 확장: 16-bit 지원 계획
+
+> **목적**: 연구용/고급 장비 지원 및 CT/MRI 확장 가능성 확보
+
+### WebGL2 16-bit 텍스처 지원
+
+WebGL2는 16-bit 텍스처를 네이티브로 지원합니다:
+
+```typescript
+// 현재 (8-bit)
+gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.RGBA8, ...);
+
+// 16-bit 지원 (미래)
+gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.R16UI, ...);  // 16-bit unsigned int
+gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.R16F, ...);   // 16-bit float
+```
+
+### 아키텍처 비교
+
+```
+현재 (8-bit 경로):
+┌─────────────┐    ┌──────────────┐    ┌─────────────┐
+│ DICOM 16-bit│ →  │ CPU W/L 적용  │ →  │ GPU 8-bit   │
+│ 원본        │    │ 8-bit 변환   │    │ 텍스처      │
+└─────────────┘    └──────────────┘    └─────────────┘
+                         ↑
+                   W/L 변경 시 재디코딩 필요
+
+미래 (16-bit 경로):
+┌─────────────┐    ┌──────────────┐    ┌─────────────┐
+│ DICOM 16-bit│ →  │ GPU 16-bit   │ →  │ Shader W/L  │
+│ 원본        │    │ 텍스처       │    │ 실시간 적용  │
+└─────────────┘    └──────────────┘    └─────────────┘
+                                             ↑
+                                    W/L 변경이 즉시 반영!
+```
+
+### 16-bit 전환 시 장점
+
+| 항목 | 현재 (8-bit) | 미래 (16-bit) |
+|------|-------------|---------------|
+| W/L 변경 | CPU 재디코딩 필요 | **GPU에서 즉시** |
+| 동적 W/L 범위 | 제한적 | **전체 범위 가능** |
+| CT/MRI 지원 | ❌ | ✅ |
+| 메모리 사용 | 기준 | 2배 (픽셀당) |
+
+### 구현 계획 (호환성 유지)
+
+```typescript
+// TextureManager 확장 인터페이스
+interface TextureUploadOptions {
+  bitDepth: 8 | 16;  // 기본값 8
+  format: 'grayscale' | 'rgb';
+}
+
+class TextureManager {
+  upload(image: ImageBitmap | Uint16Array, options?: TextureUploadOptions) {
+    if (options?.bitDepth === 16) {
+      // R16UI 포맷 사용
+      gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.R16UI, ...);
+    } else {
+      // 기존 RGBA8 경로 (하위 호환)
+      gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.RGBA8, ...);
+    }
+  }
+}
+```
+
+```glsl
+// Fragment Shader (16-bit W/L 적용)
+uniform highp usampler2DArray u_texture;  // 16-bit unsigned
+uniform float u_windowCenter;
+uniform float u_windowWidth;
+
+void main() {
+  uint rawValue = texture(u_texture, vec3(v_texCoord, u_layer)).r;
+  float normalized = (float(rawValue) - u_windowCenter) / u_windowWidth + 0.5;
+  fragColor = vec4(vec3(clamp(normalized, 0.0, 1.0)), 1.0);
+}
+```
+
+### 구현 우선순위
+
+| 질문 | 답변 |
+|------|------|
+| 16-bit 지원 가능? | ✅ WebGL2에서 가능 |
+| 현재 구조 유지? | ✅ 확장 형태로 추가 |
+| 구현 시점 | Phase 3+ (측정 도구 이후) |
+| 우선순위 | 낮음 (심초음파 99%가 8-bit) |
+
+**권장**: 현재 아키텍처를 16-bit 확장 가능하게 **인터페이스만 설계**해두고, 실제 구현은 필요 시점에 진행
+
+---
+
+## 보완 필요 사항
+
+### 1. WebGL Context Loss 복구 전략
+
+현재 EchoPixel은 CPU 메모리를 해제하므로, GPU 컨텍스트 손실 시 복구 방안 필요:
+
+```
+문제 시나리오:
+1. DICOM 로드 → GPU 업로드 → CPU 해제
+2. 사용자가 다른 탭으로 이동 (GPU 메모리 회수)
+3. 다시 돌아옴 → WebGL context lost!
+4. 복구하려면 픽셀 데이터 필요 → CPU에 없음!
+```
+
+**복구 전략 옵션:**
+```typescript
+interface RecoveryStrategy {
+  // 옵션 1: 서버 재요청 (네트워크 비용)
+  refetchFromServer?: boolean;
+
+  // 옵션 2: 압축 데이터 유지 (원본 Uint8Array 보관, ~50% 절약)
+  keepCompressedData?: boolean;
+
+  // 옵션 3: IndexedDB 캐싱 (디스크 기반)
+  useIndexedDB?: boolean;
+}
+```
+
+### 2. GPU VRAM 한계 대응
+
+16개 뷰포트 시나리오 (스트레스 에코)에서:
+
+```
+16 viewports × 60 frames × 800×600 × 4 bytes = ~1.8GB VRAM
+```
+
+일부 GPU에서 VRAM 초과 가능.
+
+**대응 전략:**
+- LRU 캐시로 오래된 텍스처 해제
+- 화면에 보이는 뷰포트만 텍스처 유지
+- 저해상도 썸네일 + On-demand 고해상도 로딩
+
+### 3. gl.readPixels 한계
+
+```typescript
+// gl.readPixels는 렌더링된 8-bit 결과를 읽음
+gl.readPixels(x, y, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+// → 원본 16-bit 픽셀 값 복원 불가!
+```
+
+> **주의**: ROI 통계 등에서 16-bit 원본 값이 필요한 경우,
+> 16-bit 텍스처 경로 구현 후 별도 readPixels 로직 필요
+
+---
+
 ## 관련 문서
 
 - [아키텍처 개요](./overview.md)
