@@ -181,6 +181,11 @@ export function useToolGroup({
   // 이전 isStaticImage 값 추적 (변경 감지용)
   const prevIsStaticImageRef = useRef(isStaticImage);
 
+  // viewportManager를 ref로 저장하여 의존성 배열 문제 해결
+  // (viewportManager는 매 렌더링마다 새 객체가 생성될 수 있으므로)
+  const viewportManagerRef = useRef(viewportManager);
+  viewportManagerRef.current = viewportManager;
+
   // 도구 그룹 생성/삭제
   useEffect(() => {
     if (disabled) {
@@ -195,9 +200,8 @@ export function useToolGroup({
     // 기본 도구 등록
     registerDefaultTools();
 
-    // 도구 그룹 생성
+    // 도구 그룹 생성 또는 가져오기
     const newToolGroup = ToolGroupManager.getOrCreateToolGroup(toolGroupId);
-    setToolGroup(newToolGroup);
 
     // 도구 추가 (tools가 지정되면 해당 도구만, 아니면 기본 도구들)
     const toolsToAdd = tools ?? [
@@ -207,12 +211,21 @@ export function useToolGroup({
       StackScrollTool,
     ];
 
+    // 이미 그룹에 있는 도구 목록 확인
+    const existingTools = new Set(newToolGroup.getToolNames());
+
     for (const ToolClass of toolsToAdd) {
+      // 전역 레지스트리에 없으면 등록
       if (!hasTool(ToolClass.toolName)) {
         addTool(ToolClass);
       }
-      newToolGroup.addTool(ToolClass.toolName);
+      // 그룹에 없으면 추가 (중복 경고 방지)
+      if (!existingTools.has(ToolClass.toolName)) {
+        newToolGroup.addTool(ToolClass.toolName);
+      }
     }
+
+    setToolGroup(newToolGroup);
 
     return () => {
       ToolGroupManager.destroyToolGroup(toolGroupId);
@@ -222,16 +235,20 @@ export function useToolGroup({
   }, [toolGroupId, disabled]);
 
   // ViewportManager와 연동하여 도구에 콜백 주입 및 활성화
+  // 주의: viewportManager를 의존성에 넣으면 매 렌더링마다 재실행되므로 ref 사용
   useEffect(() => {
-    if (!toolGroup || !viewportManager || disabled) return;
+    if (!toolGroup || disabled) return;
 
     // 도구 설정에 ViewportManager 콜백 주입
+    // 콜백 내에서 viewportManagerRef.current를 사용하여 항상 최신 값 참조
     // 주의: WindowLevelTool은 정규화된 값(0~1)을 사용하므로 변환 필요
     const wlTool = toolGroup.getTool('WindowLevel');
     if (wlTool) {
       wlTool.setConfiguration({
         getWindowLevel: (viewportId: string) => {
-          const vp = viewportManager.getViewport(viewportId);
+          const vm = viewportManagerRef.current;
+          if (!vm) return null;
+          const vp = vm.getViewport(viewportId);
           if (!vp?.windowLevel || !vp.series) return null;
 
           // 정규화: 실제 픽셀 값 → 0~1 범위
@@ -244,14 +261,16 @@ export function useToolGroup({
           };
         },
         setWindowLevel: (viewportId: string, wl: { center: number; width: number }) => {
-          const vp = viewportManager.getViewport(viewportId);
+          const vm = viewportManagerRef.current;
+          if (!vm) return;
+          const vp = vm.getViewport(viewportId);
           if (!vp?.series) return;
 
           // 역정규화: 0~1 범위 → 실제 픽셀 값
           const maxValue = vp.series.isEncapsulated
             ? 255
             : Math.pow(2, vp.series.bitsStored ?? 8);
-          viewportManager.setViewportWindowLevel(viewportId, {
+          vm.setViewportWindowLevel(viewportId, {
             center: wl.center * maxValue,
             width: wl.width * maxValue,
           });
@@ -263,11 +282,13 @@ export function useToolGroup({
     if (panTool) {
       panTool.setConfiguration({
         getPan: (viewportId: string) => {
-          const vp = viewportManager.getViewport(viewportId);
+          const vm = viewportManagerRef.current;
+          if (!vm) return null;
+          const vp = vm.getViewport(viewportId);
           return vp?.transform.pan ?? null;
         },
         setPan: (viewportId: string, pan: { x: number; y: number }) => {
-          viewportManager.setViewportPan(viewportId, pan);
+          viewportManagerRef.current?.setViewportPan(viewportId, pan);
         },
       });
     }
@@ -276,11 +297,13 @@ export function useToolGroup({
     if (zoomTool) {
       zoomTool.setConfiguration({
         getZoom: (viewportId: string) => {
-          const vp = viewportManager.getViewport(viewportId);
+          const vm = viewportManagerRef.current;
+          if (!vm) return null;
+          const vp = vm.getViewport(viewportId);
           return vp?.transform.zoom ?? null;
         },
         setZoom: (viewportId: string, zoom: number) => {
-          viewportManager.setViewportZoom(viewportId, zoom);
+          viewportManagerRef.current?.setViewportZoom(viewportId, zoom);
         },
       });
     }
@@ -289,7 +312,9 @@ export function useToolGroup({
     if (stackScrollTool) {
       stackScrollTool.setConfiguration({
         getFrameInfo: (viewportId: string) => {
-          const vp = viewportManager.getViewport(viewportId);
+          const vm = viewportManagerRef.current;
+          if (!vm) return null;
+          const vp = vm.getViewport(viewportId);
           if (!vp?.series) return null;
           return {
             currentFrame: vp.playback.currentFrame,
@@ -297,7 +322,7 @@ export function useToolGroup({
           };
         },
         setFrame: (viewportId: string, frameIndex: number) => {
-          viewportManager.setViewportFrame(viewportId, frameIndex);
+          viewportManagerRef.current?.setViewportFrame(viewportId, frameIndex);
         },
       });
     }
@@ -338,7 +363,7 @@ export function useToolGroup({
       // 빈 바인딩이면 도구 비활성화
       toolGroup.setToolDisabled('StackScroll');
     }
-  }, [toolGroup, viewportManager, disabled, isStaticImage]);
+  }, [toolGroup, disabled, isStaticImage]); // viewportManager 제거 (ref 사용)
 
   // 뷰포트 요소 등록/해제
   // viewportElementsKey가 변경되면 Map이 mutate되었음을 의미
@@ -347,10 +372,18 @@ export function useToolGroup({
 
     const registered = registeredViewportsRef.current;
 
+    // ToolGroup에 이미 등록된 뷰포트 확인 (HMR/StrictMode 대응)
+    const toolGroupViewports = new Set(toolGroup.getViewportIds());
+
     // 새로 추가된 뷰포트 등록
     for (const [viewportId, element] of viewportElements) {
-      if (!registered.has(viewportId)) {
+      // 로컬 ref에도 없고 ToolGroup에도 없을 때만 추가
+      if (!registered.has(viewportId) && !toolGroupViewports.has(viewportId)) {
         toolGroup.addViewport(viewportId, element);
+        registered.add(viewportId);
+      } else if (!registered.has(viewportId) && toolGroupViewports.has(viewportId)) {
+        // ToolGroup에는 있지만 로컬 ref에 없는 경우 (HMR 등으로 인해)
+        // 로컬 ref만 업데이트
         registered.add(viewportId);
       }
     }
@@ -376,20 +409,21 @@ export function useToolGroup({
 
   // 모든 뷰포트 리셋
   const resetAllViewports = useCallback(() => {
-    if (!viewportManager) return;
+    const vm = viewportManagerRef.current;
+    if (!vm) return;
 
     for (const viewportId of viewportElements.keys()) {
       // resetViewport 메서드가 있으면 호출
-      if ('resetViewport' in viewportManager) {
-        (viewportManager as { resetViewport: (id: string) => void }).resetViewport(viewportId);
+      if ('resetViewport' in vm) {
+        (vm as { resetViewport: (id: string) => void }).resetViewport(viewportId);
       } else {
         // 없으면 개별 속성 리셋
-        viewportManager.setViewportPan(viewportId, { x: 0, y: 0 });
-        viewportManager.setViewportZoom(viewportId, 1.0);
-        viewportManager.setViewportWindowLevel(viewportId, null);
+        vm.setViewportPan(viewportId, { x: 0, y: 0 });
+        vm.setViewportZoom(viewportId, 1.0);
+        vm.setViewportWindowLevel(viewportId, null);
       }
     }
-  }, [viewportManager, viewportElements]);
+  }, [viewportElements]); // viewportManager 제거 (ref 사용)
 
   return {
     toolGroup,
