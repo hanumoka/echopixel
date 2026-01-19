@@ -6,6 +6,63 @@
 
 ---
 
+## 2026-01-19 세션 #16 (LRU Texture Cache 구현)
+
+### 작업 내용
+
+**TextureLRUCache 구현**
+- [x] `packages/core/src/cache/TextureLRUCache.ts` 생성
+  - VRAM 기반 LRU 캐시 (바이트 단위 추적)
+  - `calculateVRAMSize()`: width × height × frameCount × 4 (RGBA8)
+  - `clearWithoutDispose()`: Context 복구용 (무효화된 텍스처 dispose 스킵)
+  - NaN 방어 로직 추가
+
+**HybridMultiViewport 통합**
+- [x] `textureCacheRef` 도입 (기존 Map 대체)
+- [x] VRAM 사용량 UI 표시 (`stats.vramMB`)
+- [x] Context 복구 시 `clearWithoutDispose()` 사용
+- [x] DicomImageInfo의 `rows`/`columns` 사용 (width/height 아님)
+
+**대형 레이아웃 추가**
+- [x] 5x5, 6x6, 7x7, 8x8 레이아웃 타입 추가
+- [x] `getLayoutDimensions()` 함수 확장
+- [x] `getMaxSelect()` 함수 확장 (인스턴스 선택 개수)
+
+**버그 수정**
+- [x] NaN VRAM 표시 → `rows`/`columns` 사용으로 해결
+- [x] 4x4 검은 화면 → LRU eviction이 visible 뷰포트 해제 → eviction 비활성화
+
+### 설계 결정
+
+**LRU Eviction 비활성화**
+- 현재 시나리오: 모든 뷰포트가 화면에 표시됨
+- 문제: eviction 발생 시 visible 뷰포트가 검은 화면으로 변함
+- 해결: `maxVRAMBytes: Number.MAX_SAFE_INTEGER` (사실상 무제한)
+- 향후: "visible viewport" 인식 기능 추가하여 선택적 eviction
+
+### 파일 변경
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `packages/core/src/cache/TextureLRUCache.ts` | 신규 생성 |
+| `packages/core/src/cache/index.ts` | export 추가 |
+| `packages/core/src/index.ts` | export 추가 |
+| `packages/core/src/viewport/types.ts` | 5x5~8x8 레이아웃 추가 |
+| `apps/demo/.../HybridMultiViewport.tsx` | TextureLRUCache 통합 |
+| `apps/demo/src/App.tsx` | 레이아웃/인스턴스 선택 확장 |
+
+### 학습 포인트
+- VRAM 관리: 개수 기반 vs 바이트 기반 LRU
+- DicomImageInfo: `width`/`height` 아닌 `rows`/`columns` 사용
+- Context Loss 복구: 무효화된 텍스처에 dispose() 호출 금지
+- LRU 설계: "로드된 시리즈 > 표시 뷰포트" 시나리오 vs "모든 뷰포트 표시" 시나리오
+
+### 다음 세션 할 일
+- [ ] Phase 3 (Annotations) 설계 검토
+- [ ] 좌표 변환 시스템 (이미지 좌표 ↔ 캔버스 좌표)
+
+---
+
 ## 2026-01-19 세션 #15 (문서 정비)
 
 ### 작업 내용

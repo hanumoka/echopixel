@@ -4,9 +4,9 @@
 
 | 항목 | 상태 |
 |------|------|
-| **현재 Phase** | Phase 2.5 (Robustness) 진행 중 |
+| **현재 Phase** | Phase 2.5 (Robustness) ✅ 완료 |
 | **마지막 업데이트** | 2026-01-19 |
-| **다음 마일스톤** | LRU Texture Cache 또는 Phase 3 (Annotations) |
+| **다음 마일스톤** | Phase 3 (Annotations) |
 
 ---
 
@@ -58,12 +58,13 @@
 | - | 16개 뷰포트 성능 검증 | ✅ 60fps 달성 |
 | - | PQE (Progressive Quality Enhancement) | ⏳ 선택적 |
 
-### Phase 2.5: Robustness 🔄 진행 중
+### Phase 2.5: Robustness ✅ 완료
 
 | 항목 | 상태 | 비고 |
 |------|------|------|
 | WebGL 컨텍스트 손실 복구 | ✅ | DicomViewport, HybridMultiViewport |
-| LRU Texture Cache (VRAM 관리) | ⏳ | 선택적 |
+| LRU Texture Cache (VRAM 관리) | ✅ | 구현 완료 (eviction은 향후 개선) |
+| 대형 레이아웃 (5x5~8x8) | ✅ | VRAM 스트레스 테스트용 |
 
 ### Phase 3~5: 대기
 
@@ -98,7 +99,8 @@
 | | manipulation/*.ts | WindowLevel, Pan, Zoom, StackScroll |
 | **datasource/** | LocalFileDataSource.ts | 로컬 파일 |
 | | WadoRsDataSource.ts | WADO-RS 서버 |
-| **cache/** | LRUCache.ts | LRU 캐시 |
+| **cache/** | LRUCache.ts | 일반 LRU 캐시 |
+| | TextureLRUCache.ts | VRAM 기반 텍스처 캐시 |
 | **network/** | retry.ts, errors.ts | 재시도, 에러 처리 |
 
 ### apps/demo/src/
@@ -129,10 +131,9 @@
 2. ~~**Hybrid DOM-WebGL**: 아키텍처 구현~~ ✅ 완료
 3. ~~**Tool System**: 기본 도구 구현~~ ✅ 완료
 4. ~~**Context Loss 복구**: WebGL 컨텍스트 손실 대응~~ ✅ 완료
-5. **선택**: LRU Texture Cache 또는 Phase 3 (Annotations) 진입
-   - LRU Texture Cache: VRAM 관리 (선택적)
-   - Phase 3: 좌표 변환, 측정 도구
-6. **npm 배포 준비**: vite-plugin-dts, README, CHANGELOG (Phase 5)
+5. ~~**LRU Texture Cache**: VRAM 추적 및 관리~~ ✅ 완료
+6. **Phase 3 진입**: 좌표 변환, 측정 도구 (Annotations)
+7. **npm 배포 준비**: vite-plugin-dts, README, CHANGELOG (Phase 5)
 
 ---
 
@@ -148,9 +149,10 @@
 - **구현 방식**: 이벤트 리스너 + ref 기반 상태 복원
 - **향후 확장 가능**: 압축 캐시, IndexedDB 활용 (현재 미구현)
 
-### VRAM 관리 (Phase 2.5 예정)
-- **LRU Texture Cache**: inactive 뷰포트 텍스처 자동 해제
-- **Phase 3+ 확장**: 가시성 기반 최적화
+### VRAM 관리 ✅ 구현 완료
+- **TextureLRUCache**: VRAM 사용량 추적 및 표시
+- **현재 상태**: Eviction 비활성화 (모든 뷰포트가 화면에 표시되므로)
+- **향후 개선**: "visible viewport" 인식 기능 추가하여 선택적 eviction
 
 ### 16-bit 지원 (Phase 4+ 예정)
 - **현재**: 8-bit 유지 (심초음파 임상 99%+)

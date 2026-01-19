@@ -120,7 +120,8 @@ export { TextureManager, QuadRenderer, ArrayTextureRenderer } from './webgl';
 export type { WindowLevelOptions, TransformOptions } from './webgl';
 
 // Cache
-export { LRUCache } from './cache';
+export { LRUCache, TextureLRUCache } from './cache';
+export type { TextureCacheEntry, TextureLRUCacheOptions } from './cache';
 
 // Network
 export { NetworkError, retryFetch, raceFetch } from './network';

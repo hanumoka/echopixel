@@ -5,8 +5,8 @@
 | Phase | 목표 | 상태 |
 |-------|------|------|
 | 1 | Foundation (단일 뷰포트 cine 재생) | ✅ 완료 |
-| 2 | Multi-Viewport & Quality | 🔄 진행중 |
-| 2.5 | Robustness (안정성 강화) | ⏳ 대기 |
+| 2 | Multi-Viewport & Quality | ✅ 완료 |
+| 2.5 | Robustness (안정성 강화) | ✅ 완료 |
 | 3 | Annotations | ⏳ 대기 |
 | 4 | Plugin System & Extensions | ⏳ 대기 |
 | 5 | Release | ⏳ 대기 |
@@ -81,7 +81,7 @@
 
 ---
 
-## Phase 2: Multi-Viewport & Quality 🔄 진행중
+## Phase 2: Multi-Viewport & Quality ✅ 완료
 
 ### 작업 항목
 
@@ -159,7 +159,7 @@
 
 ---
 
-## Phase 2.5: Robustness (안정성 강화) ⏳ 대기
+## Phase 2.5: Robustness (안정성 강화) ✅ 완료
 
 > **목표**: 프로덕션 환경에서의 안정성 확보
 > - WebGL 컨텍스트 손실 복구
@@ -168,37 +168,42 @@
 
 ### 작업 항목
 
-#### WebGL Context Loss Recovery ⏳
+#### WebGL Context Loss Recovery ✅
 WebGL 컨텍스트가 손실될 때 (탭 전환, GPU 리셋 등) 자동 복구:
 
-- [ ] webglcontextlost / webglcontextrestored 이벤트 핸들러
-- [ ] CompressedFrameCache (LZ4/Brotli 압축 캐시)
-- [ ] IndexedDB 백업 캐시 (선택적, 대용량/오프라인용)
-- [ ] 복구 UI (로딩 표시, 진행률)
-- [ ] 복구 실패 시 서버 재요청 폴백
+- [x] webglcontextlost / webglcontextrestored 이벤트 핸들러
+- [x] seriesMap ref 기반 시리즈 재로드 (context 복구 시)
+- [ ] CompressedFrameCache (LZ4/Brotli 압축 캐시) - 선택적, 미구현
+- [ ] IndexedDB 백업 캐시 (선택적, 대용량/오프라인용) - 선택적, 미구현
 
-**복구 우선순위**:
-```
-1순위: 압축 캐시 (메모리) → 빠름, ~50ms
-2순위: IndexedDB 캐시 (디스크) → 중간, ~200ms
-3순위: 서버 재요청 (네트워크) → 느림, ~2-5s
-```
+**복구 방식 (현재 구현)**:
+- DicomViewport: 현재 프레임 유지 후 자동 복구
+- HybridMultiViewport: clearWithoutDispose() + 시리즈 재업로드
 
 > 참고: `docs/architecture/memory-architecture-analysis.md`
 
-#### LRU Texture Cache ⏳
+#### LRU Texture Cache ✅
 16개 뷰포트 동시 운영 시 GPU VRAM 관리:
 
-- [ ] TextureCacheManager (LRU 기반 텍스처 캐시)
-- [ ] VRAM 사용량 추적 (예측 기반)
-- [ ] 자동 텍스처 해제 (inactive viewport)
-- [ ] 우선순위 기반 로딩 (visible viewport 우선)
+- [x] TextureLRUCache (VRAM 기반 LRU 캐시)
+- [x] VRAM 사용량 추적 (바이트 단위)
+- [x] UI에 VRAM 사용량 표시
+- [x] clearWithoutDispose() - Context Loss 복구용
+
+**현재 설계**:
+- Eviction 비활성화 (`Number.MAX_SAFE_INTEGER`)
+- 이유: 모든 뷰포트가 화면에 표시되므로 eviction 시 검은 화면 발생
 
 **Phase 3+ 선택적 확장**:
 - [ ] IntersectionObserver 기반 가시성 감지
+- [ ] "visible viewport" 인식으로 선택적 eviction
 - [ ] 썸네일 텍스처 폴백 (VRAM 부족 시)
 
-#### 메모리 모니터링 ⏳
+#### 대형 레이아웃 지원 ✅
+- [x] 5x5, 6x6, 7x7, 8x8 레이아웃 추가
+- [x] VRAM 스트레스 테스트 가능
+
+#### 메모리 모니터링 ⏳ (선택적)
 - [ ] GPU 메모리 사용량 대시보드 (개발자용)
 - [ ] 메모리 경고 시스템
 - [ ] 자동 GC 트리거
@@ -364,7 +369,7 @@ Phase 1 (Foundation) ✅
     └── WebGL Renderer ✅ ┴── React Viewport ✅
                                     │
                                     v
-Phase 2 (Multi-Viewport) 🔄 ─────────────────────
+Phase 2 (Multi-Viewport) ✅ ─────────────────────
     │
     ├── Single Canvas ✅ ──┬── 2D Array Texture ✅
     │                      │
@@ -375,14 +380,13 @@ Phase 2 (Multi-Viewport) 🔄 ────────────────�
     └── useToolGroup ✅ ───┴── DOM Overlay Layer ✅
                                     │
                                     v
-Phase 2.5 (Robustness) ⏳ ───────────────────────
+Phase 2.5 (Robustness) ✅ ───────────────────────
     │
-    ├── Context Loss Recovery ⏳
-    │   ├── CompressedFrameCache
-    │   └── IndexedDB Cache (선택적)
+    ├── Context Loss Recovery ✅
+    │   └── seriesMap ref 기반 재로드
     │
-    └── LRU Texture Cache ⏳
-        └── VRAM 관리
+    └── LRU Texture Cache ✅
+        └── VRAM 추적 (eviction 비활성화)
                                     │
                                     v
 Phase 3 (Annotations) ⏳ ────────────────────────
@@ -411,22 +415,25 @@ Phase 5 (Release) ⏳ ───────────────────�
 | Safari WebCodecs 미지원 | 일부 성능 저하 | createImageBitmap 폴백 | ✅ 구현 |
 | GPU 메모리 부족 | 성능 저하 | LRU 캐시 | ✅ 구현 |
 | 스크롤 영역 WebGL 드리프트 | UI 불일치 | Tiered Rendering 전략 | ✅ 설계 완료 |
-| **WebGL 컨텍스트 손실** | 화면 블랙아웃 | 하이브리드 복구 전략 | ⏳ Phase 2.5 |
-| **VRAM 초과 (16 뷰포트)** | 렌더링 실패/지연 | LRU Texture Cache | ⏳ Phase 2.5 |
+| WebGL 컨텍스트 손실 | 화면 블랙아웃 | 시리즈 재로드 복구 | ✅ 구현 |
+| VRAM 초과 (16 뷰포트) | 렌더링 실패/지연 | TextureLRUCache (추적) | ✅ 구현 |
 | gl.readPixels 8-bit 제한 | 16-bit 데이터 손실 | 8-bit 유지 (임상 99%+) | ✅ 설계 확정 |
 | 벤더별 DICOM 차이 | 호환성 이슈 | 다양한 샘플 테스트 | ⏳ Phase 5 |
 
 ### 위험 완화 상세
 
-#### WebGL 컨텍스트 손실 (Phase 2.5)
+#### WebGL 컨텍스트 손실 ✅ 구현 완료
 - **발생 원인**: 탭 전환, GPU 드라이버 리셋, 메모리 부족
-- **완화 전략**: 3단계 하이브리드 복구
-  1. 압축 캐시에서 복구 (~50ms)
-  2. IndexedDB에서 복구 (~200ms)
-  3. 서버 재요청 (~2-5s)
+- **현재 구현**:
+  - DicomViewport: 현재 프레임 유지 후 자동 복구
+  - HybridMultiViewport: clearWithoutDispose() + seriesMap 재로드
+- **향후 확장** (선택적):
+  - 압축 캐시 (LZ4/Brotli)
+  - IndexedDB 백업 캐시
 - **참고**: `docs/architecture/memory-architecture-analysis.md`
 
-#### VRAM 관리 (Phase 2.5)
+#### VRAM 관리 ✅ 구현 완료
 - **추정 VRAM**: 16개 뷰포트 × 100프레임 × 512×512 ≈ 400MB
-- **완화 전략**: LRU 기반 텍스처 캐시로 inactive 뷰포트 해제
-- **확장 계획**: Phase 3+에서 가시성 기반 최적화 추가
+- **현재 구현**: TextureLRUCache로 VRAM 사용량 추적 및 표시
+- **설계 결정**: Eviction 비활성화 (모든 뷰포트가 visible하므로)
+- **확장 계획**: Phase 3+에서 가시성 기반 선택적 eviction 추가

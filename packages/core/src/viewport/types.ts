@@ -127,7 +127,16 @@ export interface CreateViewportOptions {
 /**
  * 레이아웃 타입
  */
-export type LayoutType = 'grid-1x1' | 'grid-2x2' | 'grid-3x3' | 'grid-4x4' | 'custom';
+export type LayoutType =
+  | 'grid-1x1'
+  | 'grid-2x2'
+  | 'grid-3x3'
+  | 'grid-4x4'
+  | 'grid-5x5'
+  | 'grid-6x6'
+  | 'grid-7x7'
+  | 'grid-8x8'
+  | 'custom';
 
 /**
  * 레이아웃 설정

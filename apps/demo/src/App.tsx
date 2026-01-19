@@ -395,7 +395,17 @@ export default function App() {
       return multiCanvasCount;
     }
     // multi 또는 single 모드: layout 기반
-    const gridSize = layout === 'grid-2x2' ? 2 : layout === 'grid-3x3' ? 3 : 4;
+    const gridSizeMap: Record<string, number> = {
+      'grid-1x1': 1,
+      'grid-2x2': 2,
+      'grid-3x3': 3,
+      'grid-4x4': 4,
+      'grid-5x5': 5,
+      'grid-6x6': 6,
+      'grid-7x7': 7,
+      'grid-8x8': 8,
+    };
+    const gridSize = gridSizeMap[layout] ?? 2;
     return gridSize * gridSize;
   };
 
@@ -1334,6 +1344,10 @@ export default function App() {
                   <option value="grid-2x2">2x2 (4 viewports)</option>
                   <option value="grid-3x3">3x3 (9 viewports)</option>
                   <option value="grid-4x4">4x4 (16 viewports)</option>
+                  <option value="grid-5x5">5x5 (25 viewports)</option>
+                  <option value="grid-6x6">6x6 (36 viewports)</option>
+                  <option value="grid-7x7">7x7 (49 viewports)</option>
+                  <option value="grid-8x8">8x8 (64 viewports)</option>
                 </select>
               </div>
             </div>
@@ -2179,6 +2193,10 @@ export default function App() {
                   <option value="grid-2x2">2x2 (4 viewports)</option>
                   <option value="grid-3x3">3x3 (9 viewports)</option>
                   <option value="grid-4x4">4x4 (16 viewports)</option>
+                  <option value="grid-5x5">5x5 (25 viewports)</option>
+                  <option value="grid-6x6">6x6 (36 viewports)</option>
+                  <option value="grid-7x7">7x7 (49 viewports)</option>
+                  <option value="grid-8x8">8x8 (64 viewports)</option>
                 </select>
               </div>
             </div>

@@ -19,6 +19,7 @@ import {
   FrameSyncEngine,
   TextureManager,
   ArrayTextureRenderer,
+  TextureLRUCache,
   decodeJpeg,
   decodeNative,
   closeDecodedFrame,
@@ -30,6 +31,7 @@ import {
   type WindowLevelOptions,
   type TransformOptions,
   type SyncMode,
+  type TextureCacheEntry,
 } from '@echopixel/core';
 
 import { ViewportGrid, type ViewportGridRef } from './ViewportGrid';
@@ -77,6 +79,14 @@ function getLayoutDimensions(layout: LayoutType): { rows: number; cols: number }
       return { rows: 3, cols: 3 };
     case 'grid-4x4':
       return { rows: 4, cols: 4 };
+    case 'grid-5x5':
+      return { rows: 5, cols: 5 };
+    case 'grid-6x6':
+      return { rows: 6, cols: 6 };
+    case 'grid-7x7':
+      return { rows: 7, cols: 7 };
+    case 'grid-8x8':
+      return { rows: 8, cols: 8 };
     default:
       return { rows: 2, cols: 2 };
   }
@@ -105,7 +115,23 @@ export function HybridMultiViewport({
   const hybridManagerRef = useRef<HybridViewportManager | null>(null);
   const renderSchedulerRef = useRef<HybridRenderScheduler | null>(null);
   const syncEngineRef = useRef<FrameSyncEngine | null>(null);
-  const textureManagersRef = useRef<Map<string, TextureManager>>(new Map());
+  // LRU Texture Cache (VRAM 추적 전용)
+  // 현재는 eviction 비활성화 (매우 높은 한계값)
+  // 이유: 모든 뷰포트가 화면에 보이는 상황에서 eviction 시 검은 화면 발생
+  // 향후 개선: "visible viewport" 인식하여 보이는 뷰포트는 eviction 방지
+  const textureCacheRef = useRef<TextureLRUCache>(
+    new TextureLRUCache({
+      maxVRAMBytes: Number.MAX_SAFE_INTEGER, // 사실상 무제한 (eviction 비활성화)
+      onEvict: (viewportId, entry) => {
+        // 이 콜백은 현재 호출되지 않음 (한계값이 무제한이므로)
+        console.warn(
+          `[TextureLRUCache] ⚠️ Evicted: ${viewportId} ` +
+          `(${Math.round(entry.sizeBytes / (1024 * 1024))}MB, series=${entry.seriesId})`
+        );
+      },
+      debug: false,
+    })
+  );
   const arrayRendererRef = useRef<ArrayTextureRenderer | null>(null);
 
   // Context loss 복구를 위한 ref
@@ -124,7 +150,7 @@ export function HybridMultiViewport({
   const [hoveredViewportId, setHoveredViewportId] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [fps, setFps] = useState(30);
-  const [stats, setStats] = useState({ fps: 0, frameTime: 0 });
+  const [stats, setStats] = useState({ fps: 0, frameTime: 0, vramMB: 0 });
   const [isInitialized, setIsInitialized] = useState(false);
 
   // Tool System용 뷰포트 요소 맵
@@ -206,7 +232,8 @@ export function HybridMultiViewport({
   ) => {
     renderScheduler.setRenderCallback((viewportId, frameIndex, bounds) => {
       const viewport = hybridManager.getViewport(viewportId);
-      const textureManager = textureManagersRef.current.get(viewportId);
+      const cacheEntry = textureCacheRef.current.get(viewportId);
+      const textureManager = cacheEntry?.textureManager;
 
       if (!viewport || !textureManager || !textureManager.hasArrayTexture()) {
         return;
@@ -272,8 +299,7 @@ export function HybridMultiViewport({
       // Cleanup
       renderSchedulerRef.current?.dispose();
       arrayRendererRef.current?.dispose();
-      textureManagersRef.current.forEach((tm) => tm.dispose());
-      textureManagersRef.current.clear();
+      textureCacheRef.current.clear(); // 모든 텍스처 dispose 포함
       hybridManagerRef.current?.dispose();
 
       glRef.current = null;
@@ -320,6 +346,10 @@ export function HybridMultiViewport({
       }
 
       glRef.current = newGl;
+
+      // 🔴 Context 복구 전 캐시 초기화
+      // 이전 context의 텍스처는 이미 무효화됨 → dispose 스킵하고 캐시만 정리
+      textureCacheRef.current.clearWithoutDispose();
 
       // ArrayTextureRenderer 재생성
       arrayRendererRef.current?.dispose();
@@ -420,15 +450,11 @@ export function HybridMultiViewport({
         // 뷰포트에 시리즈 정보 설정
         hybridManager.setViewportSeries(viewportId, seriesData.info);
 
-        // 기존 TextureManager 정리 (메모리 누수 방지)
-        const existingTextureManager = textureManagersRef.current.get(viewportId);
-        if (existingTextureManager) {
-          existingTextureManager.dispose();
-        }
+        // 기존 TextureManager 정리 (LRU Cache에서 제거 및 dispose)
+        textureCacheRef.current.deleteAndDispose(viewportId);
 
         // 새 TextureManager 생성
         const textureManager = new TextureManager(gl);
-        textureManagersRef.current.set(viewportId, textureManager);
 
         // 프레임 디코딩 및 텍스처 업로드
         try {
@@ -456,9 +482,32 @@ export function HybridMultiViewport({
           textureManager.uploadAllFrames(decodedFrames);
           decodedFrames.forEach((bmp) => bmp.close());
 
-          console.log(`[HybridMultiViewport] Uploaded ${decodedFrames.length} frames to viewport ${viewportId}`);
+          // LRU Cache에 등록 (VRAM 크기 계산 포함)
+          // DicomImageInfo는 rows/columns 사용 (width/height 아님)
+          const width = seriesData.imageInfo.columns;
+          const height = seriesData.imageInfo.rows;
+          const frameCount = decodedFrames.length;
+          const sizeBytes = TextureLRUCache.calculateVRAMSize(width, height, frameCount);
+
+          const cacheEntry: TextureCacheEntry = {
+            textureManager,
+            sizeBytes,
+            seriesId: seriesData.info.seriesInstanceUID,
+            frameCount,
+            width,
+            height,
+          };
+
+          textureCacheRef.current.set(viewportId, cacheEntry);
+
+          console.log(
+            `[HybridMultiViewport] Uploaded ${frameCount} frames to ${viewportId} ` +
+            `(${Math.round(sizeBytes / (1024 * 1024))}MB, VRAM: ${textureCacheRef.current.vramUsageMB}MB)`
+          );
         } catch (err) {
           console.error(`[HybridMultiViewport] Failed to load series:`, err);
+          // 실패 시 TextureManager 정리
+          textureManager.dispose();
         }
 
         index++;
@@ -494,12 +543,13 @@ export function HybridMultiViewport({
     }
   }, [viewports.length, syncMode, isInitialized]);
 
-  // 통계 업데이트
+  // 통계 업데이트 (FPS, Frame Time, VRAM)
   useEffect(() => {
     const interval = setInterval(() => {
       if (renderSchedulerRef.current) {
         const s = renderSchedulerRef.current.getStats();
-        setStats({ fps: s.fps, frameTime: s.frameTime });
+        const vramMB = textureCacheRef.current.vramUsageMB;
+        setStats({ fps: s.fps, frameTime: s.frameTime, vramMB });
       }
     }, 500);
 
@@ -595,7 +645,7 @@ export function HybridMultiViewport({
           Hybrid Multi-Viewport ({layout}) | {viewportIds.length} viewports
         </span>
         <span style={{ color: '#8f8' }}>
-          FPS: {stats.fps} | Frame Time: {stats.frameTime.toFixed(1)}ms
+          FPS: {stats.fps} | Frame Time: {stats.frameTime.toFixed(1)}ms | VRAM: {stats.vramMB}MB
         </span>
         {activeViewportId && (
           <span style={{ color: '#8cf' }}>Active: {activeViewportId.slice(-8)}</span>
