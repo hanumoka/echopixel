@@ -112,6 +112,18 @@ export const DicomViewport = forwardRef<DicomViewportHandle, DicomViewportProps>
   const windowCenterRef = useRef<number | undefined>(undefined);
   const windowWidthRef = useRef<number | undefined>(undefined);
 
+  // Context 복구 시 현재 프레임을 유지하기 위한 ref
+  // useEffect 클로저 캡처 문제를 해결하기 위해 ref 사용
+  const currentFrameRef = useRef(0);
+
+  // 초기 렌더링 완료 여부 (첫 데이터 로드 vs Context 복구 구분)
+  const initialRenderDoneRef = useRef(false);
+
+  // 이전 frames/imageInfo 참조 (새 시리즈 로드 감지용)
+  // Context 복구 vs 새 시리즈 로드를 구분하기 위해 필요
+  const prevFramesRef = useRef<Uint8Array[] | null>(null);
+  const prevImageInfoRef = useRef<DicomImageInfo | null>(null);
+
   // DataSource에서 로드한 데이터 (내부 상태)
   const [loadedFrames, setLoadedFrames] = useState<Uint8Array[]>([]);
   const [loadedImageInfo, setLoadedImageInfo] = useState<DicomImageInfo | null>(null);
@@ -128,6 +140,11 @@ export const DicomViewport = forwardRef<DicomViewportHandle, DicomViewportProps>
   const [currentFrame, setCurrentFrame] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [fps, setFps] = useState(30);
+
+  // currentFrame ref 동기화 (Context 복구 시 최신 값 사용)
+  useEffect(() => {
+    currentFrameRef.current = currentFrame;
+  }, [currentFrame]);
   const [windowCenter, setWindowCenter] = useState<number | undefined>(undefined);
   const [windowWidth, setWindowWidth] = useState<number | undefined>(undefined);
   const [status, setStatus] = useState('');
@@ -620,22 +637,46 @@ export const DicomViewport = forwardRef<DicomViewportHandle, DicomViewportProps>
     }
   }, [frames, imageInfo, isEncapsulated]);
 
-  // 초기 프레임 렌더링 (WebGL 준비 완료 후에만 실행)
-  // 로드 완료 후 첫 프레임을 확실히 표시하기 위해 약간의 지연 추가
+  // 초기/복구 프레임 렌더링 (WebGL 준비 완료 후에만 실행)
+  // - 첫 데이터 로드 또는 새 시리즈: 프레임 0부터 시작
+  // - Context 복구 (동일 시리즈): 현재 프레임 유지하고 렌더링
   useEffect(() => {
     if (webglReady && frames.length > 0 && imageInfo) {
-      // 첫 프레임 렌더링 (즉시 + 지연 후 한번 더)
-      // 지연 렌더링은 캔버스가 완전히 준비되지 않았을 경우를 대비
-      renderFrame(0);
-      setCurrentFrame(0);
-      setStatus(`${imageInfo.columns}x${imageInfo.rows}, ${frames.length} 프레임`);
+      // 새 시리즈 로드 여부 감지 (frames 또는 imageInfo 변경)
+      const isNewSeries = frames !== prevFramesRef.current || imageInfo !== prevImageInfoRef.current;
 
-      // 안전을 위해 약간의 지연 후 다시 렌더링 (캔버스 레이아웃 완료 보장)
-      const timer = setTimeout(() => {
+      // 첫 로드 또는 새 시리즈: 프레임 0부터 시작
+      if (!initialRenderDoneRef.current || isNewSeries) {
         renderFrame(0);
-      }, 50);
+        setCurrentFrame(0);
+        currentFrameRef.current = 0; // ref도 동기화
+        setStatus(`${imageInfo.columns}x${imageInfo.rows}, ${frames.length} 프레임`);
+        initialRenderDoneRef.current = true;
 
-      return () => clearTimeout(timer);
+        // 이전 값 업데이트
+        prevFramesRef.current = frames;
+        prevImageInfoRef.current = imageInfo;
+
+        // 안전을 위해 약간의 지연 후 다시 렌더링 (캔버스 레이아웃 완료 보장)
+        const timer = setTimeout(() => {
+          renderFrame(0);
+        }, 50);
+
+        return () => clearTimeout(timer);
+      } else {
+        // Context 복구: 현재 프레임 유지하고 렌더링
+        // currentFrameRef를 사용하여 최신 프레임 값 사용 (stale closure 방지)
+        const frameToRender = currentFrameRef.current;
+        console.log('[DicomViewport] Context restored, re-rendering frame:', frameToRender);
+        renderFrame(frameToRender);
+
+        // 안전을 위해 약간의 지연 후 다시 렌더링
+        const timer = setTimeout(() => {
+          renderFrame(frameToRender);
+        }, 50);
+
+        return () => clearTimeout(timer);
+      }
     }
   }, [webglReady, frames, imageInfo, renderFrame]);
 
@@ -755,6 +796,28 @@ export const DicomViewport = forwardRef<DicomViewportHandle, DicomViewportProps>
     setZoom(1.0);
     renderFrame(currentFrame);
   }, [currentFrame, renderFrame]);
+
+  // Context Loss 테스트 (개발용)
+  const testContextLoss = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      console.warn('[DicomViewport] Canvas not available');
+      return;
+    }
+
+    const gl = canvas.getContext('webgl2');
+    const ext = gl?.getExtension('WEBGL_lose_context');
+    if (ext) {
+      console.log('🔴 [DicomViewport] Triggering context loss... (current frame:', currentFrameRef.current, ')');
+      ext.loseContext();
+      setTimeout(() => {
+        console.log('🟢 [DicomViewport] Restoring context...');
+        ext.restoreContext();
+      }, 2000);
+    } else {
+      console.warn('[DicomViewport] WEBGL_lose_context extension not available');
+    }
+  }, []);
 
   // 우클릭 메뉴 방지 (Tool System이 우클릭 사용)
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
@@ -1115,6 +1178,27 @@ export const DicomViewport = forwardRef<DicomViewportHandle, DicomViewportProps>
             </div>
           </>
         )}
+
+        {/* Context Loss 테스트 버튼 (개발용) */}
+        <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid #333' }}>
+          <button
+            onClick={testContextLoss}
+            style={{
+              padding: '6px 12px',
+              fontSize: '12px',
+              background: '#c44',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+            }}
+          >
+            🧪 Test Context Loss (2초 후 복구)
+          </button>
+          <span style={{ marginLeft: '10px', fontSize: '11px', color: '#888' }}>
+            현재 프레임이 유지되는지 확인
+          </span>
+        </div>
       </div>
     </div>
   );

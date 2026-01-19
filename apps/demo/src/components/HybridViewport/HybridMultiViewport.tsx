@@ -108,6 +108,15 @@ export function HybridMultiViewport({
   const textureManagersRef = useRef<Map<string, TextureManager>>(new Map());
   const arrayRendererRef = useRef<ArrayTextureRenderer | null>(null);
 
+  // Context loss 복구를 위한 ref
+  // Context 복구 시 시리즈 데이터를 다시 로드하기 위해 필요
+  const contextLostRef = useRef(false);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // 이벤트 핸들러 ref (cleanup 시 제거를 위해 저장)
+  const contextLostHandlerRef = useRef<((event: Event) => void) | null>(null);
+  const contextRestoredHandlerRef = useRef<(() => void) | null>(null);
+
   // State
   const [viewportIds, setViewportIds] = useState<string[]>([]);
   const [viewports, setViewports] = useState<Viewport[]>([]);
@@ -189,8 +198,76 @@ export function HybridMultiViewport({
     }
   }, [containerSize.width, containerSize.height]);
 
+  // 렌더링 콜백 설정 헬퍼 (초기화 및 Context 복구 시 재사용)
+  const setupRenderCallbacks = useCallback((
+    renderScheduler: HybridRenderScheduler,
+    hybridManager: HybridViewportManager,
+    arrayRenderer: ArrayTextureRenderer
+  ) => {
+    renderScheduler.setRenderCallback((viewportId, frameIndex, bounds) => {
+      const viewport = hybridManager.getViewport(viewportId);
+      const textureManager = textureManagersRef.current.get(viewportId);
+
+      if (!viewport || !textureManager || !textureManager.hasArrayTexture()) {
+        return;
+      }
+
+      // Window/Level 옵션 변환
+      let wl: WindowLevelOptions | undefined;
+      if (viewport.windowLevel && viewport.series) {
+        const maxValue = viewport.series.isEncapsulated
+          ? 255
+          : Math.pow(2, viewport.series.bitsStored ?? 8);
+        wl = {
+          windowCenter: viewport.windowLevel.center / maxValue,
+          windowWidth: viewport.windowLevel.width / maxValue,
+        };
+      }
+
+      // Pan/Zoom 옵션 변환 (픽셀 → NDC)
+      let transform: TransformOptions | undefined;
+      if (viewport.transform && (viewport.transform.pan.x !== 0 || viewport.transform.pan.y !== 0 || viewport.transform.zoom !== 1.0)) {
+        const viewportWidth = bounds.width || 1;
+        const viewportHeight = bounds.height || 1;
+        transform = {
+          panX: viewport.transform.pan.x * (2 / viewportWidth),
+          panY: -viewport.transform.pan.y * (2 / viewportHeight),
+          zoom: viewport.transform.zoom,
+        };
+      }
+
+      textureManager.bindArrayTexture(viewport.textureUnit);
+      arrayRenderer.renderFrame(viewport.textureUnit, frameIndex, wl, transform);
+    });
+
+    renderScheduler.setFrameUpdateCallback((viewportId, frameIndex) => {
+      setViewports((prev) =>
+        prev.map((v) =>
+          v.id === viewportId
+            ? { ...v, playback: { ...v.playback, currentFrame: frameIndex } }
+            : v
+        )
+      );
+    });
+  }, []);
+
   // Canvas ref 콜백
   const handleCanvasRef = useCallback((canvas: HTMLCanvasElement | null) => {
+    // 이전 Canvas의 이벤트 리스너 정리
+    const prevCanvas = canvasRef.current;
+    if (prevCanvas) {
+      // 이전 이벤트 핸들러 제거
+      if (contextLostHandlerRef.current) {
+        prevCanvas.removeEventListener('webglcontextlost', contextLostHandlerRef.current);
+      }
+      if (contextRestoredHandlerRef.current) {
+        prevCanvas.removeEventListener('webglcontextrestored', contextRestoredHandlerRef.current);
+      }
+    }
+
+    // Canvas 참조 저장
+    canvasRef.current = canvas;
+
     if (!canvas) {
       // Cleanup
       renderSchedulerRef.current?.dispose();
@@ -204,12 +281,77 @@ export function HybridMultiViewport({
       renderSchedulerRef.current = null;
       syncEngineRef.current = null;
       arrayRendererRef.current = null;
+      contextLostHandlerRef.current = null;
+      contextRestoredHandlerRef.current = null;
 
       setViewportIds([]);
       setViewports([]);
       setIsInitialized(false);
       return;
     }
+
+    // Context Loss 이벤트 핸들러
+    const handleContextLost = (event: Event) => {
+      event.preventDefault();
+      console.warn('[HybridMultiViewport] WebGL context lost');
+      contextLostRef.current = true;
+
+      // 렌더러 정지
+      renderSchedulerRef.current?.stop();
+      setIsPlaying(false);
+
+      // 초기화 상태 해제 (텍스처 재업로드 트리거용)
+      setIsInitialized(false);
+    };
+
+    const handleContextRestored = () => {
+      console.log('[HybridMultiViewport] WebGL context restored');
+
+      // 새 WebGL 컨텍스트 획득
+      const newGl = canvas.getContext('webgl2', {
+        alpha: false,
+        antialias: false,
+        powerPreference: 'high-performance',
+      });
+
+      if (!newGl) {
+        console.error('[HybridMultiViewport] Failed to restore WebGL context');
+        return;
+      }
+
+      glRef.current = newGl;
+
+      // ArrayTextureRenderer 재생성
+      arrayRendererRef.current?.dispose();
+      const newArrayRenderer = new ArrayTextureRenderer(newGl);
+      arrayRendererRef.current = newArrayRenderer;
+
+      // RenderScheduler 재생성 (이전 scheduler는 손실된 gl 참조)
+      // 기존 scheduler dispose 후 새로 생성
+      renderSchedulerRef.current?.dispose();
+      const hybridManager = hybridManagerRef.current;
+      const syncEngine = syncEngineRef.current;
+
+      if (hybridManager && syncEngine) {
+        const newRenderScheduler = new HybridRenderScheduler(newGl, hybridManager, syncEngine);
+        renderSchedulerRef.current = newRenderScheduler;
+
+        // 콜백 재설정
+        setupRenderCallbacks(newRenderScheduler, hybridManager, newArrayRenderer);
+      }
+
+      // 시리즈 재로드 트리거
+      setIsInitialized(true);
+      console.log('[HybridMultiViewport] Context restored, triggering series reload');
+    };
+
+    // 이벤트 핸들러 ref에 저장 (cleanup 시 제거를 위해)
+    contextLostHandlerRef.current = handleContextLost;
+    contextRestoredHandlerRef.current = handleContextRestored;
+
+    // 이벤트 리스너 등록
+    canvas.addEventListener('webglcontextlost', handleContextLost);
+    canvas.addEventListener('webglcontextrestored', handleContextRestored);
 
     // WebGL 컨텍스트 생성
     const gl = canvas.getContext('webgl2', {
@@ -249,63 +391,14 @@ export function HybridMultiViewport({
     arrayRendererRef.current = arrayRenderer;
 
     // 렌더링 콜백 설정
-    renderScheduler.setRenderCallback((viewportId, frameIndex, bounds) => {
-      const viewport = hybridManager.getViewport(viewportId);
-      const textureManager = textureManagersRef.current.get(viewportId);
-
-      if (!viewport || !textureManager || !textureManager.hasArrayTexture()) {
-        return;
-      }
-
-      // Window/Level 옵션 변환
-      let wl: WindowLevelOptions | undefined;
-      if (viewport.windowLevel && viewport.series) {
-        const maxValue = viewport.series.isEncapsulated
-          ? 255
-          : Math.pow(2, viewport.series.bitsStored ?? 8);
-        wl = {
-          windowCenter: viewport.windowLevel.center / maxValue,
-          windowWidth: viewport.windowLevel.width / maxValue,
-        };
-      }
-
-      // Pan/Zoom 옵션 변환 (픽셀 → NDC)
-      // NDC 좌표계: -1 ~ 1, 중앙이 (0, 0)
-      // 픽셀 → NDC: panNDC = panPixel * (2 / viewportSize)
-      // Y축 반전: WebGL은 Y가 위로 +, CSS는 아래로 +
-      let transform: TransformOptions | undefined;
-      if (viewport.transform && (viewport.transform.pan.x !== 0 || viewport.transform.pan.y !== 0 || viewport.transform.zoom !== 1.0)) {
-        const viewportWidth = bounds.width || 1;
-        const viewportHeight = bounds.height || 1;
-        transform = {
-          panX: viewport.transform.pan.x * (2 / viewportWidth),
-          panY: -viewport.transform.pan.y * (2 / viewportHeight), // Y축 반전
-          zoom: viewport.transform.zoom,
-        };
-      }
-
-      // 텍스처 바인딩 및 렌더링
-      textureManager.bindArrayTexture(viewport.textureUnit);
-      arrayRenderer.renderFrame(viewport.textureUnit, frameIndex, wl, transform);
-    });
-
-    // 프레임 업데이트 콜백
-    renderScheduler.setFrameUpdateCallback((viewportId, frameIndex) => {
-      setViewports((prev) =>
-        prev.map((v) =>
-          v.id === viewportId
-            ? { ...v, playback: { ...v.playback, currentFrame: frameIndex } }
-            : v
-        )
-      );
-    });
+    setupRenderCallbacks(renderScheduler, hybridManager, arrayRenderer);
 
     // 초기 뷰포트 상태
     setViewports(hybridManager.getAllViewports());
     setIsInitialized(true);
 
     console.log('[HybridMultiViewport] Initialized with', ids.length, 'slots');
-  }, [dpr, slotCount]);
+  }, [dpr, slotCount, setupRenderCallbacks]);
 
   // 시리즈 데이터 로드
   useEffect(() => {
@@ -458,6 +551,28 @@ export function HybridMultiViewport({
 
   const handleViewportMouseLeave = useCallback(() => {
     setHoveredViewportId(null);
+  }, []);
+
+  // Context Loss 테스트 (개발용)
+  const testContextLoss = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      console.warn('[HybridMultiViewport] Canvas not available');
+      return;
+    }
+
+    const gl = canvas.getContext('webgl2');
+    const ext = gl?.getExtension('WEBGL_lose_context');
+    if (ext) {
+      console.log('🔴 [HybridMultiViewport] Triggering context loss...');
+      ext.loseContext();
+      setTimeout(() => {
+        console.log('🟢 [HybridMultiViewport] Restoring context...');
+        ext.restoreContext();
+      }, 2000);
+    } else {
+      console.warn('[HybridMultiViewport] WEBGL_lose_context extension not available');
+    }
   }, []);
 
   return (
@@ -617,6 +732,23 @@ export function HybridMultiViewport({
         <div style={{ fontSize: '12px', color: '#888' }}>
           Sync Mode: {syncMode} | Click viewport to select
         </div>
+
+        {/* Context Loss 테스트 버튼 */}
+        <button
+          onClick={testContextLoss}
+          style={{
+            padding: '6px 12px',
+            fontSize: '12px',
+            background: '#c44',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            marginLeft: 'auto',
+          }}
+        >
+          🧪 Test Context Loss
+        </button>
       </div>
 
       {/* 뷰포트 정보 */}

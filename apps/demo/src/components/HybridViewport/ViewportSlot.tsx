@@ -62,6 +62,11 @@ export function ViewportSlot({
   const managerRef = useRef(manager);
   managerRef.current = manager;
 
+  // onElementRef를 ref로 저장 (무한 루프 방지)
+  // 인라인 함수로 전달되어도 매 렌더마다 effect가 재실행되지 않음
+  const onElementRefRef = useRef(onElementRef);
+  onElementRefRef.current = onElementRef;
+
   // 마운트 시 슬롯 등록
   useEffect(() => {
     const element = slotRef.current;
@@ -79,10 +84,11 @@ export function ViewportSlot({
   }, [viewportId]); // manager는 ref로 관리하므로 의존성에서 제외
 
   // Tool System용 DOM 요소 참조 콜백
+  // onElementRef는 ref로 관리하므로 의존성에서 제외 (무한 루프 방지)
   useEffect(() => {
-    onElementRef?.(slotRef.current);
-    return () => onElementRef?.(null);
-  }, [onElementRef]);
+    onElementRefRef.current?.(slotRef.current);
+    return () => onElementRefRef.current?.(null);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 클릭 핸들러
   const handleClick = useCallback(() => {

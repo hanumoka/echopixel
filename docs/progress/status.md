@@ -4,9 +4,9 @@
 
 | 항목 | 상태 |
 |------|------|
-| **현재 Phase** | Phase 2 핵심 기능 완료 ✅ |
+| **현재 Phase** | Phase 2.5 (Robustness) 진행 중 |
 | **마지막 업데이트** | 2026-01-19 |
-| **다음 마일스톤** | Phase 2.5 (Robustness) 또는 Phase 3 (Annotations) |
+| **다음 마일스톤** | LRU Texture Cache 또는 Phase 3 (Annotations) |
 
 ---
 
@@ -58,11 +58,15 @@
 | - | 16개 뷰포트 성능 검증 | ✅ 60fps 달성 |
 | - | PQE (Progressive Quality Enhancement) | ⏳ 선택적 |
 
-### Phase 2.5~5: 대기
+### Phase 2.5: Robustness 🔄 진행 중
 
-- **Phase 2.5**: Robustness (안정성 강화)
-  - WebGL 컨텍스트 손실 복구
-  - LRU Texture Cache (VRAM 관리)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| WebGL 컨텍스트 손실 복구 | ✅ | DicomViewport, HybridMultiViewport |
+| LRU Texture Cache (VRAM 관리) | ⏳ | 선택적 |
+
+### Phase 3~5: 대기
+
 - **Phase 3**: Annotations (좌표 변환, SVG 오버레이, 측정 도구)
 - **Phase 4**: Plugin System & 16-bit 확장
 - **Phase 5**: npm v1.0.0 배포
@@ -124,10 +128,11 @@
 1. ~~**성능 검증**: 16개 뷰포트 30fps 테스트~~ ✅ 완료 (60fps 달성)
 2. ~~**Hybrid DOM-WebGL**: 아키텍처 구현~~ ✅ 완료
 3. ~~**Tool System**: 기본 도구 구현~~ ✅ 완료
-4. **선택**: Phase 2.5 (Robustness) 또는 Phase 3 (Annotations) 진입
-   - Phase 2.5: WebGL 컨텍스트 복구, LRU Texture Cache
+4. ~~**Context Loss 복구**: WebGL 컨텍스트 손실 대응~~ ✅ 완료
+5. **선택**: LRU Texture Cache 또는 Phase 3 (Annotations) 진입
+   - LRU Texture Cache: VRAM 관리 (선택적)
    - Phase 3: 좌표 변환, 측정 도구
-5. **npm 배포 준비**: vite-plugin-dts, README, CHANGELOG (Phase 5)
+6. **npm 배포 준비**: vite-plugin-dts, README, CHANGELOG (Phase 5)
 
 ---
 
@@ -137,11 +142,11 @@
 - **GPU-only 메모리 전략**: Upload & Release 패턴
 - **CPU 메모리 최소화**: 디코딩 후 즉시 GPU 업로드, CPU 데이터 해제
 
-### Context Loss 복구 (Phase 2.5 예정)
-- **하이브리드 복구 전략**:
-  1. 압축 캐시 (메모리) → 50ms
-  2. IndexedDB (디스크) → 200ms
-  3. 서버 재요청 (네트워크) → 2-5s
+### Context Loss 복구 ✅ 구현 완료
+- **DicomViewport**: 현재 프레임 유지 후 자동 복구
+- **HybridMultiViewport**: 텍스처 재업로드 및 렌더링 복구
+- **구현 방식**: 이벤트 리스너 + ref 기반 상태 복원
+- **향후 확장 가능**: 압축 캐시, IndexedDB 활용 (현재 미구현)
 
 ### VRAM 관리 (Phase 2.5 예정)
 - **LRU Texture Cache**: inactive 뷰포트 텍스처 자동 해제
