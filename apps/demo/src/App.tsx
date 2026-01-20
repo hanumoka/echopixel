@@ -24,7 +24,8 @@ import {
   type LayoutType,
   type Viewport,
 } from '@echopixel/core';
-import { DicomViewport } from './components/DicomViewport';
+// DicomViewport는 더 이상 Single 모드에서 사용하지 않음 - SingleDicomViewer로 대체
+// import { DicomViewport } from './components/DicomViewport';
 import { MultiCanvasGrid } from './components/MultiCanvasGrid';
 import { HybridMultiViewport, type SeriesData as HybridSeriesData } from './components/HybridViewport';
 import { HardwareInfoPanel, type TextureMemoryInfo } from './components/HardwareInfoPanel';
@@ -62,9 +63,6 @@ export default function App() {
 
   // 뷰 모드 (단일/멀티)
   const [viewMode, setViewMode] = useState<ViewMode>('single');
-
-  // 새 컴포넌트 테스트 토글 (Single 모드용)
-  const [useNewComponent, setUseNewComponent] = useState(false);
 
   // 데이터 소스 모드
   const [mode, setMode] = useState<DataSourceMode>('local');
@@ -246,7 +244,8 @@ export default function App() {
   };
 
   // WADO-RS 로드 핸들러 (단일 뷰포트)
-  const handleWadoLoad = () => {
+  // SingleDicomViewer는 frames를 직접 받으므로, 여기서 프레임을 로드하여 viewportData에 저장
+  const handleWadoLoad = async () => {
     if (!studyUid || !seriesUid || !instanceUid) {
       setError('Study UID, Series UID, Instance UID를 모두 입력하세요');
       return;
@@ -256,20 +255,44 @@ export default function App() {
     setViewportData(null);
     setParseResult(null);
     setError(null);
+    setLoadingStatus('Loading from WADO-RS...');
 
-    // DataSource 생성
-    const dataSource = new WadoRsDataSource({
-      baseUrl: wadoBaseUrl,
-      timeout: 30000,
-      maxRetries: 3,
-    });
+    try {
+      // DataSource 생성
+      const dataSource = new WadoRsDataSource({
+        baseUrl: wadoBaseUrl,
+        timeout: 60000,
+        maxRetries: 3,
+      });
 
-    setWadoDataSource(dataSource);
-    setInstanceId({
-      studyInstanceUid: studyUid,
-      seriesInstanceUid: seriesUid,
-      sopInstanceUid: instanceUid,
-    });
+      const instanceIdToLoad: DicomInstanceId = {
+        studyInstanceUid: studyUid,
+        seriesInstanceUid: seriesUid,
+        sopInstanceUid: instanceUid,
+      };
+
+      // 프레임 로드
+      setLoadingStatus('Fetching frames...');
+      const { metadata, frames } = await dataSource.loadAllFrames(instanceIdToLoad);
+
+      // 메타데이터 저장
+      setWadoDataSource(dataSource);
+      setInstanceId(instanceIdToLoad);
+      setWadoMetadata(metadata);
+
+      // viewportData에 저장 (SingleDicomViewer에서 사용)
+      setViewportData({
+        frames,
+        imageInfo: metadata.imageInfo,
+        isEncapsulated: metadata.isEncapsulated,
+      });
+
+      setLoadingStatus('');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(`WADO-RS load error: ${errorMessage}`);
+      setLoadingStatus('');
+    }
   };
 
   // 모드 변경 핸들러
@@ -890,39 +913,16 @@ export default function App() {
             border: '1px solid #a47',
             borderRadius: '4px',
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <h3 style={{ margin: '0 0 10px 0', color: '#e8b4f8', fontSize: '16px' }}>
-                  🖼️ Single Viewport
-                </h3>
-                <p style={{ margin: 0, color: '#b8a8c8', fontSize: '13px', lineHeight: '1.5' }}>
-                  단일 DICOM 파일을 로드하여 하나의 뷰포트에서 재생합니다.
-                  로컬 파일 또는 WADO-RS 서버에서 데이터를 가져올 수 있습니다.
-                  Window/Level, Pan, Zoom, 프레임 탐색 등 기본 도구를 테스트할 수 있습니다.
-                </p>
-              </div>
-              {/* 새 컴포넌트 테스트 토글 */}
-              <label style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '6px 12px',
-                background: useNewComponent ? '#2a4a2a' : '#1a1a2a',
-                border: useNewComponent ? '1px solid #4a7' : '1px solid #444',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '12px',
-                color: useNewComponent ? '#8f8' : '#888',
-                whiteSpace: 'nowrap',
-              }}>
-                <input
-                  type="checkbox"
-                  checked={useNewComponent}
-                  onChange={(e) => setUseNewComponent(e.target.checked)}
-                  style={{ cursor: 'pointer' }}
-                />
-                @echopixel/react
-              </label>
+            <h3 style={{ margin: '0 0 10px 0', color: '#e8b4f8', fontSize: '16px' }}>
+              🖼️ Single Viewport
+            </h3>
+            <p style={{ margin: 0, color: '#b8a8c8', fontSize: '13px', lineHeight: '1.5' }}>
+              단일 DICOM 파일을 로드하여 하나의 뷰포트에서 재생합니다.
+              로컬 파일 또는 WADO-RS 서버에서 데이터를 가져올 수 있습니다.
+              Window/Level, Pan, Zoom, 프레임 탐색 등 기본 도구를 테스트할 수 있습니다.
+            </p>
+            <div style={{ marginTop: '8px', fontSize: '11px', color: '#7a7' }}>
+              Using: @echopixel/react SingleDicomViewer
             </div>
           </div>
 
@@ -1005,8 +1005,8 @@ export default function App() {
             </div>
           )}
 
-          {/* WADO-RS 입력 폼 */}
-          {mode === 'wado-rs' && !instanceId && (
+          {/* WADO-RS 입력 폼 - 로딩 중에는 숨김 */}
+          {mode === 'wado-rs' && !instanceId && !loadingStatus && (
             <div style={{
               padding: '15px',
               marginBottom: '15px',
@@ -1111,38 +1111,16 @@ export default function App() {
             </div>
           )}
 
-          {/* DICOM 뷰포트 - 로컬 모드 */}
-          {mode === 'local' && viewportData && (
-            useNewComponent ? (
-              <SingleDicomViewer
-                frames={viewportData.frames}
-                imageInfo={viewportData.imageInfo}
-                isEncapsulated={viewportData.isEncapsulated}
-                width={512}
-                height={512}
-                showToolbar={true}
-                showContextLossTest={true}
-              />
-            ) : (
-              <DicomViewport
-                frames={viewportData.frames}
-                imageInfo={viewportData.imageInfo}
-                isEncapsulated={viewportData.isEncapsulated}
-                width={512}
-                height={512}
-              />
-            )
-          )}
-
-          {/* DICOM 뷰포트 - WADO-RS 모드 */}
-          {mode === 'wado-rs' && wadoDataSource && instanceId && (
-            <DicomViewport
-              dataSource={wadoDataSource}
-              instanceId={instanceId}
+          {/* DICOM 뷰포트 (Local / WADO-RS 모두 viewportData 사용) */}
+          {viewportData && (
+            <SingleDicomViewer
+              frames={viewportData.frames}
+              imageInfo={viewportData.imageInfo}
+              isEncapsulated={viewportData.isEncapsulated}
               width={512}
               height={512}
-              onMetadataLoaded={(metadata) => setWadoMetadata(metadata)}
-              onError={(err) => setError(err.message)}
+              showToolbar={true}
+              showContextLossTest={true}
             />
           )}
 

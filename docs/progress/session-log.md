@@ -6,6 +6,71 @@
 
 ---
 
+## 2026-01-20 세션 #19 (@echopixel/react 멀티 뷰어 완성)
+
+### 작업 내용
+
+**빌딩 블록 컴포넌트 구현**
+- [x] `DicomMiniOverlay`: 간소화 오버레이 (인덱스, 프레임 번호, 재생 상태, W/L)
+- [x] `HybridViewportGrid`: Canvas + DOM Grid 레이어링 (z-index 기반)
+- [x] `HybridViewportSlot`: DOM 슬롯 (이벤트 처리, Manager 등록)
+
+**Composed 컴포넌트 구현**
+- [x] `SingleDicomViewerGroup`: 다중 SingleDicomViewer 그리드 배치
+  - 그룹 컨트롤 (전체 재생/정지, FPS 조절)
+  - `syncPlayback` prop (향후 프레임 동기화용, 현재 미사용)
+  - `viewerOptions`로 개별 뷰어 설정 오버라이드
+- [x] `HybridMultiViewport`: 데모 앱에서 @echopixel/react로 이동
+  - 데모 전용 UI 제거 (stats bar, 테스트 버튼)
+  - ref 기반 외부 제어 API 유지
+  - `renderOverlay` prop으로 커스텀 오버레이 지원
+
+**데모 앱 리팩토링**
+- [x] `useNewComponent` 토글 제거 (Single 모드)
+- [x] `SingleDicomViewer` 필수 사용 (Local + WADO-RS)
+- [x] `handleWadoLoad` async 변환 (프레임 직접 로드)
+- [x] 로딩 중 입력 폼 숨김 조건 추가
+
+**코드 정리**
+- [x] CSSProperties import 수정 (React.CSSProperties → CSSProperties)
+- [x] 미사용 변수 정리 (contextLostRef 등)
+- [x] 콜백 파라미터 명시적 타입 추가
+
+### 파일 변경
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `packages/react/src/components/building-blocks/DicomMiniOverlay.tsx` | 신규 생성 |
+| `packages/react/src/components/building-blocks/HybridViewportGrid.tsx` | 신규 생성 |
+| `packages/react/src/components/building-blocks/HybridViewportSlot.tsx` | 신규 생성 |
+| `packages/react/src/components/SingleDicomViewerGroup.tsx` | 신규 생성 |
+| `packages/react/src/components/HybridMultiViewport.tsx` | 데모→라이브러리 이동 |
+| `packages/react/src/index.ts` | 새 컴포넌트 export 추가 |
+| `apps/demo/src/App.tsx` | Single 모드 리팩토링 |
+
+### 설계 결정
+
+**HybridMultiViewport 최소화 원칙**
+- 라이브러리 컴포넌트는 핵심 기능만 포함
+- 데모 전용 UI (stats, 테스트 버튼)는 데모 앱에서 구현
+- ref 기반 API로 외부 제어 가능
+
+**SingleDicomViewer 필수 사용**
+- Local/WADO-RS 모드 통합 (viewportData 기반)
+- DicomViewport는 MultiCanvasGrid에서만 사용 (레거시)
+
+### 학습 포인트
+- React Building Blocks 패턴: 작은 컴포넌트 → 큰 컴포넌트 조합
+- forwardRef + useImperativeHandle: 라이브러리 컴포넌트 외부 제어 패턴
+- Hybrid DOM-WebGL: z-index 레이어링, pointerEvents 제어
+
+### 다음 세션 할 일
+- [ ] Phase 3 설계: 좌표 변환 시스템
+- [ ] SVG 오버레이 기본 구조
+- [ ] 측정 도구 프로토타입 (Length)
+
+---
+
 ## 2026-01-20 세션 #18 (Rotation 구현 + 데모 리팩토링 계획)
 
 ### 작업 내용

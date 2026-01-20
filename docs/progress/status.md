@@ -4,7 +4,7 @@
 
 | 항목 | 상태 |
 |------|------|
-| **현재 Phase** | Phase 2.5 (Robustness) ✅ 완료 |
+| **현재 Phase** | Phase 2.6 (@echopixel/react 멀티 뷰어) ✅ 완료 |
 | **마지막 업데이트** | 2026-01-20 |
 | **다음 마일스톤** | Phase 3 (Annotations) |
 
@@ -66,6 +66,17 @@
 | LRU Texture Cache (VRAM 관리) | ✅ | 구현 완료 (eviction은 향후 개선) |
 | 대형 레이아웃 (5x5~8x8) | ✅ | VRAM 스트레스 테스트용 |
 
+### Phase 2.6: @echopixel/react 멀티 뷰어 ✅ 완료
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| DicomMiniOverlay (빌딩 블록) | ✅ | 간소화 오버레이 |
+| HybridViewportGrid (빌딩 블록) | ✅ | Canvas + DOM Grid 레이어링 |
+| HybridViewportSlot (빌딩 블록) | ✅ | DOM 슬롯 (이벤트 처리) |
+| SingleDicomViewerGroup | ✅ | 다중 SingleDicomViewer 그리드 |
+| HybridMultiViewport | ✅ | 데모→라이브러리 이동 (UI 제거) |
+| 데모 앱 리팩토링 | ✅ | SingleDicomViewer 필수 사용 |
+
 ### Phase 3~5: 대기
 
 - **Phase 3**: Annotations (좌표 변환, SVG 오버레이, 측정 도구)
@@ -108,14 +119,16 @@
 | 모듈 | 파일 | 설명 | 상태 |
 |------|------|------|------|
 | **components/** | SingleDicomViewer.tsx | 단일 DICOM 뷰어 (풀 UI) | ✅ |
-| | SingleDicomViewerGroup.tsx | 다중 SingleDicomViewer 그리드 배치 | ⏳ 예정 |
-| | HybridMultiViewport.tsx | 대규모 뷰포트 (Single Canvas + DOM) | ⏳ 예정 |
+| | SingleDicomViewerGroup.tsx | 다중 SingleDicomViewer 그리드 배치 | ✅ |
+| | HybridMultiViewport.tsx | 대규모 뷰포트 (Single Canvas + DOM) | ✅ |
 | **building-blocks/** | DicomCanvas.tsx | WebGL 렌더링 캔버스 | ✅ |
 | | DicomControls.tsx | 재생/정지, FPS, 프레임 슬라이더 | ✅ |
 | | DicomStatusBar.tsx | 이미지 정보, W/L, Transform, Rotation 표시 | ✅ |
 | | DicomToolInfo.tsx | 마우스/키보드 도구 안내 | ✅ |
 | | DicomToolbar.tsx | 도구 선택 툴바 (W/L, Pan, Zoom, 회전) | ✅ |
-| | DicomMiniOverlay.tsx | 간소화 오버레이 (프레임 번호만) | ⏳ 예정 |
+| | DicomMiniOverlay.tsx | 간소화 오버레이 (멀티 뷰포트용) | ✅ |
+| | HybridViewportGrid.tsx | Canvas + DOM Grid 레이어링 | ✅ |
+| | HybridViewportSlot.tsx | DOM 슬롯 (이벤트 처리) | ✅ |
 | **types.ts** | - | 공통 타입 정의 | ✅ |
 
 ### apps/demo/src/
@@ -148,12 +161,16 @@
 4. ~~**Context Loss 복구**: WebGL 컨텍스트 손실 대응~~ ✅ 완료
 5. ~~**LRU Texture Cache**: VRAM 추적 및 관리~~ ✅ 완료
 6. ~~**@echopixel/react 패키지**: Building Blocks 컴포넌트~~ ✅ 완료
-7. **@echopixel/react 멀티 뷰어 컴포넌트**: ⬅️ 현재 진행
-   - [ ] `DicomMiniOverlay` (빌딩 블록)
-   - [ ] `SingleDicomViewerGroup` (다중 SingleDicomViewer 그리드)
-   - [ ] `HybridMultiViewport` (@echopixel/react로 이동)
-8. **데모 앱 리팩토링**: @echopixel/react 컴포넌트 기반으로 전환
-9. **Phase 3 진입**: 좌표 변환, 측정 도구 (Annotations)
+7. ~~**@echopixel/react 멀티 뷰어 컴포넌트**~~ ✅ 완료
+   - [x] `DicomMiniOverlay` (빌딩 블록)
+   - [x] `HybridViewportGrid`, `HybridViewportSlot` (빌딩 블록)
+   - [x] `SingleDicomViewerGroup` (다중 SingleDicomViewer 그리드)
+   - [x] `HybridMultiViewport` (@echopixel/react로 이동)
+8. ~~**데모 앱 리팩토링**~~ ✅ 완료 (Single 모드 SingleDicomViewer 필수)
+9. **Phase 3 진입**: ⬅️ 다음 마일스톤
+   - [ ] 좌표 변환 시스템 (이미지 좌표 ↔ 캔버스 좌표)
+   - [ ] SVG 오버레이 기본 구조
+   - [ ] 측정 도구 (Length, Angle)
 10. **npm 배포 준비**: vite-plugin-dts, README, CHANGELOG (Phase 5)
 
 ---

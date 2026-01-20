@@ -5,15 +5,18 @@
  *
  * 컴포넌트 구조:
  * - SingleDicomViewer: 단일 DICOM 뷰어 (풀 UI)
- * - MultiDicomViewer: 멀티 DICOM 뷰어 (그리드, 간소화 UI)
- * - SingleDicomViewerGroup: 싱글 뷰어 그룹 (각자 풀 UI)
+ * - SingleDicomViewerGroup: 다중 SingleDicomViewer 그리드 (각자 캔버스)
+ * - HybridMultiViewport: 대규모 멀티 뷰포트 (Single Canvas, DOM-WebGL 하이브리드)
  *
  * 빌딩 블록:
  * - DicomCanvas: 순수 캔버스 (WebGL 렌더링)
  * - DicomControls: 재생/정지, FPS, 프레임 슬라이더
  * - DicomStatusBar: 이미지 정보, DPR, Canvas 크기
  * - DicomToolInfo: 마우스/키보드 도구 설명
- * - DicomMiniOverlay: 프레임 번호만 표시 (간소화용)
+ * - DicomToolbar: 도구 선택 툴바 (W/L, Pan, Zoom, 회전)
+ * - DicomMiniOverlay: 간소화 오버레이 (멀티 뷰포트용)
+ * - HybridViewportGrid: Canvas + DOM Grid 레이어링
+ * - HybridViewportSlot: DOM 슬롯 (이벤트 처리)
  */
 
 export const VERSION = '0.0.1';
@@ -48,7 +51,19 @@ export {
   type ToolDefinition,
   DEFAULT_TOOLS,
 } from './components/building-blocks/DicomToolbar';
-// export { DicomMiniOverlay } from './components/building-blocks/DicomMiniOverlay';
+export {
+  DicomMiniOverlay,
+  type DicomMiniOverlayProps,
+} from './components/building-blocks/DicomMiniOverlay';
+export {
+  HybridViewportGrid,
+  type HybridViewportGridHandle,
+  type HybridViewportGridProps,
+} from './components/building-blocks/HybridViewportGrid';
+export {
+  HybridViewportSlot,
+  type HybridViewportSlotProps,
+} from './components/building-blocks/HybridViewportSlot';
 
 // Composed Components
 export {
@@ -56,8 +71,20 @@ export {
   type SingleDicomViewerHandle,
   type SingleDicomViewerProps,
 } from './components/SingleDicomViewer';
-// export { MultiDicomViewer } from './components/MultiDicomViewer';
-// export { SingleDicomViewerGroup } from './components/SingleDicomViewerGroup';
+export {
+  SingleDicomViewerGroup,
+  type SingleDicomViewerGroupHandle,
+  type SingleDicomViewerGroupProps,
+  type ViewerData,
+  type ViewerGroupLayout,
+} from './components/SingleDicomViewerGroup';
+export {
+  HybridMultiViewport,
+  type HybridMultiViewportHandle,
+  type HybridMultiViewportProps,
+  type HybridSeriesData,
+  type HybridViewportStats,
+} from './components/HybridMultiViewport';
 
 // Hooks (추후 구현)
 // export { useDicomViewport } from './hooks/useDicomViewport';
