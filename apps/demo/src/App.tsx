@@ -27,7 +27,6 @@ import {
 // DicomViewport는 더 이상 Single 모드에서 사용하지 않음 - SingleDicomViewer로 대체
 // import { DicomViewport } from './components/DicomViewport';
 import { MultiCanvasGrid } from './components/MultiCanvasGrid';
-import { HybridMultiViewport, type SeriesData as HybridSeriesData } from './components/HybridViewport';
 import { HardwareInfoPanel, type TextureMemoryInfo } from './components/HardwareInfoPanel';
 import {
   SingleDicomViewer,
@@ -37,7 +36,7 @@ import {
   type HybridViewportStats,
 } from '@echopixel/react';
 
-type ViewMode = 'single' | 'multi' | 'multi-canvas' | 'hybrid';
+type ViewMode = 'single' | 'multi' | 'multi-canvas';
 type DataSourceMode = 'local' | 'wado-rs';
 
 interface ParseResult {
@@ -113,9 +112,6 @@ export default function App() {
   const [multiCanvasUids, setMultiCanvasUids] = useState<string[]>([]);
   const [multiCanvasCount, setMultiCanvasCount] = useState<number>(1); // 1~4개
 
-  // Hybrid 모드용 상태
-  const [hybridSeriesMap, setHybridSeriesMap] = useState<Map<string, HybridSeriesData>>(new Map());
-  const [hybridLoading, setHybridLoading] = useState(false);
 
   // Multi 모드 (리팩토링) - @echopixel/react HybridMultiViewport 사용
   const [multiSeriesMap, setMultiSeriesMap] = useState<Map<string, ReactHybridSeriesData>>(new Map());
@@ -173,34 +169,6 @@ export default function App() {
     };
   }, [viewports]);
 
-  // Hybrid 모드용 텍스처 메모리 계산
-  const hybridTextureMemoryInfo = useMemo<TextureMemoryInfo | null>(() => {
-    if (hybridSeriesMap.size === 0) return null;
-
-    const viewportMemory = Array.from(hybridSeriesMap.entries()).map(([uid, data]) => {
-      const width = data.info.imageWidth;
-      const height = data.info.imageHeight;
-      const layers = data.info.frameCount;
-      const bytesPerPixel = 4;
-      const totalBytes = width * height * layers * bytesPerPixel;
-
-      return {
-        viewportId: uid,
-        width,
-        height,
-        layers,
-        bytesPerPixel,
-        totalBytes,
-      };
-    });
-
-    const totalBytes = viewportMemory.reduce((sum, vp) => sum + vp.totalBytes, 0);
-
-    return {
-      viewports: viewportMemory,
-      totalBytes,
-    };
-  }, [hybridSeriesMap]);
 
   // DICOM 파일 처리
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -349,9 +317,6 @@ export default function App() {
     // Multi Canvas 상태 초기화
     setMultiCanvasLoaded(false);
     setMultiCanvasUids([]);
-    // Hybrid 상태 초기화
-    setHybridSeriesMap(new Map());
-    setHybridLoading(false);
   };
 
   // === 멀티 뷰포트 관련 함수 ===
@@ -629,58 +594,6 @@ export default function App() {
     setIsPlaying(playing);
   }, []);
 
-  // === Hybrid 모드 로드 함수 ===
-  const handleHybridLoad = async () => {
-    const uidsToLoad = Array.from(selectedUids).slice(0, getMaxSelect());
-    if (uidsToLoad.length === 0) {
-      setError('로드할 Instance를 선택하세요');
-      return;
-    }
-
-    setHybridLoading(true);
-    setError(null);
-
-    const dataSource = new WadoRsDataSource({
-      baseUrl: wadoBaseUrl,
-      timeout: 60000,
-      maxRetries: 3,
-    });
-
-    const seriesMap = new Map<string, HybridSeriesData>();
-
-    for (let i = 0; i < uidsToLoad.length; i++) {
-      const uid = uidsToLoad[i];
-      setMultiLoadingStatus(`로딩 중... (${i + 1}/${uidsToLoad.length})`);
-
-      try {
-        const { metadata, frames } = await dataSource.loadAllFrames({
-          studyInstanceUid: studyUid,
-          seriesInstanceUid: seriesUid,
-          sopInstanceUid: uid,
-        });
-
-        seriesMap.set(uid, {
-          info: {
-            seriesId: uid,
-            frameCount: metadata.frameCount,
-            imageWidth: metadata.imageInfo.columns,
-            imageHeight: metadata.imageInfo.rows,
-            isEncapsulated: metadata.isEncapsulated,
-            bitsStored: metadata.imageInfo.bitsStored,
-          },
-          frames,
-          imageInfo: metadata.imageInfo,
-          isEncapsulated: metadata.isEncapsulated,
-        });
-      } catch (err) {
-        console.error(`[Hybrid-Multi] Failed to load ${uid}:`, err);
-      }
-    }
-
-    setHybridSeriesMap(seriesMap);
-    setHybridLoading(false);
-    setMultiLoadingStatus('');
-  };
 
   return (
     <div style={{
@@ -696,7 +609,7 @@ export default function App() {
       <HardwareInfoPanel
         gl={glRef.current}
         renderStats={multiViewportReady ? { fps: multiStats.fps, frameTime: multiStats.frameTime, lastRenderTime: multiStats.frameTime } : undefined}
-        textureMemory={viewMode === 'multi' ? textureMemoryInfo : viewMode === 'hybrid' ? hybridTextureMemoryInfo : null}
+        textureMemory={viewMode === 'multi' ? textureMemoryInfo : null}
         defaultOpen={false}
         position="right"
       />
@@ -761,23 +674,6 @@ export default function App() {
           }}
         >
           🔲 Multi (Multi Canvas)
-        </button>
-        <button
-          onClick={() => handleViewModeChange('hybrid')}
-          style={{
-            padding: '12px 24px',
-            background: viewMode === 'hybrid' ? '#1f3d3d' : '#1a1a1a',
-            color: viewMode === 'hybrid' ? '#b4f8e8' : '#888',
-            border: 'none',
-            borderRadius: '8px 8px 0 0',
-            cursor: 'pointer',
-            fontWeight: viewMode === 'hybrid' ? 'bold' : 'normal',
-            fontSize: '14px',
-            borderBottom: viewMode === 'hybrid' ? '3px solid #4a7' : '3px solid transparent',
-            transition: 'all 0.2s',
-          }}
-        >
-          ⚡ Hybrid-Multi
         </button>
       </div>
 
@@ -1792,7 +1688,7 @@ export default function App() {
             <p style={{ margin: 0, color: '#a8b8c8', fontSize: '13px', lineHeight: '1.5' }}>
               각 뷰포트마다 <strong>별도의 Canvas와 WebGL Context</strong>를 생성합니다.
               구현이 단순하지만 브라우저 제한으로 <strong>최대 8~16개</strong> Context만 동시 사용 가능합니다.
-              16개 이상 뷰포트가 필요한 경우 Hybrid-Multi 모드를 사용하세요.
+              16개 이상 뷰포트가 필요한 경우 Multi (Single Canvas) 모드를 사용하세요.
             </p>
           </div>
 
@@ -2083,317 +1979,6 @@ export default function App() {
         </div>
       )}
 
-      {/* === Hybrid-Multi 모드 (DOM + WebGL) === */}
-      {viewMode === 'hybrid' && (
-        <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 150px)', minHeight: '400px' }}>
-          {/* 모드 설명 패널 */}
-          <div style={{
-            padding: '15px',
-            marginBottom: '15px',
-            background: '#1f3d3d',
-            border: '1px solid #4a7',
-            borderRadius: '4px',
-            flexShrink: 0,
-          }}>
-            <h3 style={{ margin: '0 0 10px 0', color: '#b4f8e8', fontSize: '16px' }}>
-              ⚡ Hybrid-Multi
-            </h3>
-            <p style={{ margin: 0, color: '#a8c8c8', fontSize: '13px', lineHeight: '1.5' }}>
-              <strong>단일 WebGL Canvas + DOM 슬롯</strong> 하이브리드 아키텍처입니다.
-              WebGL Context 1개만 사용하여 <strong>16개 이상 뷰포트</strong>를 지원합니다.
-              각 뷰포트는 독립적으로 Pan, Zoom, W/L, 재생/정지를 제어할 수 있습니다. (프로젝트 목표 달성)
-            </p>
-          </div>
-
-          {/* 에러 표시 */}
-          {error && (
-            <div style={{
-              padding: '15px',
-              marginBottom: '15px',
-              background: '#3a1a1a',
-              border: '1px solid #a44',
-              borderRadius: '4px',
-              color: '#f88',
-            }}>
-              Error: {error}
-            </div>
-          )}
-
-          {/* 설정 패널 */}
-          <div style={{
-            padding: '15px',
-            marginBottom: '15px',
-            background: '#1a2a2a',
-            border: '1px solid #4a7',
-            borderRadius: '4px',
-            flexShrink: 0,
-          }}>
-            <h3 style={{ margin: '0 0 15px 0', color: '#8fc', fontSize: '16px' }}>
-              WADO-RS 설정
-            </h3>
-
-            <div style={{ display: 'grid', gap: '10px', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
-              <div>
-                <label style={{ display: 'block', color: '#8fc', marginBottom: '5px', fontSize: '13px' }}>
-                  DICOM Web Base URL
-                </label>
-                <input
-                  type="text"
-                  value={wadoBaseUrl}
-                  onChange={(e) => setWadoBaseUrl(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px',
-                    fontSize: '13px',
-                    background: '#2a2a3a',
-                    border: '1px solid #555',
-                    borderRadius: '4px',
-                    color: '#fff',
-                  }}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', color: '#8fc', marginBottom: '5px', fontSize: '13px' }}>
-                  Study Instance UID
-                </label>
-                <input
-                  type="text"
-                  value={studyUid}
-                  onChange={(e) => setStudyUid(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px',
-                    fontSize: '13px',
-                    background: '#2a2a3a',
-                    border: '1px solid #555',
-                    borderRadius: '4px',
-                    color: '#fff',
-                  }}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', color: '#8fc', marginBottom: '5px', fontSize: '13px' }}>
-                  Series Instance UID
-                </label>
-                <input
-                  type="text"
-                  value={seriesUid}
-                  onChange={(e) => setSeriesUid(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px',
-                    fontSize: '13px',
-                    background: '#2a2a3a',
-                    border: '1px solid #555',
-                    borderRadius: '4px',
-                    color: '#fff',
-                  }}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', color: '#8fc', marginBottom: '5px', fontSize: '13px' }}>
-                  Layout
-                </label>
-                <select
-                  value={layout}
-                  onChange={(e) => setLayout(e.target.value as LayoutType)}
-                  style={{
-                    width: '100%',
-                    padding: '8px',
-                    fontSize: '13px',
-                    background: '#2a2a3a',
-                    border: '1px solid #555',
-                    borderRadius: '4px',
-                    color: '#fff',
-                  }}
-                >
-                  <option value="grid-2x2">2x2 (4 viewports)</option>
-                  <option value="grid-3x3">3x3 (9 viewports)</option>
-                  <option value="grid-4x4">4x4 (16 viewports)</option>
-                  <option value="grid-5x5">5x5 (25 viewports)</option>
-                  <option value="grid-6x6">6x6 (36 viewports)</option>
-                  <option value="grid-7x7">7x7 (49 viewports)</option>
-                  <option value="grid-8x8">8x8 (64 viewports)</option>
-                </select>
-              </div>
-            </div>
-
-            {/* 액션 버튼들 */}
-            <div style={{ marginTop: '15px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-              <button
-                onClick={handleScanInstances}
-                disabled={!!scanningStatus || hybridLoading}
-                style={{
-                  padding: '10px 20px',
-                  background: scanningStatus ? '#555' : '#a47',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: scanningStatus ? 'not-allowed' : 'pointer',
-                  fontSize: '14px',
-                }}
-              >
-                {scanningStatus || 'Instance 스캔'}
-              </button>
-
-              <button
-                onClick={handleHybridLoad}
-                disabled={hybridLoading || !!scanningStatus || selectedUids.size === 0}
-                style={{
-                  padding: '10px 20px',
-                  background: (hybridLoading || selectedUids.size === 0) ? '#555' : '#7a4',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: (hybridLoading || selectedUids.size === 0) ? 'not-allowed' : 'pointer',
-                  fontSize: '14px',
-                  fontWeight: 'bold',
-                }}
-              >
-                {hybridLoading ? multiLoadingStatus : `Hybrid-Multi 로드 (${selectedUids.size}개)`}
-              </button>
-            </div>
-
-            {/* Instance 선택 목록 */}
-            {scannedInstances.length > 0 && (
-              <div style={{ marginTop: '15px' }}>
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '10px',
-                }}>
-                  <span style={{ color: '#f8c', fontSize: '13px' }}>
-                    Instance 선택 ({selectedUids.size} / {getMaxSelect()}개)
-                  </span>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button
-                      onClick={selectAllPlayable}
-                      style={{
-                        padding: '4px 10px',
-                        fontSize: '11px',
-                        background: '#363',
-                        color: '#fff',
-                        border: 'none',
-                        borderRadius: '3px',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      영상만 선택
-                    </button>
-                    <button
-                      onClick={clearSelection}
-                      style={{
-                        padding: '4px 10px',
-                        fontSize: '11px',
-                        background: '#633',
-                        color: '#fff',
-                        border: 'none',
-                        borderRadius: '3px',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      선택 해제
-                    </button>
-                  </div>
-                </div>
-
-                <div style={{
-                  background: '#1a1a2a',
-                  borderRadius: '4px',
-                  maxHeight: '200px',
-                  overflowY: 'auto',
-                }}>
-                  {scannedInstances.map((instance, idx) => {
-                    const isSelected = selectedUids.has(instance.uid);
-                    const maxSelect = getMaxSelect();
-                    const canSelect = isSelected || selectedUids.size < maxSelect;
-
-                    return (
-                      <div
-                        key={instance.uid}
-                        onClick={() => !instance.error && canSelect && toggleInstanceSelection(instance.uid)}
-                        style={{
-                          padding: '6px 10px',
-                          borderBottom: '1px solid #333',
-                          cursor: instance.error ? 'not-allowed' : (canSelect ? 'pointer' : 'not-allowed'),
-                          background: isSelected ? '#3a2a3a' : 'transparent',
-                          opacity: instance.error ? 0.5 : (canSelect ? 1 : 0.6),
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          fontSize: '11px',
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          disabled={instance.error !== undefined || !canSelect}
-                          onChange={() => {}}
-                          style={{ cursor: 'inherit' }}
-                        />
-                        <span style={{ color: '#666', minWidth: '20px' }}>{idx + 1}.</span>
-                        <span style={{
-                          color: instance.isPlayable ? '#8f8' : '#fa8',
-                          minWidth: '35px',
-                        }}>
-                          {instance.isPlayable ? '영상' : '정지'}
-                        </span>
-                        <span style={{ color: '#f8c', minWidth: '50px' }}>
-                          {instance.frameCount}f
-                        </span>
-                        <span style={{ fontFamily: 'monospace', color: '#aaa', flex: 1 }}>
-                          ...{instance.uid.slice(-20)}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* 스캔 전 안내 */}
-            {scannedInstances.length === 0 && !scanningStatus && (
-              <div style={{ marginTop: '15px', fontSize: '12px', color: '#888' }}>
-                'Instance 스캔' 버튼을 클릭하여 Series 내 Instance를 조회하세요.
-              </div>
-            )}
-          </div>
-
-          {/* HybridMultiViewport 렌더링 */}
-          {hybridSeriesMap.size > 0 && (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-              <HybridMultiViewport
-                key={`hybrid-${layout}-${hybridSeriesMap.size}`}
-                layout={layout}
-                seriesMap={hybridSeriesMap}
-                syncMode="frame-ratio"
-                onViewportClick={(id) => console.log('[Hybrid-Multi] Clicked:', id)}
-              />
-            </div>
-          )}
-
-          {/* 로드 전 안내 */}
-          {hybridSeriesMap.size === 0 && !hybridLoading && (
-            <div style={{
-              padding: '40px',
-              background: '#1a1a2a',
-              borderRadius: '4px',
-              textAlign: 'center',
-              color: '#888',
-            }}>
-              <p style={{ marginBottom: '10px' }}>
-                Instance를 스캔하고 선택한 후 'Hybrid-Multi 로드' 버튼을 클릭하세요.
-              </p>
-              <p style={{ fontSize: '12px', color: '#666' }}>
-                Hybrid-Multi 모드는 Single WebGL Canvas 위에 DOM 기반 슬롯을 오버레이하여
-                <br />
-                유연한 이벤트 처리와 고성능 렌더링을 동시에 달성합니다.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
