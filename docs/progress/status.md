@@ -4,9 +4,9 @@
 
 | 항목 | 상태 |
 |------|------|
-| **현재 Phase** | Phase 3 (Annotations) 🚧 구현 중 |
+| **현재 Phase** | Phase 3 (Annotations) ✅ 핵심 완료 |
 | **마지막 업데이트** | 2026-01-20 |
-| **다음 마일스톤** | Phase 3e (확장 도구 및 플러그인) |
+| **다음 마일스톤** | Phase 3g (확장 도구 및 Calibration) 또는 Phase 4 |
 
 ---
 
@@ -156,12 +156,25 @@
 | SVGOverlay 통합 렌더링 | ✅ | 캔버스 컨테이너 내부 |
 | 데모 앱 테스트 어노테이션 | ✅ | Single (Local) 모드 + Multi 모드 |
 
-#### Phase 3f: 확장 & 플러그인 ⏳ 대기
+#### Phase 3f: 어노테이션 생성 UI ✅ 완료
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| DicomToolbar 어노테이션 도구 추가 | ✅ | Length, Angle, Point 버튼 |
+| MeasurementTool SingleDicomViewer 통합 | ✅ | activate/deactivate, 이벤트 처리 |
+| Canvas 이벤트 처리 | ✅ | 클릭→포인트 추가, 우클릭→취소 |
+| 임시 어노테이션 렌더링 | ✅ | 점선 미리보기, 부분 포인트 표시 |
+| strokeDasharray 지원 | ✅ | LengthShape, AngleShape, PointShape |
+| PointTool B/M-mode 지원 | ✅ | 마커로 동작 (D-mode는 속도 측정) |
+| CoordinateTransformer rotation/flip | ✅ | 회전/플립 시 어노테이션 좌표 변환 |
+| 컴포넌트 unmount cleanup | ✅ | MeasurementTool 메모리 누수 방지 |
+
+#### Phase 3g: 확장 & 플러그인 ⏳ 대기
 
 | 항목 | 상태 | 비고 |
 |------|------|------|
 | 측정 도구 (Ellipse, VTI) | ⏳ | 확장 도구 |
-| 어노테이션 생성/편집 UI | ⏳ | 실제 사용자 인터랙션 |
+| Calibration 지원 | ⏳ | DICOM Pixel Spacing → mm 변환 |
 | 플러그인 시스템 | ⏳ | 도구/계산기/렌더러 확장 |
 
 **설계 원칙**:
@@ -223,7 +236,7 @@
 | | tools/MeasurementTool.ts | 측정 도구 추상 기본 클래스 |
 | | tools/LengthTool.ts | 두 점 거리 측정 |
 | | tools/AngleTool.ts | 세 점 각도 측정 |
-| | tools/PointTool.ts | 단일 점 속도 측정 (D-mode) |
+| | tools/PointTool.ts | 단일 점 마커 (B/M-mode) / 속도 측정 (D-mode) |
 | | renderers/types.ts | 렌더러 인터페이스 및 타입 정의 |
 
 ### packages/react/src/
@@ -329,11 +342,17 @@
    - [x] annotation props 추가 (annotations, selectedAnnotationId, handlers 등)
    - [x] TransformContext 생성 로직
    - [x] 데모 앱 테스트 어노테이션 (Single + Multi 모드)
-19. **Phase 3f 구현**: ⬅️ 다음 마일스톤
-   - [ ] 어노테이션 생성/편집 UI (도구 활성화, 클릭으로 포인트 추가)
-   - [ ] 측정 도구 (Ellipse, VTI) - 선택적
-   - [ ] 플러그인 시스템 - 선택적
-20. **npm 배포 준비**: README, CHANGELOG (Phase 5)
+19. ~~**Phase 3f 구현**~~ ✅ 완료
+   - [x] DicomToolbar에 어노테이션 도구 추가 (Length, Angle, Point)
+   - [x] MeasurementTool SingleDicomViewer 통합
+   - [x] Canvas 이벤트 처리 (클릭→포인트 추가, 우클릭→취소)
+   - [x] 임시 어노테이션 렌더링 (점선 미리보기)
+   - [x] CoordinateTransformer rotation/flip 좌표 변환
+20. **Phase 3g 구현** (선택적): ⬅️ 다음 마일스톤
+   - [ ] Calibration 지원 (DICOM Pixel Spacing → mm/cm 변환)
+   - [ ] 측정 도구 확장 (Ellipse, VTI)
+   - [ ] 플러그인 시스템
+21. **npm 배포 준비**: README, CHANGELOG (Phase 5)
 
 ---
 

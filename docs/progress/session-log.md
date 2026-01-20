@@ -6,6 +6,81 @@
 
 ---
 
+## 2026-01-20 세션 #22 (Phase 3f: 어노테이션 생성 UI 구현)
+
+### 작업 내용
+
+**DicomToolbar 어노테이션 도구 추가**
+- [x] Length (📏 거리), Angle (∠ 각도), Point (● 점) 버튼 추가
+- [x] `ANNOTATION_TOOL_IDS` 상수 export
+
+**SingleDicomViewer MeasurementTool 통합**
+- [x] `activeMeasurementToolId`, `tempAnnotation` state 추가
+- [x] `measurementToolsRef`로 도구 인스턴스 관리 (렌더링마다 재생성 방지)
+- [x] `handleToolbarToolChange` 수정: 조작 도구 vs 어노테이션 도구 분기
+- [x] Canvas mousedown/mousemove 이벤트 → MeasurementTool에 전달
+- [x] 컴포넌트 unmount 시 MeasurementTool deactivate (메모리 누수 방지)
+
+**SVGOverlay 임시 어노테이션 렌더링**
+- [x] `tempAnnotation`, `tempAnnotationType` props 추가
+- [x] 점선 스타일 (`strokeDasharray: '5,5'`)로 미리보기 렌더링
+- [x] 포인트 부족 시 점/선만 표시 (Length 1점, Angle 1-2점)
+
+**Shape 컴포넌트 strokeDasharray 지원**
+- [x] LengthShape, AngleShape, PointShape에 `strokeDasharray` 적용
+
+**버그 수정**
+- [x] Tool "Length"/"Angle" not found 경고 → `isPrevAnnotationTool` 체크 추가
+- [x] Tool point does not support mode B → PointTool B/M-mode 지원 추가
+- [x] Rotation/Flip 시 어노테이션 좌표 불일치 → CoordinateTransformer 수정
+
+**CoordinateTransformer rotation/flip 좌표 변환**
+- [x] `dicomToCanvas`: Flip → Scale → Rotation → Pan 순서 적용
+- [x] `canvasToDicom`: Pan → Rotation역변환 → Scale역변환 → Flip역변환 순서 적용
+
+### 파일 변경
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `packages/react/.../DicomToolbar.tsx` | Length, Angle, Point 도구 추가, ANNOTATION_TOOL_IDS |
+| `packages/react/.../SingleDicomViewer.tsx` | MeasurementTool 통합, 이벤트 처리, cleanup |
+| `packages/react/.../SVGOverlay.tsx` | tempAnnotation 렌더링, 부분 포인트 미리보기 |
+| `packages/core/.../CoordinateTransformer.ts` | rotation/flipH/flipV 좌표 변환 |
+| `packages/core/.../renderers/types.ts` | SVGRenderConfig에 strokeDasharray 추가 |
+| `packages/core/.../tools/PointTool.ts` | B/M-mode 마커 지원 |
+| `packages/react/.../shapes/*.tsx` | strokeDasharray 지원 |
+| `apps/demo/src/App.tsx` | 어노테이션 생성 콜백 연결 |
+
+### 커밋
+
+```
+152b706 Implement Phase 3f: Annotation creation UI with MeasurementTool integration
+```
+
+### 테스트 결과
+
+- ✅ Length 도구: 두 점 클릭 → 거리 측정 어노테이션 생성
+- ✅ Angle 도구: 세 점 클릭 → 각도 측정 어노테이션 생성
+- ✅ Point 도구: 한 점 클릭 → 마커 어노테이션 생성
+- ✅ 임시 어노테이션: 점선 미리보기 정상 표시
+- ✅ 우클릭: 드로잉 취소 동작
+- ✅ 회전/플립 후 어노테이션: 이미지와 함께 회전/플립
+
+### 학습 포인트
+
+- **MeasurementTool 인스턴스 관리**: useRef로 렌더링 간 상태 유지
+- **좌표 변환 순서**: 변환과 역변환의 순서가 정확히 반대여야 함
+- **임시 어노테이션**: 확정 전 미리보기로 UX 향상
+- **어노테이션 도구 vs 조작 도구**: ToolGroup에 등록된 도구만 setToolActive 호출
+
+### 다음 세션 할 일
+
+- [ ] Calibration 지원 (px → mm/cm 변환)
+- [ ] 어노테이션 선택/편집 UI
+- [ ] Ellipse, VTI 도구 (선택적)
+
+---
+
 ## 2026-01-20 세션 #21 (Phase 3e: SingleDicomViewer 어노테이션 통합)
 
 ### 작업 내용
