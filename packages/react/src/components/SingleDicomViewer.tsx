@@ -239,19 +239,23 @@ export const SingleDicomViewer = forwardRef<
         id: viewportId,
         textureUnit: 0,
         windowLevel: wl,
-        transform: { pan, zoom, rotation },
+        transform: { pan, zoom, rotation, flipH: false, flipV: false },
         playback: {
           isPlaying,
           currentFrame,
           fps,
+          lastFrameTime: 0,
         },
         series: imageInfo ? {
+          seriesId: viewportId,
           frameCount: frames.length,
           imageWidth: imageInfo.columns,
           imageHeight: imageInfo.rows,
           isEncapsulated,
           bitsStored: imageInfo.bitsStored,
         } : null,
+        bounds: { x: 0, y: 0, width: 0, height: 0 },
+        active: true,
       };
     },
     setViewportWindowLevel: (id: string, wl: { center: number; width: number } | null) => {

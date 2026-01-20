@@ -603,7 +603,7 @@ export const HybridMultiViewport = forwardRef<
           const cacheEntry: TextureCacheEntry = {
             textureManager,
             sizeBytes,
-            seriesId: seriesData.info.seriesInstanceUID,
+            seriesId: seriesData.info.seriesId,
             frameCount,
             width: frameWidth,
             height: frameHeight,

@@ -6,7 +6,7 @@
 |------|------|
 | **현재 Phase** | Phase 3 (Annotations) 🚧 구현 중 |
 | **마지막 업데이트** | 2026-01-20 |
-| **다음 마일스톤** | Phase 3b (측정 도구) 구현 |
+| **다음 마일스톤** | Phase 3d (추가 측정 도구 및 통합) |
 
 ---
 
@@ -115,13 +115,35 @@
 | Exporter/Importer | ✅ | JSON v1.0 포맷 |
 | HistoryManager | ✅ | Undo/Redo + Batch 지원 |
 
-#### Phase 3b~e: 측정 도구 ⏳ 대기
+#### Phase 3b: 측정 도구 ✅ 완료
 
 | 항목 | 상태 | 비고 |
 |------|------|------|
-| SVG 오버레이 | ⏳ | 프레임별 동기화 |
-| 측정 도구 (Length, Angle) | ⏳ | 기본 도구 |
+| MeasurementTool 기본 클래스 | ✅ | 상태 관리, 이벤트 처리, 좌표 변환 |
+| LengthTool | ✅ | 두 점 거리 (B, M mode) |
+| AngleTool | ✅ | 세 점 각도 (B mode) |
+| PointTool | ✅ | 단일 점 속도 (D mode) |
+
+#### Phase 3c: SVG 오버레이 ✅ 완료
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 렌더러 타입 정의 (renderers/types.ts) | ✅ | RenderContext, ShapeRenderData, SVGRenderConfig |
+| SVGOverlay 컴포넌트 | ✅ | DICOM→Canvas 좌표 변환, 프레임별 필터링 |
+| LengthShape 컴포넌트 | ✅ | 두 점 거리 SVG 렌더링 |
+| AngleShape 컴포넌트 | ✅ | 세 점 각도 + 호(Arc) SVG 렌더링 |
+| PointShape 컴포넌트 | ✅ | 단일 점 십자선 SVG 렌더링 |
+| MeasurementLabel 컴포넌트 | ✅ | foreignObject 기반 라벨 |
+| DragHandle 컴포넌트 | ✅ | 드래그 가능한 원형 핸들 |
+| @echopixel/react exports | ✅ | 어노테이션 컴포넌트 공개 |
+| vite-plugin-dts 활성화 | ✅ | core 패키지 .d.ts 생성 |
+
+#### Phase 3d~e: 확장 도구 & 플러그인 ⏳ 대기
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
 | 측정 도구 (Ellipse, VTI) | ⏳ | 확장 도구 |
+| HybridMultiViewport 통합 | ⏳ | 어노테이션 렌더링 연결 |
 | 플러그인 시스템 | ⏳ | 도구/계산기/렌더러 확장 |
 
 **설계 원칙**:
@@ -180,6 +202,11 @@
 | | Exporter.ts | JSON 내보내기 |
 | | Importer.ts | JSON 가져오기 |
 | | HistoryManager.ts | Undo/Redo |
+| | tools/MeasurementTool.ts | 측정 도구 추상 기본 클래스 |
+| | tools/LengthTool.ts | 두 점 거리 측정 |
+| | tools/AngleTool.ts | 세 점 각도 측정 |
+| | tools/PointTool.ts | 단일 점 속도 측정 (D-mode) |
+| | renderers/types.ts | 렌더러 인터페이스 및 타입 정의 |
 
 ### packages/react/src/
 
@@ -196,6 +223,12 @@
 | | DicomMiniOverlay.tsx | 간소화 오버레이 (멀티 뷰포트용) | ✅ |
 | | HybridViewportGrid.tsx | Canvas + DOM Grid 레이어링 | ✅ |
 | | HybridViewportSlot.tsx | DOM 슬롯 (이벤트 처리) | ✅ |
+| **annotations/** | SVGOverlay.tsx | 어노테이션 SVG 오버레이 | ✅ |
+| | shapes/LengthShape.tsx | 두 점 거리 도형 | ✅ |
+| | shapes/AngleShape.tsx | 세 점 각도 도형 | ✅ |
+| | shapes/PointShape.tsx | 단일 점 십자선 도형 | ✅ |
+| | MeasurementLabel.tsx | 측정값 라벨 | ✅ |
+| | DragHandle.tsx | 드래그 핸들 | ✅ |
 | **types.ts** | - | 공통 타입 정의 | ✅ |
 
 ### apps/demo/src/
@@ -216,7 +249,7 @@
 |------|------|------|
 | WebGL 컨텍스트 제한 (8-16개) | 🟢 해결 | Single Canvas 방식으로 우회 |
 | VSCode DOM 타입 인식 오류 | 🟡 미해결 | 빌드 정상, IntelliSense만 문제 |
-| vite-plugin-dts 미설정 | 🟡 보류 | .d.ts 생성 안됨 |
+| vite-plugin-dts 설정 | 🟢 해결 | core 패키지 .d.ts 생성 활성화 |
 | 데모 중복 Hybrid 모드 | 🟢 해결 | 로컬 HybridViewport 폴더 삭제 완료 |
 | HardwareInfoPanel GPU 정보 (Multi) | 🟡 미표시 | glRef가 null (내부 관리) |
 
@@ -257,12 +290,23 @@
    - [x] HistoryManager (Undo/Redo + Batch)
    - [x] 좌표 변환 시스템 (CoordinateTransformer)
    - [x] Exporter/Importer (JSON v1.0)
-15. **Phase 3b 구현**: ⬅️ 다음 마일스톤
-   - [ ] SVG 오버레이 렌더러
-   - [ ] LengthTool (두 점 거리)
-   - [ ] AngleTool (세 점 각도)
-16. **Phase 3c~e**: Ellipse, VTI, 통합, 플러그인 시스템
-17. **npm 배포 준비**: vite-plugin-dts, README, CHANGELOG (Phase 5)
+15. ~~**Phase 3b 구현**~~ ✅ 완료
+   - [x] MeasurementTool 추상 기본 클래스
+   - [x] LengthTool (두 점 거리, B/M mode)
+   - [x] AngleTool (세 점 각도, B mode)
+   - [x] PointTool (단일 점 속도, D mode)
+16. ~~**Phase 3c 구현**~~ ✅ 완료
+   - [x] renderers/types.ts (RenderContext, ShapeRenderData, SVGRenderConfig)
+   - [x] SVGOverlay.tsx (DICOM→Canvas 변환, 프레임 필터링)
+   - [x] LengthShape, AngleShape, PointShape 컴포넌트
+   - [x] MeasurementLabel, DragHandle 컴포넌트
+   - [x] vite-plugin-dts 활성화 (core 패키지 .d.ts 생성)
+17. **Phase 3d 구현**: ⬅️ 다음 마일스톤
+   - [ ] HybridMultiViewport에 SVGOverlay 통합
+   - [ ] 측정 도구 UI (길이/각도/점 측정 모드)
+   - [ ] EllipseTool, VTI 도구 (선택적)
+18. **Phase 3e**: 플러그인 시스템 (선택적)
+19. **npm 배포 준비**: README, CHANGELOG (Phase 5)
 
 ---
 

@@ -252,3 +252,6 @@ export type {
   PlatformInfo,
   HardwareInfo,
 } from './utils/hardwareInfo';
+
+// Annotations (Phase 3)
+export * from './annotations';

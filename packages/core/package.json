@@ -30,7 +30,8 @@
   "author": "hanumoka",
   "license": "MIT",
   "devDependencies": {
-    "@types/react": "^18.2.0"
+    "@types/react": "^18.2.0",
+    "vite-plugin-dts": "^4.0.0"
   },
   "peerDependencies": {
     "react": "^18.0.0"

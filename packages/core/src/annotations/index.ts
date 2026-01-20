@@ -44,8 +44,8 @@ export type { HistoryManagerOptions } from './HistoryManager';
 // Tools (Phase 3b)
 export * from './tools';
 
-// Renderers
-// export * from './renderers';
+// Renderers (Phase 3c)
+export * from './renderers';
 
 // Utils
 // export * from './utils';

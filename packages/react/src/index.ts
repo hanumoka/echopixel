@@ -87,5 +87,18 @@ export {
   type PerformanceOptions,
 } from './components/HybridMultiViewport';
 
+// Annotation Components (Phase 3c)
+export {
+  SVGOverlay,
+  type SVGOverlayProps,
+  LengthShape,
+  AngleShape,
+  PointShape,
+  MeasurementLabel,
+  type MeasurementLabelProps,
+  DragHandle,
+  type DragHandleProps,
+} from './components/annotations';
+
 // Hooks (추후 구현)
 // export { useDicomViewport } from './hooks/useDicomViewport';
