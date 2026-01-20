@@ -6,6 +6,61 @@
 
 ---
 
+## 2026-01-20 세션 #23 (Phase 3g: Calibration 지원)
+
+### 작업 내용
+
+**DICOM Pixel Spacing 파싱**
+- [x] `PixelSpacing` 인터페이스 추가 (rowSpacing, columnSpacing in mm)
+- [x] `getPixelSpacing()` 함수 구현: DICOM 태그 (0028,0030) 파싱
+- [x] `DicomImageInfo`에 `pixelSpacing?: PixelSpacing` 필드 추가
+- [x] `dicom/index.ts`에 export 추가
+
+**SingleDicomViewer Calibration 통합**
+- [x] `transformContext` useMemo에서 `CalibrationData` 생성
+- [x] mm → cm 변환 적용 (DICOM Pixel Spacing은 mm, CalibrationData는 cm 사용)
+- [x] `TransformContext`에 `calibration`, `mode` 포함
+- [x] `handleToolbarToolChange` dependency array에 `imageInfo` 추가
+
+### 파일 변경
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `packages/core/src/dicom/DicomParser.ts` | PixelSpacing 인터페이스, getPixelSpacing() 함수 |
+| `packages/core/src/dicom/index.ts` | getPixelSpacing, PixelSpacing export |
+| `packages/react/.../SingleDicomViewer.tsx` | CalibrationData 생성, TransformContext에 calibration 포함 |
+
+### 커밋
+
+```
+bcc1f0a Add Pixel Spacing parsing and calibration support for measurements
+```
+
+### 측정 흐름
+
+```
+1. DICOM 로드 → getImageInfo() → pixelSpacing (mm)
+2. SingleDicomViewer → CalibrationData (cm) 생성
+3. TransformContext에 calibration 포함
+4. MeasurementTool.activate() → ToolContext 전달
+5. LengthTool.calculateMeasurement() → CoordinateTransformer.calculateDistance()
+6. 결과: "1.23 cm" 또는 "8.5 mm" (1cm 미만일 때 자동 mm 변환)
+```
+
+### 학습 포인트
+
+- **DICOM Pixel Spacing**: 태그 (0028,0030), 형식 "row\\column", 단위 mm
+- **TransformContext 통합**: calibration과 mode를 TransformContext에 포함하여 일관성 유지
+- **단위 변환**: DICOM은 mm 사용, CalibrationData는 cm/pixel 사용 → /10 변환 필요
+
+### 다음 세션 할 일
+
+- [ ] 어노테이션 선택/편집 UI
+- [ ] HybridMultiViewport 어노테이션 생성 기능
+- [ ] Ellipse, VTI 도구 (선택적)
+
+---
+
 ## 2026-01-20 세션 #22 (Phase 3f: 어노테이션 생성 UI 구현)
 
 ### 작업 내용
@@ -75,7 +130,7 @@
 
 ### 다음 세션 할 일
 
-- [ ] Calibration 지원 (px → mm/cm 변환)
+- [x] Calibration 지원 (px → mm/cm 변환) ✅ 세션 #23에서 완료
 - [ ] 어노테이션 선택/편집 UI
 - [ ] Ellipse, VTI 도구 (선택적)
 

@@ -169,12 +169,12 @@
 | CoordinateTransformer rotation/flip | ✅ | 회전/플립 시 어노테이션 좌표 변환 |
 | 컴포넌트 unmount cleanup | ✅ | MeasurementTool 메모리 누수 방지 |
 
-#### Phase 3g: 확장 & 플러그인 ⏳ 대기
+#### Phase 3g: 확장 & 플러그인 🚧 진행 중
 
 | 항목 | 상태 | 비고 |
 |------|------|------|
+| Calibration 지원 | ✅ | DICOM Pixel Spacing (0028,0030) → cm/mm 변환 |
 | 측정 도구 (Ellipse, VTI) | ⏳ | 확장 도구 |
-| Calibration 지원 | ⏳ | DICOM Pixel Spacing → mm 변환 |
 | 플러그인 시스템 | ⏳ | 도구/계산기/렌더러 확장 |
 
 **설계 원칙**:
@@ -348,10 +348,12 @@
    - [x] Canvas 이벤트 처리 (클릭→포인트 추가, 우클릭→취소)
    - [x] 임시 어노테이션 렌더링 (점선 미리보기)
    - [x] CoordinateTransformer rotation/flip 좌표 변환
-20. **Phase 3g 구현** (선택적): ⬅️ 다음 마일스톤
-   - [ ] Calibration 지원 (DICOM Pixel Spacing → mm/cm 변환)
+20. **Phase 3g 구현** (진행 중): ⬅️ 다음 마일스톤
+   - [x] Calibration 지원 (DICOM Pixel Spacing → mm/cm 변환)
    - [ ] 측정 도구 확장 (Ellipse, VTI)
    - [ ] 플러그인 시스템
+   - [ ] 어노테이션 선택/편집 UI
+   - [ ] HybridMultiViewport 어노테이션 생성 기능
 21. **npm 배포 준비**: README, CHANGELOG (Phase 5)
 
 ---
