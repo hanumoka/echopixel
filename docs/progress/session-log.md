@@ -6,6 +6,69 @@
 
 ---
 
+## 2026-01-20 세션 #18 (Rotation 구현 + 데모 리팩토링 계획)
+
+### 작업 내용
+
+**90도 회전 기능 구현**
+- [x] `shaders.ts`: Vertex shader에 `u_rotation` uniform 추가
+- [x] `QuadRenderer.ts`: `TransformOptions.rotation` 추가, 렌더러에 rotation 전달
+- [x] `DicomToolbar.tsx`: 회전 버튼 (↺ 좌 90°, ↻ 우 90°) 추가
+- [x] `DicomCanvas.tsx`: rotation prop + CSS transform rotate() 적용
+- [x] `DicomStatusBar.tsx`: rotation 변경 시 `Rot: 90°` 표시
+- [x] `SingleDicomViewer.tsx`: rotation 상태, 핸들러, 리셋 시 초기화
+- [x] `types.ts`: `TransformInfo.rotation` 필드 추가
+
+**데모 앱 리팩토링 검토 및 계획 수립**
+- [x] 현재 데모 앱 구조 분석 (App.tsx 2424줄, 4개 뷰 모드)
+- [x] @echopixel/react 패키지 현황 검토
+- [x] 리팩토링 방향 결정
+
+### 설계 결정
+
+**@echopixel/react 컴포넌트 구조 (확정)**
+
+| 컴포넌트 | 용도 | 상태 |
+|----------|------|------|
+| `SingleDicomViewer` | 단일 뷰어 (풀 UI) | ✅ 구현됨 |
+| `SingleDicomViewerGroup` | 다중 SingleDicomViewer 그리드 배치 | ⏳ 구현 예정 |
+| `HybridMultiViewport` | 대규모 뷰포트 (Single Canvas + DOM Overlay) | ⏳ 구현 예정 |
+| `DicomMiniOverlay` | 간소화 오버레이 (프레임 번호만) | ⏳ 구현 예정 |
+
+**데모 탭 구조 (확정)**
+
+| 현재 탭 | 리팩토링 후 | 비고 |
+|---------|-------------|------|
+| Single Viewport | `SingleDicomViewer` | 유지 |
+| Multi (Single Canvas) | `HybridMultiViewport` | `disableOverlay` 옵션으로 통합 |
+| Multi (Multi Canvas) | `SingleDicomViewerGroup` | 대체 |
+| Hybrid-Multi | `HybridMultiViewport` | 유지 |
+
+**Multi vs Hybrid 통합 결정**
+- Multi (Single Canvas)와 Hybrid를 **하나의 컴포넌트로 통합**
+- `HybridMultiViewport`에 `disableOverlay?: boolean` 옵션 추가
+- 이유: 어노테이션(Phase 3) 대비, 코드 중복 방지, 유지보수 단순화
+
+### 파일 변경
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `packages/core/src/webgl/shaders.ts` | rotation uniform 추가 |
+| `packages/core/src/webgl/QuadRenderer.ts` | rotation 지원 |
+| `packages/react/src/components/building-blocks/DicomToolbar.tsx` | 회전 버튼 |
+| `packages/react/src/components/building-blocks/DicomCanvas.tsx` | rotation prop |
+| `packages/react/src/components/building-blocks/DicomStatusBar.tsx` | rotation 표시 |
+| `packages/react/src/components/SingleDicomViewer.tsx` | rotation 상태/핸들러 |
+| `packages/react/src/types.ts` | TransformInfo.rotation |
+
+### 다음 세션 할 일
+- [ ] `DicomMiniOverlay` 구현 (빌딩 블록)
+- [ ] `SingleDicomViewerGroup` 구현
+- [ ] `HybridMultiViewport`를 @echopixel/react로 이동
+- [ ] 데모 앱에서 Multi (Multi Canvas) 탭 제거/대체
+
+---
+
 ## 2026-01-20 세션 #17 (@echopixel/react 패키지 구현)
 
 ### 작업 내용

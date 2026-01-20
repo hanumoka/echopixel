@@ -116,16 +116,27 @@
 - [x] MultiViewport 컴포넌트
 - [x] MultiCanvasGrid 컴포넌트 (비교용)
 
-#### @echopixel/react 패키지 ✅
-- [x] Building Blocks 컴포넌트
-  - DicomCanvas (WebGL 렌더링)
+#### @echopixel/react 패키지 🔄 진행중
+- [x] Building Blocks 컴포넌트 ✅
+  - DicomCanvas (WebGL 렌더링 + Rotation)
   - DicomControls (재생/정지, FPS, 프레임 슬라이더)
-  - DicomStatusBar (상태 표시)
+  - DicomStatusBar (상태 표시 + Rotation)
   - DicomToolInfo (도구 안내)
-  - DicomToolbar (커스터마이징 가능한 도구 선택)
-- [x] SingleDicomViewer (Building Blocks 조합)
-- [x] Tool System 통합 (useToolGroup)
-- [x] OHIF 스타일 뷰포트 스타일링
+  - DicomToolbar (도구 선택 + 90° 회전 버튼)
+- [x] SingleDicomViewer (Building Blocks 조합) ✅
+- [x] Tool System 통합 (useToolGroup) ✅
+- [x] OHIF 스타일 뷰포트 스타일링 ✅
+- [ ] DicomMiniOverlay (간소화 오버레이) ⏳
+- [ ] SingleDicomViewerGroup (다중 SingleDicomViewer 그리드) ⏳
+- [ ] HybridMultiViewport (demo → react 패키지 이동) ⏳
+
+**컴포넌트 구조 설계 (확정)**:
+```
+SingleDicomViewer        → 단일 뷰어, 풀 UI
+SingleDicomViewerGroup   → 다중 SingleDicomViewer 그리드 (각자 캔버스)
+HybridMultiViewport      → 대규모 뷰포트 (Single Canvas + DOM Overlay)
+                           └─ disableOverlay 옵션으로 순수 렌더링 모드 지원
+```
 
 #### Hybrid DOM-WebGL 아키텍처 ✅
 - [x] HybridViewportManager (DOM-WebGL 좌표 동기화)
@@ -399,9 +410,12 @@ Phase 2.5 (Robustness) ✅ ─────────────────�
     ├── LRU Texture Cache ✅
     │   └── VRAM 추적 (eviction 비활성화)
     │
-    └── @echopixel/react ✅
-        ├── Building Blocks (Canvas, Controls, StatusBar, ToolInfo, Toolbar)
-        └── SingleDicomViewer (조합형 뷰어)
+    └── @echopixel/react 🔄
+        ├── Building Blocks ✅ (Canvas, Controls, StatusBar, ToolInfo, Toolbar)
+        ├── SingleDicomViewer ✅ (조합형 뷰어)
+        ├── DicomMiniOverlay ⏳ (간소화 오버레이)
+        ├── SingleDicomViewerGroup ⏳ (다중 뷰어 그리드)
+        └── HybridMultiViewport ⏳ (demo → react 이동)
                                     │
                                     v
 Phase 3 (Annotations) ⏳ ────────────────────────

@@ -103,17 +103,20 @@
 | | TextureLRUCache.ts | VRAM 기반 텍스처 캐시 |
 | **network/** | retry.ts, errors.ts | 재시도, 에러 처리 |
 
-### packages/react/src/ (신규)
+### packages/react/src/
 
-| 모듈 | 파일 | 설명 |
-|------|------|------|
-| **components/** | SingleDicomViewer.tsx | 단일 DICOM 뷰어 (풀 UI) |
-| **building-blocks/** | DicomCanvas.tsx | WebGL 렌더링 캔버스 |
-| | DicomControls.tsx | 재생/정지, FPS, 프레임 슬라이더 |
-| | DicomStatusBar.tsx | 이미지 정보, W/L, Transform 표시 |
-| | DicomToolInfo.tsx | 마우스/키보드 도구 안내 |
-| | DicomToolbar.tsx | 커스터마이징 가능한 도구 선택 툴바 |
-| **types.ts** | - | 공통 타입 정의 |
+| 모듈 | 파일 | 설명 | 상태 |
+|------|------|------|------|
+| **components/** | SingleDicomViewer.tsx | 단일 DICOM 뷰어 (풀 UI) | ✅ |
+| | SingleDicomViewerGroup.tsx | 다중 SingleDicomViewer 그리드 배치 | ⏳ 예정 |
+| | HybridMultiViewport.tsx | 대규모 뷰포트 (Single Canvas + DOM) | ⏳ 예정 |
+| **building-blocks/** | DicomCanvas.tsx | WebGL 렌더링 캔버스 | ✅ |
+| | DicomControls.tsx | 재생/정지, FPS, 프레임 슬라이더 | ✅ |
+| | DicomStatusBar.tsx | 이미지 정보, W/L, Transform, Rotation 표시 | ✅ |
+| | DicomToolInfo.tsx | 마우스/키보드 도구 안내 | ✅ |
+| | DicomToolbar.tsx | 도구 선택 툴바 (W/L, Pan, Zoom, 회전) | ✅ |
+| | DicomMiniOverlay.tsx | 간소화 오버레이 (프레임 번호만) | ⏳ 예정 |
+| **types.ts** | - | 공통 타입 정의 | ✅ |
 
 ### apps/demo/src/
 
@@ -145,8 +148,13 @@
 4. ~~**Context Loss 복구**: WebGL 컨텍스트 손실 대응~~ ✅ 완료
 5. ~~**LRU Texture Cache**: VRAM 추적 및 관리~~ ✅ 완료
 6. ~~**@echopixel/react 패키지**: Building Blocks 컴포넌트~~ ✅ 완료
-7. **Phase 3 진입**: 좌표 변환, 측정 도구 (Annotations)
-8. **npm 배포 준비**: vite-plugin-dts, README, CHANGELOG (Phase 5)
+7. **@echopixel/react 멀티 뷰어 컴포넌트**: ⬅️ 현재 진행
+   - [ ] `DicomMiniOverlay` (빌딩 블록)
+   - [ ] `SingleDicomViewerGroup` (다중 SingleDicomViewer 그리드)
+   - [ ] `HybridMultiViewport` (@echopixel/react로 이동)
+8. **데모 앱 리팩토링**: @echopixel/react 컴포넌트 기반으로 전환
+9. **Phase 3 진입**: 좌표 변환, 측정 도구 (Annotations)
+10. **npm 배포 준비**: vite-plugin-dts, README, CHANGELOG (Phase 5)
 
 ---
 
