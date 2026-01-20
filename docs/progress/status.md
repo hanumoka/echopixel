@@ -4,9 +4,9 @@
 
 | 항목 | 상태 |
 |------|------|
-| **현재 Phase** | Phase 3 (Annotations) 📋 계획 완료 |
+| **현재 Phase** | Phase 3 (Annotations) 🚧 구현 중 |
 | **마지막 업데이트** | 2026-01-20 |
-| **다음 마일스톤** | Phase 3a (기본 인프라) 구현 |
+| **다음 마일스톤** | Phase 3b (측정 도구) 구현 |
 
 ---
 
@@ -101,16 +101,24 @@
 | DPR 프리셋 | ✅ | 1.0x, 1.5x, 2.0x, Auto |
 | VRAM 사용량 표시 | ✅ | 상태 바 + 프로그레스 바 |
 
-### Phase 3: Annotations 📋 계획 완료
+### Phase 3: Annotations 🚧 구현 중
+
+#### Phase 3a: 기본 인프라 ✅ 완료
 
 | 항목 | 상태 | 비고 |
 |------|------|------|
 | 요구사항 분석 | ✅ | Viviane 분석 완료 |
 | 아키텍처 설계 | ✅ | 플러그인 기반 유연한 구조 |
-| 좌표 변환 시스템 | ⏳ | B/M/D 모드별 계산기 (플러그인) |
-| AnnotationStore | ⏳ | 상태 관리 + 설정 기반 권한/제한 |
-| Exporter/Importer | ⏳ | DICOM 좌표 기반 JSON (v1.0) |
-| HistoryManager | ⏳ | Undo/Redo + 초기화 |
+| 타입 정의 (types.ts) | ✅ | Annotation, Permission, Limit, Export 타입 |
+| 좌표 변환 시스템 | ✅ | CoordinateTransformer (Canvas/DICOM/Physical) |
+| AnnotationStore | ✅ | CRUD + 권한/제한 검증 + 내부 메서드 |
+| Exporter/Importer | ✅ | JSON v1.0 포맷 |
+| HistoryManager | ✅ | Undo/Redo + Batch 지원 |
+
+#### Phase 3b~e: 측정 도구 ⏳ 대기
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
 | SVG 오버레이 | ⏳ | 프레임별 동기화 |
 | 측정 도구 (Length, Angle) | ⏳ | 기본 도구 |
 | 측정 도구 (Ellipse, VTI) | ⏳ | 확장 도구 |
@@ -166,6 +174,12 @@
 | **cache/** | LRUCache.ts | 일반 LRU 캐시 |
 | | TextureLRUCache.ts | VRAM 기반 텍스처 캐시 |
 | **network/** | retry.ts, errors.ts | 재시도, 에러 처리 |
+| **annotations/** | types.ts | 어노테이션 타입 정의 |
+| | coordinates/ | 좌표 변환 시스템 |
+| | AnnotationStore.ts | CRUD + 권한/제한 |
+| | Exporter.ts | JSON 내보내기 |
+| | Importer.ts | JSON 가져오기 |
+| | HistoryManager.ts | Undo/Redo |
 
 ### packages/react/src/
 
@@ -237,13 +251,18 @@
    - [x] Viviane 코드 분석 (좌표계, 측정 도구)
    - [x] 요구사항 결정 (권한, 개수 제한, 좌표계)
    - [x] 아키텍처 설계 (phase3-annotations-plan.md)
-14. **Phase 3a 구현**: ⬅️ 다음 마일스톤
-   - [ ] 타입 및 인터페이스 정의
-   - [ ] AnnotationStore (상태 관리)
-   - [ ] HistoryManager (Undo/Redo)
-   - [ ] 좌표 변환 시스템 (B/M/D 모드)
-15. **Phase 3b~e**: 측정 도구, SVG 오버레이, 통합
-16. **npm 배포 준비**: vite-plugin-dts, README, CHANGELOG (Phase 5)
+14. ~~**Phase 3a 구현**~~ ✅ 완료
+   - [x] 타입 및 인터페이스 정의 (types.ts)
+   - [x] AnnotationStore (CRUD + 권한/제한)
+   - [x] HistoryManager (Undo/Redo + Batch)
+   - [x] 좌표 변환 시스템 (CoordinateTransformer)
+   - [x] Exporter/Importer (JSON v1.0)
+15. **Phase 3b 구현**: ⬅️ 다음 마일스톤
+   - [ ] SVG 오버레이 렌더러
+   - [ ] LengthTool (두 점 거리)
+   - [ ] AngleTool (세 점 각도)
+16. **Phase 3c~e**: Ellipse, VTI, 통합, 플러그인 시스템
+17. **npm 배포 준비**: vite-plugin-dts, README, CHANGELOG (Phase 5)
 
 ---
 

@@ -41,8 +41,8 @@ export type { ImportResult } from './Importer';
 export { HistoryManager } from './HistoryManager';
 export type { HistoryManagerOptions } from './HistoryManager';
 
-// Tools
-// export * from './tools';
+// Tools (Phase 3b)
+export * from './tools';
 
 // Renderers
 // export * from './renderers';
