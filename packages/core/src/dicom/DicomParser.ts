@@ -211,6 +211,200 @@ export interface PixelSpacing {
 }
 
 /**
+ * Ultrasound Region Calibration 정보
+ *
+ * DICOM Sequence of Ultrasound Regions (0018,6011) 내부 태그에서 추출
+ * - Physical Delta X (0018,602C)
+ * - Physical Delta Y (0018,602E)
+ * - Physical Units X Direction (0018,6024)
+ * - Physical Units Y Direction (0018,6026)
+ *
+ * 단위: Physical Units에 따라 다름 (cm, seconds, cm/s 등)
+ */
+export interface UltrasoundCalibration {
+  /** X축 물리 간격 (단위/pixel) */
+  physicalDeltaX: number;
+  /** Y축 물리 간격 (단위/pixel) */
+  physicalDeltaY: number;
+  /** X축 물리 단위 (3=cm, 4=seconds, 5=cm/s 등) */
+  physicalUnitsX: number;
+  /** Y축 물리 단위 (3=cm, 4=seconds, 5=cm/s 등) */
+  physicalUnitsY: number;
+}
+
+/**
+ * Ultrasound Physical Units 코드
+ * DICOM PS3.3 C.8.5.5.1.4
+ */
+export const ULTRASOUND_PHYSICAL_UNITS = {
+  NONE: 0,
+  PERCENT: 1,
+  DB: 2,
+  CM: 3,
+  SECONDS: 4,
+  CM_PER_SEC: 5,
+  HZ: 6,
+  DB_PER_SEC: 7,
+  DB_PER_HZ: 8,
+} as const;
+
+/**
+ * Ultrasound Region Calibration 추출
+ *
+ * Sequence of Ultrasound Regions (0018,6011) 내부에서
+ * Physical Delta X/Y 및 Physical Units를 추출
+ *
+ * 시퀀스 구조가 복잡하므로 태그 패턴을 직접 검색
+ * VR 검증을 통해 잘못된 매칭 방지
+ *
+ * @param buffer - DICOM 버퍼
+ * @returns UltrasoundCalibration 또는 undefined
+ */
+export function getUltrasoundCalibration(
+  buffer: ArrayBuffer
+): UltrasoundCalibration | undefined {
+  const view = new DataView(buffer);
+  const bufferLength = buffer.byteLength;
+
+  // 필요한 값들
+  let physicalDeltaX: number | undefined;
+  let physicalDeltaY: number | undefined;
+  let physicalUnitsX: number | undefined;
+  let physicalUnitsY: number | undefined;
+
+  // DICM 헤더 이후부터 검색 (offset 132)
+  // 짝수 바이트에서만 검색 (DICOM 태그는 항상 짝수 오프셋)
+  for (let i = 132; i < bufferLength - 20; i += 2) {
+    const group = view.getUint16(i, true);
+
+    // 0018 그룹이 아니면 건너뛰기 (성능 최적화)
+    if (group !== 0x0018) continue;
+
+    const element = view.getUint16(i + 2, true);
+
+    // VR 읽기
+    const vrChar1 = view.getUint8(i + 4);
+    const vrChar2 = view.getUint8(i + 5);
+
+    // VR 문자 유효성 검사 (A-Z만 허용)
+    if (vrChar1 < 65 || vrChar1 > 90 || vrChar2 < 65 || vrChar2 > 90) {
+      continue;
+    }
+
+    const vr = String.fromCharCode(vrChar1, vrChar2);
+
+    // (0018,6024) Physical Units X Direction - US (2 bytes)
+    if (element === 0x6024 && vr === 'US') {
+      const length = view.getUint16(i + 6, true);
+      if (length === 2) {
+        const valueOffset = i + 8;
+        if (valueOffset + 2 <= bufferLength) {
+          const value = view.getUint16(valueOffset, true);
+          // 유효한 Physical Units 범위 (0-8)
+          if (value <= 8) {
+            physicalUnitsX = value;
+          }
+        }
+      }
+    }
+
+    // (0018,6026) Physical Units Y Direction - US (2 bytes)
+    if (element === 0x6026 && vr === 'US') {
+      const length = view.getUint16(i + 6, true);
+      if (length === 2) {
+        const valueOffset = i + 8;
+        if (valueOffset + 2 <= bufferLength) {
+          const value = view.getUint16(valueOffset, true);
+          if (value <= 8) {
+            physicalUnitsY = value;
+          }
+        }
+      }
+    }
+
+    // (0018,602C) Physical Delta X - FD (8 bytes double)
+    if (element === 0x602c && vr === 'FD') {
+      // 시퀀스 내부에서는 short form일 수 있음: VR(2) + Length(2) + Value(8)
+      // 먼저 short form 시도 (length는 2바이트)
+      const shortLength = view.getUint16(i + 6, true);
+
+      if (shortLength === 8) {
+        // Short form: 값은 i + 8에서 시작
+        const valueOffset = i + 8;
+        if (valueOffset + 8 <= bufferLength) {
+          const value = view.getFloat64(valueOffset, true);
+          if (Number.isFinite(value) && value !== 0) {
+            physicalDeltaX = value;
+          }
+        }
+      } else {
+        // Long form 시도: VR(2) + Reserved(2) + Length(4) + Value(8)
+        const longLength = view.getUint32(i + 8, true);
+        if (longLength === 8) {
+          const valueOffset = i + 12;
+          if (valueOffset + 8 <= bufferLength) {
+            const value = view.getFloat64(valueOffset, true);
+            if (Number.isFinite(value) && value !== 0) {
+              physicalDeltaX = value;
+            }
+          }
+        }
+      }
+    }
+
+    // (0018,602E) Physical Delta Y - FD (8 bytes double)
+    if (element === 0x602e && vr === 'FD') {
+      // Short form 먼저 시도
+      const shortLength = view.getUint16(i + 6, true);
+
+      if (shortLength === 8) {
+        const valueOffset = i + 8;
+        if (valueOffset + 8 <= bufferLength) {
+          const value = view.getFloat64(valueOffset, true);
+          if (Number.isFinite(value) && value !== 0) {
+            physicalDeltaY = value;
+          }
+        }
+      } else {
+        // Long form 시도
+        const longLength = view.getUint32(i + 8, true);
+        if (longLength === 8) {
+          const valueOffset = i + 12;
+          if (valueOffset + 8 <= bufferLength) {
+            const value = view.getFloat64(valueOffset, true);
+            if (Number.isFinite(value) && value !== 0) {
+              physicalDeltaY = value;
+            }
+          }
+        }
+      }
+    }
+
+    // 모든 값을 찾으면 종료
+    if (
+      physicalDeltaX !== undefined &&
+      physicalDeltaY !== undefined &&
+      physicalUnitsX !== undefined &&
+      physicalUnitsY !== undefined
+    ) {
+      break;
+    }
+  }
+
+  // Physical Delta 값이 있어야 유효한 캘리브레이션
+  if (physicalDeltaX === undefined || physicalDeltaY === undefined) {
+    return undefined;
+  }
+
+  return {
+    physicalDeltaX,
+    physicalDeltaY,
+    physicalUnitsX: physicalUnitsX ?? ULTRASOUND_PHYSICAL_UNITS.CM,
+    physicalUnitsY: physicalUnitsY ?? ULTRASOUND_PHYSICAL_UNITS.CM,
+  };
+}
+
+/**
  * 이미지 렌더링에 필요한 기본 정보 추출
  */
 export interface DicomImageInfo {
@@ -224,6 +418,8 @@ export interface DicomImageInfo {
   samplesPerPixel: number;
   /** Pixel Spacing (mm) - calibration에 사용 */
   pixelSpacing?: PixelSpacing;
+  /** Ultrasound Region Calibration (cm/pixel) - 초음파 이미지용 */
+  ultrasoundCalibration?: UltrasoundCalibration;
 }
 
 export function getImageInfo(
@@ -238,6 +434,10 @@ export function getImageInfo(
     return undefined;
   }
 
+  // Pixel Spacing 먼저 시도, 없으면 Ultrasound Calibration 시도
+  const pixelSpacing = getPixelSpacing(buffer, dataset);
+  const ultrasoundCalibration = pixelSpacing ? undefined : getUltrasoundCalibration(buffer);
+
   return {
     rows,
     columns,
@@ -247,7 +447,8 @@ export function getImageInfo(
     pixelRepresentation: getUint16Value(buffer, dataset, '00280103') ?? 0,
     photometricInterpretation: getStringValue(buffer, dataset, '00280004') ?? 'MONOCHROME2',
     samplesPerPixel: getUint16Value(buffer, dataset, '00280002') ?? 1,
-    pixelSpacing: getPixelSpacing(buffer, dataset),
+    pixelSpacing,
+    ultrasoundCalibration,
   };
 }
 /**

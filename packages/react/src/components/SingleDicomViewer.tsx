@@ -16,6 +16,7 @@ import {
   AngleTool,
   PointTool,
   DICOM_UNIT_CODES,
+  ULTRASOUND_PHYSICAL_UNITS,
   type DicomImageInfo,
   type ViewportManagerLike,
   type Viewport,
@@ -369,16 +370,42 @@ export const SingleDicomViewer = forwardRef<
     // 이미지 정보가 없거나 캔버스 크기가 유효하지 않으면 null
     if (!imageInfo || width <= 0 || height <= 0) return null;
 
-    // Calibration 생성 (Pixel Spacing → CalibrationData)
-    // Pixel Spacing은 mm/pixel, CalibrationData는 cm/pixel 사용
+    // Calibration 생성
+    // 우선순위: 1) Pixel Spacing (mm/pixel) → cm 변환
+    //          2) Ultrasound Calibration (이미 cm/pixel)
     let calibration: CalibrationData | undefined;
+
     if (imageInfo.pixelSpacing) {
+      // Pixel Spacing: mm/pixel → cm/pixel 변환 (/10)
       calibration = {
-        // mm → cm 변환 (/10)
         physicalDeltaX: imageInfo.pixelSpacing.columnSpacing / 10,
         physicalDeltaY: imageInfo.pixelSpacing.rowSpacing / 10,
         unitX: DICOM_UNIT_CODES.CENTIMETER,
         unitY: DICOM_UNIT_CODES.CENTIMETER,
+      };
+    } else if (imageInfo.ultrasoundCalibration) {
+      // Ultrasound Calibration: 이미 단위/pixel (보통 cm/pixel)
+      const usCal = imageInfo.ultrasoundCalibration;
+
+      // Physical Units를 DICOM_UNIT_CODES로 변환
+      const convertUnit = (usUnit: number): number => {
+        switch (usUnit) {
+          case ULTRASOUND_PHYSICAL_UNITS.CM:
+            return DICOM_UNIT_CODES.CENTIMETER;
+          case ULTRASOUND_PHYSICAL_UNITS.SECONDS:
+            return DICOM_UNIT_CODES.SECONDS;
+          case ULTRASOUND_PHYSICAL_UNITS.CM_PER_SEC:
+            return DICOM_UNIT_CODES.CM_PER_SEC;
+          default:
+            return DICOM_UNIT_CODES.CENTIMETER; // 기본값
+        }
+      };
+
+      calibration = {
+        physicalDeltaX: Math.abs(usCal.physicalDeltaX), // 음수 가능하므로 절대값
+        physicalDeltaY: Math.abs(usCal.physicalDeltaY),
+        unitX: convertUnit(usCal.physicalUnitsX),
+        unitY: convertUnit(usCal.physicalUnitsY),
       };
     }
 

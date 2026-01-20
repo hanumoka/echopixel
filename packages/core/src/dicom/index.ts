@@ -9,11 +9,13 @@ export {
   getStringValue,
   getImageInfo,
   getPixelSpacing,
+  getUltrasoundCalibration,
   isEncapsulated,
   getTransferSyntaxName,
   extractPixelData,
+  ULTRASOUND_PHYSICAL_UNITS,
 } from './DicomParser';
-export type { DicomImageInfo, PixelSpacing } from './DicomParser';
+export type { DicomImageInfo, PixelSpacing, UltrasoundCalibration } from './DicomParser';
 
 // Image Decoder
 export { isImageDecoderSupported, decodeJpeg, closeDecodedFrame } from './ImageDecoder';

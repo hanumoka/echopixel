@@ -104,6 +104,9 @@ export {
   decodeNative,
   applyWindowLevel,
   calculateMinMax,
+  // Ultrasound Calibration
+  getUltrasoundCalibration,
+  ULTRASOUND_PHYSICAL_UNITS,
 } from './dicom';
 export type {
   DicomTag,
@@ -113,6 +116,7 @@ export type {
   PixelDataInfo,
   DecodedFrame,
   NativeDecodeOptions,
+  UltrasoundCalibration,
 } from './dicom';
 
 // WebGL
