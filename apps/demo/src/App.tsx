@@ -7,6 +7,7 @@ import {
   isEncapsulated,
   isImageDecoderSupported,
   getTransferSyntaxName,
+  getUltrasoundCalibration,
   WadoRsDataSource,
   ViewportManager,
   RenderScheduler,
@@ -493,6 +494,37 @@ export default function App() {
       setLoadingStatus('Fetching frames...');
       const { metadata, frames } = await dataSource.loadAllFrames(instanceIdToLoad);
 
+      // calibration 확인 - WADO-RS 메타데이터에 없으면 전체 DICOM 인스턴스에서 추출
+      let finalImageInfo = metadata.imageInfo;
+
+      if (!finalImageInfo.pixelSpacing && !finalImageInfo.ultrasoundCalibration) {
+        setLoadingStatus('Fetching calibration data...');
+        try {
+          // 전체 DICOM 인스턴스 로드 (Part 10 파일)
+          const instanceUrl = `${wadoBaseUrl}/studies/${studyUid}/series/${seriesUid}/instances/${instanceUid}`;
+          const instanceResponse = await fetch(instanceUrl, {
+            headers: {
+              'Accept': 'application/dicom',
+            },
+          });
+
+          if (instanceResponse.ok) {
+            const instanceBuffer = await instanceResponse.arrayBuffer();
+            // Ultrasound Calibration 추출
+            const ultrasoundCalibration = getUltrasoundCalibration(instanceBuffer);
+            if (ultrasoundCalibration) {
+              console.log('[WADO-RS] Extracted ultrasoundCalibration from full instance:', ultrasoundCalibration);
+              finalImageInfo = {
+                ...finalImageInfo,
+                ultrasoundCalibration,
+              };
+            }
+          }
+        } catch (calibrationError) {
+          console.warn('[WADO-RS] Failed to fetch calibration from full instance:', calibrationError);
+        }
+      }
+
       // 메타데이터 저장
       setWadoDataSource(dataSource);
       setInstanceId(instanceIdToLoad);
@@ -501,7 +533,7 @@ export default function App() {
       // viewportData에 저장 (SingleDicomViewer에서 사용)
       setViewportData({
         frames,
-        imageInfo: metadata.imageInfo,
+        imageInfo: finalImageInfo,
         isEncapsulated: metadata.isEncapsulated,
       });
 
