@@ -76,6 +76,8 @@
 | SingleDicomViewerGroup | ✅ | 다중 SingleDicomViewer 그리드 |
 | HybridMultiViewport | ✅ | 데모→라이브러리 이동 (UI 제거) |
 | 데모 앱 리팩토링 | ✅ | SingleDicomViewer 필수 사용 |
+| 데모 Multi 모드 리팩토링 | ✅ | @echopixel/react HybridMultiViewport 사용 |
+| Single Viewport 사이즈 조정 | ✅ | 반응형 레이아웃 + 크기 조정 UI |
 
 ### Phase 3~5: 대기
 
@@ -150,6 +152,8 @@
 | WebGL 컨텍스트 제한 (8-16개) | 🟢 해결 | Single Canvas 방식으로 우회 |
 | VSCode DOM 타입 인식 오류 | 🟡 미해결 | 빌드 정상, IntelliSense만 문제 |
 | vite-plugin-dts 미설정 | 🟡 보류 | .d.ts 생성 안됨 |
+| 데모 Multi 모드 미사용 코드 | 🟡 정리 필요 | 리팩토링 후 레거시 코드 잔존 |
+| HardwareInfoPanel GPU 정보 (Multi) | 🟡 미표시 | glRef가 null (내부 관리) |
 
 ---
 
@@ -167,7 +171,9 @@
    - [x] `SingleDicomViewerGroup` (다중 SingleDicomViewer 그리드)
    - [x] `HybridMultiViewport` (@echopixel/react로 이동)
 8. ~~**데모 앱 리팩토링**~~ ✅ 완료 (Single 모드 SingleDicomViewer 필수)
-9. **Phase 3 진입**: ⬅️ 다음 마일스톤
+9. ~~**데모 Multi 모드 리팩토링**~~ ✅ 완료 (@echopixel/react HybridMultiViewport 사용)
+10. ~~**Single Viewport 사이즈 조정**~~ ✅ 완료 (반응형 레이아웃 + UI)
+11. **Phase 3 진입**: ⬅️ 다음 마일스톤
    - [ ] 좌표 변환 시스템 (이미지 좌표 ↔ 캔버스 좌표)
    - [ ] SVG 오버레이 기본 구조
    - [ ] 측정 도구 (Length, Angle)

@@ -358,12 +358,12 @@ export const SingleDicomViewer = forwardRef<
     }
   }, [viewportId, viewportElements, webglReady]);
 
-  // W/L 또는 프레임 변경 시 재렌더링
+  // W/L, 프레임, 또는 캔버스 크기 변경 시 재렌더링
   useEffect(() => {
     if (webglReady && frames.length > 0) {
       canvasRef.current?.renderFrame(currentFrame);
     }
-  }, [windowCenter, windowWidth, currentFrame, webglReady, frames.length]);
+  }, [windowCenter, windowWidth, currentFrame, webglReady, frames.length, width, height]);
 
   // 파생 상태 (UI용)
   const windowLevel: WindowLevelInfo | null =
@@ -573,6 +573,7 @@ export const SingleDicomViewer = forwardRef<
       className={className}
       style={{
         // 뷰어 컨테이너 배경 (OHIF 스타일 - 어두운 인디고)
+        display: 'inline-block', // 내용물 크기에 맞게 조정
         background: '#0b1a42',
         padding: '12px',
         borderRadius: '4px',

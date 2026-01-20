@@ -6,6 +6,73 @@
 
 ---
 
+## 2026-01-20 세션 #20 (Multi 모드 리팩토링 + Single Viewport 사이즈 조정)
+
+### 작업 내용
+
+**데모 Multi 모드 리팩토링**
+- [x] `@echopixel/react` `HybridMultiViewport` 컴포넌트 사용으로 전환
+- [x] `handleMultiViewportLoad` 간소화 (~200줄 → ~70줄)
+- [x] `toggleMultiPlay`, `handleFpsChange` ref 기반으로 변경
+- [x] `multiSeriesMap` state로 시리즈 데이터 관리
+- [x] 뷰포트 정보 그리드 `multiSeriesMap` 기반으로 업데이트
+
+**Single Viewport 사이즈 조정 기능**
+- [x] `singleViewportWidth`, `singleViewportHeight` state 추가
+- [x] 사이즈 조정 UI (숫자 입력 + 프리셋 버튼: 512×384, 768×576, 1024×768)
+- [x] 입력 검증: `onBlur`에서 범위 클램핑 (입력 중 자유 타이핑 허용)
+
+**SingleDicomViewer 반응형 레이아웃**
+- [x] 외부 컨테이너에 `display: 'inline-block'` 추가 (내용물 크기에 맞춤)
+- [x] `width`, `height` 변경 시 자동 재렌더링 (useEffect dependency 추가)
+
+### 파일 변경
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `apps/demo/src/App.tsx` | Multi 모드 리팩토링, 사이즈 조정 UI |
+| `packages/react/src/components/SingleDicomViewer.tsx` | 반응형 레이아웃, 사이즈 변경 시 재렌더링 |
+
+### 코드 변경 상세
+
+**SingleDicomViewer.tsx**
+```tsx
+// 외부 컨테이너 반응형
+style={{
+  display: 'inline-block', // 추가됨
+  background: '#0b1a42',
+  ...
+}}
+
+// 사이즈 변경 시 재렌더링
+useEffect(() => {
+  if (webglReady && frames.length > 0) {
+    canvasRef.current?.renderFrame(currentFrame);
+  }
+}, [windowCenter, windowWidth, currentFrame, webglReady, frames.length, width, height]); // width, height 추가
+```
+
+### 알려진 이슈 (미사용 코드)
+
+리팩토링 후 더 이상 사용되지 않는 코드 (향후 정리 필요):
+- `viewportManagerRef`, `syncEngineRef`, `textureManagersRef`, `arrayRendererRef`
+- `initMultiViewport` 함수
+- `HardwareInfoPanel` GPU 정보 미표시 (glRef null)
+
+### 학습 포인트
+
+- `onChange` vs `onBlur` 검증: 즉시 클램핑은 타이핑 방해 → blur 시점 검증이 UX 개선
+- `display: inline-block`: 컨테이너가 내용물 크기에 맞게 축소
+- Canvas 크기 변경 시 버퍼 초기화됨 → 명시적 재렌더링 필요
+
+### 다음 세션 할 일
+
+- [ ] 미사용 코드 정리 (선택적)
+- [ ] Phase 3 설계: 좌표 변환 시스템
+- [ ] SVG 오버레이 기본 구조
+
+---
+
 ## 2026-01-20 세션 #19 (@echopixel/react 멀티 뷰어 완성)
 
 ### 작업 내용

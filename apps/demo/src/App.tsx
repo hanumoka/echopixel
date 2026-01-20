@@ -29,7 +29,13 @@ import {
 import { MultiCanvasGrid } from './components/MultiCanvasGrid';
 import { HybridMultiViewport, type SeriesData as HybridSeriesData } from './components/HybridViewport';
 import { HardwareInfoPanel, type TextureMemoryInfo } from './components/HardwareInfoPanel';
-import { SingleDicomViewer } from '@echopixel/react';
+import {
+  SingleDicomViewer,
+  HybridMultiViewport as ReactHybridMultiViewport,
+  type HybridMultiViewportHandle,
+  type HybridSeriesData as ReactHybridSeriesData,
+  type HybridViewportStats,
+} from '@echopixel/react';
 
 type ViewMode = 'single' | 'multi' | 'multi-canvas' | 'hybrid';
 type DataSourceMode = 'local' | 'wado-rs';
@@ -63,6 +69,10 @@ export default function App() {
 
   // 뷰 모드 (단일/멀티)
   const [viewMode, setViewMode] = useState<ViewMode>('single');
+
+  // Single Viewport 크기 설정
+  const [singleViewportWidth, setSingleViewportWidth] = useState(768);
+  const [singleViewportHeight, setSingleViewportHeight] = useState(576);
 
   // 데이터 소스 모드
   const [mode, setMode] = useState<DataSourceMode>('local');
@@ -106,6 +116,10 @@ export default function App() {
   // Hybrid 모드용 상태
   const [hybridSeriesMap, setHybridSeriesMap] = useState<Map<string, HybridSeriesData>>(new Map());
   const [hybridLoading, setHybridLoading] = useState(false);
+
+  // Multi 모드 (리팩토링) - @echopixel/react HybridMultiViewport 사용
+  const [multiSeriesMap, setMultiSeriesMap] = useState<Map<string, ReactHybridSeriesData>>(new Map());
+  const multiViewportRef = useRef<HybridMultiViewportHandle>(null);
 
   // Multi Canvas용 DataSource (안정적인 참조 유지)
   const multiCanvasDataSource = useMemo(() => {
@@ -506,70 +520,29 @@ export default function App() {
     };
   };
 
-  // 멀티 뷰포트 로드
+  // 멀티 뷰포트 로드 (리팩토링 - @echopixel/react HybridMultiViewport 사용)
   const handleMultiViewportLoad = async () => {
     setMultiLoadingStatus('초기화 중...');
     setError(null);
     setMultiViewportReady(false);
     setIsPlaying(false);
+    setMultiSeriesMap(new Map());
 
-    // 이전 리소스 정리 (재로드 시 필수)
-    const existingCleanup = (window as unknown as { multiViewportCleanup?: () => void }).multiViewportCleanup;
-    if (existingCleanup) {
-      console.log('[MultiViewport] Cleaning up previous resources...');
-      existingCleanup();
-    }
-
-    // refs 초기화
-    renderSchedulerRef.current = null;
-    viewportManagerRef.current = null;
-    syncEngineRef.current = null;
-    arrayRendererRef.current = null;
-    // 기존 TextureManagers 직접 정리 (cleanup이 설정되지 않았을 경우를 대비)
-    textureManagersRef.current.forEach((tm) => tm.dispose());
-    textureManagersRef.current = new Map();
-    setViewports([]);
-
-    // Canvas 생성
-    const canvas = document.getElementById('multi-canvas') as HTMLCanvasElement;
-    if (!canvas) {
-      setError('Canvas not found');
-      return;
-    }
-
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const width = 1024;
-    const height = 768;
-    canvas.width = Math.floor(width * dpr);
-    canvas.height = Math.floor(height * dpr);
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
-
-    const result = initMultiViewport(canvas, layout);
-    if (!result) return;
-
-    const { gl, viewportManager, syncEngine, renderScheduler, arrayRenderer, viewportCount } = result;
-
-    // refs 저장
-    glRef.current = gl;
-    viewportManagerRef.current = viewportManager;
-    syncEngineRef.current = syncEngine;
-    renderSchedulerRef.current = renderScheduler;
-    arrayRendererRef.current = arrayRenderer;
-
-    // DataSource 생성
-    const dataSource = new WadoRsDataSource({
-      baseUrl: wadoBaseUrl,
-      timeout: 60000,
-      maxRetries: 3,
-    });
-
-    // 뷰포트 목록 가져오기
-    const viewportIds = viewportManager.getAllViewportIds();
-    setViewports(viewportManager.getAllViewports());
-
-    // 텍스처 매니저 맵 초기화
-    const textureManagers = new Map<string, TextureManager>();
+    // 레이아웃에 따른 뷰포트 수 계산
+    const getViewportCount = (l: LayoutType): number => {
+      switch (l) {
+        case 'grid-1x1': return 1;
+        case 'grid-2x2': return 4;
+        case 'grid-3x3': return 9;
+        case 'grid-4x4': return 16;
+        case 'grid-5x5': return 25;
+        case 'grid-6x6': return 36;
+        case 'grid-7x7': return 49;
+        case 'grid-8x8': return 64;
+        default: return 4;
+      }
+    };
+    const viewportCount = getViewportCount(layout);
 
     // 선택된 Instance UID 사용
     const instanceUidsToLoad = Array.from(selectedUids).slice(0, viewportCount);
@@ -580,9 +553,19 @@ export default function App() {
       return;
     }
 
-    for (let i = 0; i < instanceUidsToLoad.length && i < viewportIds.length; i++) {
-      const viewportId = viewportIds[i];
+    // DataSource 생성
+    const dataSource = new WadoRsDataSource({
+      baseUrl: wadoBaseUrl,
+      timeout: 60000,
+      maxRetries: 3,
+    });
+
+    // 시리즈 맵 구성
+    const newSeriesMap = new Map<string, ReactHybridSeriesData>();
+
+    for (let i = 0; i < instanceUidsToLoad.length; i++) {
       const instanceUidToLoad = instanceUidsToLoad[i];
+      const viewportId = `viewport-${i}`;
 
       setMultiLoadingStatus(`로딩 중... (${i + 1}/${instanceUidsToLoad.length}) ${instanceUidToLoad.slice(-10)}`);
 
@@ -594,50 +577,20 @@ export default function App() {
           sopInstanceUid: instanceUidToLoad,
         });
 
-        // 뷰포트에 시리즈 정보 설정
-        viewportManager.setViewportSeries(viewportId, {
-          seriesId: instanceUidToLoad,
-          frameCount: metadata.frameCount,
-          imageWidth: metadata.imageInfo.columns,
-          imageHeight: metadata.imageInfo.rows,
+        // 시리즈 맵에 추가
+        newSeriesMap.set(viewportId, {
+          info: {
+            seriesId: instanceUidToLoad,
+            frameCount: metadata.frameCount,
+            imageWidth: metadata.imageInfo.columns,
+            imageHeight: metadata.imageInfo.rows,
+            isEncapsulated: metadata.isEncapsulated,
+            bitsStored: metadata.imageInfo.bitsStored,
+          },
+          frames,
+          imageInfo: metadata.imageInfo,
           isEncapsulated: metadata.isEncapsulated,
-          bitsStored: metadata.imageInfo.bitsStored,
         });
-
-        // TextureManager 생성
-        const textureManager = new TextureManager(gl);
-        textureManagers.set(viewportId, textureManager);
-
-        // 모든 프레임 디코딩 및 텍스처 업로드
-        const decodedFrames: ImageBitmap[] = [];
-
-        try {
-          for (const frameData of frames) {
-            let decoded;
-            if (metadata.isEncapsulated) {
-              decoded = await decodeJpeg(frameData);
-            } else {
-              decoded = await decodeNative(frameData, {
-                imageInfo: metadata.imageInfo,
-              });
-            }
-
-            // ImageBitmap으로 변환
-            if (decoded.image instanceof VideoFrame) {
-              const bitmap = await createImageBitmap(decoded.image);
-              closeDecodedFrame(decoded);
-              decodedFrames.push(bitmap);
-            } else {
-              decodedFrames.push(decoded.image as ImageBitmap);
-            }
-          }
-
-          // 배열 텍스처에 업로드
-          textureManager.uploadAllFrames(decodedFrames);
-        } finally {
-          // ImageBitmap 정리 (성공/실패 모두 반드시 실행)
-          decodedFrames.forEach((bmp) => bmp.close());
-        }
 
         console.log(`[MultiViewport] Loaded ${frames.length} frames for viewport ${i + 1}`);
       } catch (err) {
@@ -645,109 +598,35 @@ export default function App() {
       }
     }
 
-    textureManagersRef.current = textureManagers;
-
-    // 렌더링 콜백 설정
-    renderScheduler.setRenderCallback((viewportId, frameIndex, bounds) => {
-      const viewport = viewportManager.getViewport(viewportId);
-      const textureManager = textureManagers.get(viewportId);
-
-      if (!viewport || !textureManager || !textureManager.hasArrayTexture()) {
-        return;
-      }
-
-      // 텍스처 바인딩 및 렌더링
-      textureManager.bindArrayTexture(viewport.textureUnit);
-      arrayRenderer.renderFrame(viewport.textureUnit, frameIndex, undefined);
-    });
-
-    // 프레임 업데이트 콜백
-    renderScheduler.setFrameUpdateCallback((viewportId, frameIndex) => {
-      setViewports((prev) =>
-        prev.map((v) =>
-          v.id === viewportId ? { ...v, playback: { ...v.playback, currentFrame: frameIndex } } : v,
-        ),
-      );
-    });
-
-    // 초기 렌더링
-    renderScheduler.renderSingleFrame();
-
-    // 상태 업데이트 인터벌
-    const statsInterval = setInterval(() => {
-      const stats = renderScheduler.getStats();
-      setMultiStats({ fps: stats.fps, frameTime: stats.frameTime });
-    }, 500);
-
-    // 동기화 그룹 생성 (재생 가능한 뷰포트만 포함)
-    const playableViewportIds = viewportIds.filter(id => {
-      const vp = viewportManager.getViewport(id);
-      return vp?.series && vp.series.frameCount > 1;
-    });
-
-    if (playableViewportIds.length >= 2) {
-      syncEngine.createSyncGroup({
-        masterId: playableViewportIds[0],
-        slaveIds: playableViewportIds.slice(1),
-        mode: 'frame-ratio',
-      });
-      console.log(`[MultiViewport] Sync group created with ${playableViewportIds.length} playable viewports`);
-    } else {
-      console.log(`[MultiViewport] No sync group created (only ${playableViewportIds.length} playable viewport(s))`);
-    }
-
-    setViewports(viewportManager.getAllViewports());
+    setMultiSeriesMap(newSeriesMap);
     setMultiLoadingStatus('');
     setMultiViewportReady(true);
-
-    // Cleanup 함수 저장
-    (window as unknown as { multiViewportCleanup?: () => void }).multiViewportCleanup = () => {
-      clearInterval(statsInterval);
-      renderScheduler.dispose();
-      arrayRenderer.dispose();
-      textureManagers.forEach((tm) => tm.dispose());
-    };
   };
 
-  // 재생/정지 토글
+  // 재생/정지 토글 (리팩토링 - ref 사용)
   const toggleMultiPlay = useCallback(() => {
-    const viewportManager = viewportManagerRef.current;
-    const renderScheduler = renderSchedulerRef.current;
-    if (!viewportManager || !renderScheduler) return;
-
-    const newIsPlaying = !isPlaying;
-    setIsPlaying(newIsPlaying);
-
-    // 모든 뷰포트의 재생 상태 설정
-    for (const id of viewportManager.getAllViewportIds()) {
-      viewportManager.setViewportPlaying(id, newIsPlaying);
-      viewportManager.setViewportFps(id, fps);
-    }
-
-    if (newIsPlaying) {
-      renderScheduler.start();
-    } else {
-      renderScheduler.stop();
-    }
-  }, [isPlaying, fps]);
-
-  // FPS 변경
-  const handleFpsChange = useCallback((newFps: number) => {
-    setFps(newFps);
-    const viewportManager = viewportManagerRef.current;
-    if (!viewportManager) return;
-
-    for (const id of viewportManager.getAllViewportIds()) {
-      viewportManager.setViewportFps(id, newFps);
+    if (multiViewportRef.current) {
+      multiViewportRef.current.togglePlayAll();
+      setIsPlaying(multiViewportRef.current.isPlaying());
     }
   }, []);
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      const cleanup = (window as unknown as { multiViewportCleanup?: () => void }).multiViewportCleanup;
-      if (cleanup) cleanup();
-    };
+  // FPS 변경 (리팩토링 - ref 사용)
+  const handleFpsChange = useCallback((newFps: number) => {
+    setFps(newFps);
+    if (multiViewportRef.current) {
+      multiViewportRef.current.setFps(newFps);
+    }
+  }, []);
+
+  // Multi 모드 stats 업데이트 콜백
+  const handleMultiStatsUpdate = useCallback((stats: HybridViewportStats) => {
+    setMultiStats({ fps: stats.fps, frameTime: stats.frameTime });
+  }, []);
+
+  // Multi 모드 재생 상태 변경 콜백
+  const handleMultiPlayingChange = useCallback((playing: boolean) => {
+    setIsPlaying(playing);
   }, []);
 
   // === Hybrid 모드 로드 함수 ===
@@ -964,6 +843,116 @@ export default function App() {
             </button>
           </div>
 
+          {/* 뷰포트 사이즈 조정 */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '15px',
+            marginBottom: '15px',
+            padding: '10px 15px',
+            background: '#252525',
+            borderRadius: '4px',
+            fontSize: '13px',
+          }}>
+            <span style={{ color: '#888' }}>📐 Size:</span>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#aaa' }}>
+              W:
+              <input
+                type="number"
+                min={200}
+                max={1920}
+                value={singleViewportWidth}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value);
+                  if (!isNaN(val)) setSingleViewportWidth(val);
+                }}
+                onBlur={(e) => {
+                  const val = parseInt(e.target.value) || 768;
+                  setSingleViewportWidth(Math.max(200, Math.min(1920, val)));
+                }}
+                style={{
+                  width: '70px',
+                  padding: '4px 8px',
+                  background: '#1a1a1a',
+                  border: '1px solid #444',
+                  borderRadius: '3px',
+                  color: '#fff',
+                  fontSize: '13px',
+                }}
+              />
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#aaa' }}>
+              H:
+              <input
+                type="number"
+                min={200}
+                max={1080}
+                value={singleViewportHeight}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value);
+                  if (!isNaN(val)) setSingleViewportHeight(val);
+                }}
+                onBlur={(e) => {
+                  const val = parseInt(e.target.value) || 576;
+                  setSingleViewportHeight(Math.max(200, Math.min(1080, val)));
+                }}
+                style={{
+                  width: '70px',
+                  padding: '4px 8px',
+                  background: '#1a1a1a',
+                  border: '1px solid #444',
+                  borderRadius: '3px',
+                  color: '#fff',
+                  fontSize: '13px',
+                }}
+              />
+            </label>
+            <div style={{ display: 'flex', gap: '5px' }}>
+              <button
+                onClick={() => { setSingleViewportWidth(512); setSingleViewportHeight(384); }}
+                style={{
+                  padding: '4px 8px',
+                  background: '#2a2a2a',
+                  border: '1px solid #444',
+                  borderRadius: '3px',
+                  color: '#aaa',
+                  cursor: 'pointer',
+                  fontSize: '11px',
+                }}
+              >
+                512×384
+              </button>
+              <button
+                onClick={() => { setSingleViewportWidth(768); setSingleViewportHeight(576); }}
+                style={{
+                  padding: '4px 8px',
+                  background: '#2a2a2a',
+                  border: '1px solid #444',
+                  borderRadius: '3px',
+                  color: '#aaa',
+                  cursor: 'pointer',
+                  fontSize: '11px',
+                }}
+              >
+                768×576
+              </button>
+              <button
+                onClick={() => { setSingleViewportWidth(1024); setSingleViewportHeight(768); }}
+                style={{
+                  padding: '4px 8px',
+                  background: '#2a2a2a',
+                  border: '1px solid #444',
+                  borderRadius: '3px',
+                  color: '#aaa',
+                  cursor: 'pointer',
+                  fontSize: '11px',
+                }}
+              >
+                1024×768
+              </button>
+            </div>
+          </div>
+
           {/* 에러/로딩 상태 */}
           {error && (
             <div style={{
@@ -1117,8 +1106,8 @@ export default function App() {
               frames={viewportData.frames}
               imageInfo={viewportData.imageInfo}
               isEncapsulated={viewportData.isEncapsulated}
-              width={512}
-              height={512}
+              width={singleViewportWidth}
+              height={singleViewportHeight}
               showToolbar={true}
               showContextLossTest={true}
             />
@@ -1608,32 +1597,40 @@ export default function App() {
               justifyContent: 'space-between',
               alignItems: 'center',
             }}>
-              <span>Multi-Viewport ({layout}) | {viewports.length} viewports loaded</span>
+              <span>Multi-Viewport ({layout}) | {multiSeriesMap.size} viewports loaded</span>
               <span style={{ color: '#8f8' }}>
                 FPS: {multiStats.fps} | Frame Time: {multiStats.frameTime.toFixed(1)}ms
               </span>
             </div>
           )}
 
-          {/* Canvas */}
-          <canvas
-            id="multi-canvas"
-            style={{
-              width: '1024px',
-              height: '768px',
-              border: '1px solid #444',
-              background: '#000',
-              display: 'block',
-              marginBottom: '10px',
-            }}
-          />
+          {/* HybridMultiViewport (리팩토링 - @echopixel/react) */}
+          {multiSeriesMap.size > 0 && (
+            <ReactHybridMultiViewport
+              ref={multiViewportRef}
+              layout={layout}
+              width={1024}
+              height={768}
+              seriesMap={multiSeriesMap}
+              syncMode="frame-ratio"
+              initialFps={fps}
+              showDefaultOverlay={false}
+              onPlayingChange={handleMultiPlayingChange}
+              onStatsUpdate={handleMultiStatsUpdate}
+              style={{
+                border: '1px solid #444',
+                marginBottom: '10px',
+              }}
+            />
+          )}
 
           {/* 컨트롤 */}
           {multiViewportReady && (() => {
             // 재생 가능한 뷰포트 수 계산 (frameCount > 1)
-            const playableCount = viewports.filter(vp => (vp.series?.frameCount ?? 0) > 1).length;
+            const seriesArray = Array.from(multiSeriesMap.values());
+            const playableCount = seriesArray.filter(s => s.info.frameCount > 1).length;
             const allStillImages = playableCount === 0;
-            const stillImageCount = viewports.length - playableCount;
+            const stillImageCount = seriesArray.length - playableCount;
 
             return (
               <div style={{
@@ -1705,16 +1702,16 @@ export default function App() {
           })()}
 
           {/* 뷰포트 정보 */}
-          {viewports.length > 0 && (
+          {multiSeriesMap.size > 0 && (
             <div style={{
               marginTop: '10px',
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
               gap: '8px',
             }}>
-              {viewports.map((vp, idx) => (
+              {Array.from(multiSeriesMap.entries()).map(([viewportId, series], idx) => (
                 <div
-                  key={vp.id}
+                  key={viewportId}
                   style={{
                     padding: '10px',
                     background: '#1a1a1a',
@@ -1734,7 +1731,7 @@ export default function App() {
                   }}>
                     <span>Viewport {idx + 1}</span>
                     {/* 단일 프레임 vs 영상 구분 */}
-                    {(vp.series?.frameCount ?? 0) <= 1 ? (
+                    {series.info.frameCount <= 1 ? (
                       <span style={{
                         fontSize: '10px',
                         color: '#fa8',
@@ -1747,16 +1744,16 @@ export default function App() {
                     ) : (
                       <span style={{
                         fontSize: '10px',
-                        color: vp.playback.isPlaying ? '#8f8' : '#888',
-                        background: vp.playback.isPlaying ? '#1a3a1a' : '#2a2a2a',
+                        color: isPlaying ? '#8f8' : '#888',
+                        background: isPlaying ? '#1a3a1a' : '#2a2a2a',
                         padding: '2px 6px',
                         borderRadius: '3px',
                       }}>
-                        {vp.playback.isPlaying ? 'Playing' : 'Stopped'}
+                        {isPlaying ? 'Playing' : 'Stopped'}
                       </span>
                     )}
                   </div>
-                  {vp.series?.seriesId && (
+                  {series.info.seriesId && (
                     <div style={{
                       fontFamily: 'monospace',
                       fontSize: '9px',
@@ -1764,12 +1761,12 @@ export default function App() {
                       marginBottom: '4px',
                       wordBreak: 'break-all',
                     }}>
-                      UID: ...{vp.series.seriesId.slice(-25)}
+                      UID: ...{series.info.seriesId.slice(-25)}
                     </div>
                   )}
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>Frame: {vp.playback.currentFrame + 1} / {vp.series?.frameCount ?? 0}</span>
-                    <span>Size: {vp.series?.imageWidth ?? 0}x{vp.series?.imageHeight ?? 0}</span>
+                    <span>Frames: {series.info.frameCount}</span>
+                    <span>Size: {series.info.imageWidth}x{series.info.imageHeight}</span>
                   </div>
                 </div>
               ))}
