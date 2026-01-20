@@ -7,6 +7,8 @@
 | 1 | Foundation (단일 뷰포트 cine 재생) | ✅ 완료 |
 | 2 | Multi-Viewport & Quality | ✅ 완료 |
 | 2.5 | Robustness (안정성 강화) | ✅ 완료 |
+| 2.6 | @echopixel/react 멀티 뷰어 | ✅ 완료 |
+| 2.7 | Multi Viewport Rotation/Flip | ⏳ 대기 |
 | 3 | Annotations | ⏳ 대기 |
 | 4 | Plugin System & Extensions | ⏳ 대기 |
 | 5 | Release | ⏳ 대기 |
@@ -116,19 +118,21 @@
 - [x] MultiViewport 컴포넌트
 - [x] MultiCanvasGrid 컴포넌트 (비교용)
 
-#### @echopixel/react 패키지 🔄 진행중
+#### @echopixel/react 패키지 ✅ 완료
 - [x] Building Blocks 컴포넌트 ✅
   - DicomCanvas (WebGL 렌더링 + Rotation)
   - DicomControls (재생/정지, FPS, 프레임 슬라이더)
   - DicomStatusBar (상태 표시 + Rotation)
   - DicomToolInfo (도구 안내)
-  - DicomToolbar (도구 선택 + 90° 회전 버튼)
+  - DicomToolbar (도구 선택 + 90° 회전/플립 버튼)
+  - DicomMiniOverlay (간소화 오버레이)
+  - HybridViewportGrid (Canvas + DOM Grid 레이어링)
+  - HybridViewportSlot (DOM 슬롯)
 - [x] SingleDicomViewer (Building Blocks 조합) ✅
+- [x] SingleDicomViewerGroup (다중 SingleDicomViewer 그리드) ✅
+- [x] HybridMultiViewport (demo → react 패키지 이동) ✅
 - [x] Tool System 통합 (useToolGroup) ✅
 - [x] OHIF 스타일 뷰포트 스타일링 ✅
-- [ ] DicomMiniOverlay (간소화 오버레이) ⏳
-- [ ] SingleDicomViewerGroup (다중 SingleDicomViewer 그리드) ⏳
-- [ ] HybridMultiViewport (demo → react 패키지 이동) ⏳
 
 **컴포넌트 구조 설계 (확정)**:
 ```
@@ -229,6 +233,63 @@ WebGL 컨텍스트가 손실될 때 (탭 전환, GPU 리셋 등) 자동 복구:
 - [ ] GPU 메모리 사용량 대시보드 (개발자용)
 - [ ] 메모리 경고 시스템
 - [ ] 자동 GC 트리거
+
+---
+
+## Phase 2.7: Multi Viewport Rotation/Flip ⏳ 대기
+
+> **목표**: Multi 모드에서 각 뷰포트별 Rotation/Flip 지원
+> - SingleDicomViewer와 동일한 도구 지원
+> - 각 DICOM마다 독립적인 회전/플립 제어
+
+### 배경
+
+현재 SingleDicomViewer에만 Rotation(90°)/Flip(H/V) 기능이 구현됨.
+Multi 모드(HybridMultiViewport, MultiCanvasGrid)에서는 미지원.
+의료 영상에서 각 뷰포트별 회전/플립은 필수 기능.
+
+### 작업 항목
+
+#### HybridMultiViewport Rotation/Flip
+- [ ] Viewport 상태에 rotation, flipH, flipV 추가
+- [ ] ArrayTextureRenderer에 rotation/flip 셰이더 지원
+- [ ] DicomMiniOverlay 또는 컨텍스트 메뉴에 회전/플립 UI 추가
+- [ ] 키보드 단축키 지원 (R: 회전, H: 가로플립, V: 세로플립)
+- [ ] resetViewport에 rotation/flip 초기화 포함
+
+#### MultiCanvasGrid Rotation/Flip
+- [ ] DicomViewport에 rotation/flip 상태 추가
+- [ ] compact 모드에서 미니 도구 UI 또는 키보드 지원
+
+#### 구현 방식 옵션
+
+**Option A**: CSS Transform 방식 (SingleDicomViewer 방식)
+- 장점: 구현 간단, GPU 가속
+- 단점: Single Canvas에서 각 뷰포트별 적용 어려움
+
+**Option B**: Shader 방식 (권장)
+- 장점: Single Canvas에서 각 뷰포트별 독립 적용 가능
+- 구현: Vertex Shader에서 UV 좌표 변환
+
+```glsl
+// rotation/flip을 위한 UV 변환
+vec2 transformUV(vec2 uv, float rotation, bool flipH, bool flipV) {
+  vec2 center = vec2(0.5);
+  vec2 centered = uv - center;
+
+  // Flip
+  if (flipH) centered.x = -centered.x;
+  if (flipV) centered.y = -centered.y;
+
+  // Rotation (90° 단위)
+  float rad = radians(rotation);
+  float c = cos(rad);
+  float s = sin(rad);
+  centered = vec2(c * centered.x - s * centered.y, s * centered.x + c * centered.y);
+
+  return centered + center;
+}
+```
 
 ---
 
