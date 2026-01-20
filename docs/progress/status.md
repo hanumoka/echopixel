@@ -6,7 +6,7 @@
 |------|------|
 | **현재 Phase** | Phase 3 (Annotations) 🚧 구현 중 |
 | **마지막 업데이트** | 2026-01-20 |
-| **다음 마일스톤** | Phase 3d (추가 측정 도구 및 통합) |
+| **다음 마일스톤** | Phase 3d (데모 앱 통합 테스트) |
 
 ---
 
@@ -138,12 +138,21 @@
 | @echopixel/react exports | ✅ | 어노테이션 컴포넌트 공개 |
 | vite-plugin-dts 활성화 | ✅ | core 패키지 .d.ts 생성 |
 
-#### Phase 3d~e: 확장 도구 & 플러그인 ⏳ 대기
+#### Phase 3d: HybridMultiViewport 통합 ✅ 완료
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| annotations props 추가 | ✅ | annotations, selectedAnnotationId, onAnnotationSelect 등 |
+| createTransformContext 헬퍼 | ✅ | Viewport → TransformContext 변환 |
+| SVGOverlay 통합 렌더링 | ✅ | HybridViewportSlot 내부 렌더링 |
+| 이벤트 핸들러 연결 | ✅ | 선택, 업데이트, 삭제 콜백 |
+
+#### Phase 3e: 확장 & 플러그인 ⏳ 대기
 
 | 항목 | 상태 | 비고 |
 |------|------|------|
 | 측정 도구 (Ellipse, VTI) | ⏳ | 확장 도구 |
-| HybridMultiViewport 통합 | ⏳ | 어노테이션 렌더링 연결 |
+| 데모 앱 통합 테스트 | ⏳ | 어노테이션 생성/편집 UI |
 | 플러그인 시스템 | ⏳ | 도구/계산기/렌더러 확장 |
 
 **설계 원칙**:
@@ -301,11 +310,15 @@
    - [x] LengthShape, AngleShape, PointShape 컴포넌트
    - [x] MeasurementLabel, DragHandle 컴포넌트
    - [x] vite-plugin-dts 활성화 (core 패키지 .d.ts 생성)
-17. **Phase 3d 구현**: ⬅️ 다음 마일스톤
-   - [ ] HybridMultiViewport에 SVGOverlay 통합
-   - [ ] 측정 도구 UI (길이/각도/점 측정 모드)
-   - [ ] EllipseTool, VTI 도구 (선택적)
-18. **Phase 3e**: 플러그인 시스템 (선택적)
+17. ~~**Phase 3d 구현**~~ ✅ 완료
+   - [x] HybridMultiViewportProps에 annotations prop 추가
+   - [x] createTransformContext 헬퍼 함수
+   - [x] HybridViewportSlot에 SVGOverlay 렌더링
+   - [x] 어노테이션 이벤트 핸들러 연결
+18. **Phase 3e 구현**: ⬅️ 다음 마일스톤
+   - [ ] 데모 앱에서 어노테이션 테스트 (생성/편집 UI)
+   - [ ] 측정 도구 (Ellipse, VTI) - 선택적
+   - [ ] 플러그인 시스템 - 선택적
 19. **npm 배포 준비**: README, CHANGELOG (Phase 5)
 
 ---

@@ -70,11 +70,15 @@ import {
   type TransformOptions,
   type SyncMode,
   type TextureCacheEntry,
+  type Annotation,
+  type SVGRenderConfig,
+  type TransformContext,
 } from '@echopixel/core';
 
 import { HybridViewportGrid } from './building-blocks/HybridViewportGrid';
 import { HybridViewportSlot } from './building-blocks/HybridViewportSlot';
 import { DicomMiniOverlay } from './building-blocks/DicomMiniOverlay';
+import { SVGOverlay } from './annotations/SVGOverlay';
 
 /**
  * 시리즈 데이터
@@ -192,6 +196,26 @@ export interface HybridMultiViewportProps {
   showDefaultOverlay?: boolean;
   /** 성능 옵션 (VRAM 제한, DPR 등) - 변경 시 컴포넌트 리마운트 권장 */
   performanceOptions?: PerformanceOptions;
+
+  // =========================================================================
+  // Annotation Props (Phase 3d)
+  // =========================================================================
+
+  /** 뷰포트별 어노테이션 맵 (viewportId → Annotation[]) */
+  annotations?: Map<string, Annotation[]>;
+  /** 선택된 어노테이션 ID */
+  selectedAnnotationId?: string | null;
+  /** 어노테이션 선택 콜백 */
+  onAnnotationSelect?: (viewportId: string, annotationId: string | null) => void;
+  /** 어노테이션 업데이트 콜백 */
+  onAnnotationUpdate?: (viewportId: string, annotation: Annotation) => void;
+  /** 어노테이션 삭제 콜백 */
+  onAnnotationDelete?: (viewportId: string, annotationId: string) => void;
+  /** 어노테이션 렌더링 설정 */
+  annotationConfig?: Partial<SVGRenderConfig>;
+  /** 읽기 전용 어노테이션 (편집 불가) */
+  readOnlyAnnotations?: boolean;
+
   /** 커스텀 스타일 */
   style?: CSSProperties;
   /** 커스텀 클래스명 */
@@ -216,6 +240,35 @@ function getLayoutDimensions(layout: LayoutType): { rows: number; cols: number }
 }
 
 /**
+ * TransformContext 생성 헬퍼
+ */
+function createTransformContext(
+  viewport: Viewport | null,
+  slotWidth: number,
+  slotHeight: number
+): TransformContext | null {
+  // viewport.series가 없거나 슬롯 크기가 유효하지 않으면 null 반환
+  if (!viewport?.series) return null;
+  if (slotWidth <= 0 || slotHeight <= 0) return null;
+
+  return {
+    viewport: {
+      imageWidth: viewport.series.imageWidth,
+      imageHeight: viewport.series.imageHeight,
+      canvasWidth: slotWidth,
+      canvasHeight: slotHeight,
+      zoom: viewport.transform.zoom,
+      pan: viewport.transform.pan,
+      rotation: viewport.transform.rotation,
+      flipH: viewport.transform.flipH,
+      flipV: viewport.transform.flipV,
+    },
+    // calibration과 mode는 seriesData에서 가져와야 하지만
+    // 현재는 기본값 사용 (추후 확장)
+  };
+}
+
+/**
  * HybridMultiViewport
  */
 export const HybridMultiViewport = forwardRef<
@@ -237,6 +290,14 @@ export const HybridMultiViewport = forwardRef<
     renderOverlay,
     showDefaultOverlay = true,
     performanceOptions,
+    // Annotation props (Phase 3d)
+    annotations,
+    selectedAnnotationId,
+    onAnnotationSelect,
+    onAnnotationUpdate,
+    onAnnotationDelete,
+    annotationConfig,
+    readOnlyAnnotations = false,
     style,
     className,
   },
@@ -874,6 +935,21 @@ export const HybridMultiViewport = forwardRef<
             );
           }
 
+          // Annotation 관련 데이터 준비
+          const viewportAnnotations = annotations?.get(id) ?? [];
+          const slotElement = viewportElements.get(id);
+          const slotWidth = slotElement?.clientWidth ?? 0;
+          const slotHeight = slotElement?.clientHeight ?? 0;
+          const transformContext = createTransformContext(viewport, slotWidth, slotHeight);
+
+          // 어노테이션 이벤트 핸들러
+          const annotationHandlers = {
+            onSelect: (annotationId: string | null) => onAnnotationSelect?.(id, annotationId),
+            onHover: () => {}, // 향후 구현
+            onUpdate: (annotation: Annotation) => onAnnotationUpdate?.(id, annotation),
+            onDelete: (annotationId: string) => onAnnotationDelete?.(id, annotationId),
+          };
+
           return (
             <HybridViewportSlot
               key={id}
@@ -894,6 +970,20 @@ export const HybridMultiViewport = forwardRef<
                 }
               }}
             >
+              {/* SVGOverlay - 어노테이션이 있고 transformContext가 유효할 때만 렌더링 */}
+              {viewportAnnotations.length > 0 && transformContext && (
+                <SVGOverlay
+                  annotations={viewportAnnotations}
+                  currentFrame={viewport?.playback.currentFrame ?? 0}
+                  transformContext={transformContext}
+                  selectedId={selectedAnnotationId}
+                  config={annotationConfig}
+                  handlers={annotationHandlers}
+                  readOnly={readOnlyAnnotations}
+                />
+              )}
+
+              {/* 기존 오버레이 렌더링 */}
               {renderOverlay ? (
                 renderOverlay(viewport, index)
               ) : showDefaultOverlay ? (
