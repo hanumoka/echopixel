@@ -1,20 +1,21 @@
 /**
- * PointTool - Single Point Velocity Measurement
+ * PointTool - Single Point Marker / Velocity Measurement
  *
- * 단일 점에서 속도를 측정하는 도구 (Doppler 전용)
+ * 단일 점 마커 또는 속도 측정 도구
  *
  * 지원 모드:
+ * - B-mode: 단순 마커 (위치 표시용)
+ * - M-mode: 단순 마커 (위치 표시용)
  * - D-mode: Doppler 속도 측정 (cm/s)
  *
- * 작동 방식:
+ * D-mode 작동 방식:
  * - 클릭한 점의 Y 좌표를 baseLine 기준으로 속도 계산
  * - baseLine 위: 양수 속도 (심장에서 멀어지는 방향)
  * - baseLine 아래: 음수 속도 (심장으로 향하는 방향)
  *
  * 사용 예시:
- * - E파, A파 최대 속도 측정
- * - 승모판 혈류 속도
- * - 대동맥 혈류 속도
+ * - B-mode: 관심 영역 마커, 랜드마크 표시
+ * - D-mode: E파, A파 최대 속도 측정
  */
 
 import type { Point, DicomMode, AnnotationType, MeasurementResult } from '../types';
@@ -26,9 +27,10 @@ import { MeasurementTool } from './MeasurementTool';
 // =============================================================================
 
 /**
- * 단일 점 속도 측정 도구
+ * 단일 점 마커 / 속도 측정 도구
  *
- * Doppler 영상에서 한 점을 클릭하여 속도를 측정
+ * B/M-mode: 단순 마커로 동작
+ * D-mode: 속도 측정으로 동작
  */
 export class PointTool extends MeasurementTool {
   // ---------------------------------------------------------------------------
@@ -36,8 +38,8 @@ export class PointTool extends MeasurementTool {
   // ---------------------------------------------------------------------------
 
   static readonly toolId = 'point';
-  static readonly toolName = 'Point Velocity';
-  static readonly supportedModes: DicomMode[] = ['D'];
+  static readonly toolName = 'Point Marker';
+  static readonly supportedModes: DicomMode[] = ['B', 'M', 'D'];
   static readonly annotationType: AnnotationType = 'point';
   static readonly requiredPoints = 1;
 
@@ -78,20 +80,33 @@ export class PointTool extends MeasurementTool {
   }
 
   /**
-   * 속도 측정 결과 계산
+   * 측정 결과 계산
+   *
+   * B/M-mode: 좌표만 표시 (마커 용도)
+   * D-mode: 속도 계산
    *
    * @param points - 단일 점 [P1]
-   * @param context - 도구 컨텍스트 (calibration.baseLine 필수)
+   * @param context - 도구 컨텍스트
    * @returns 측정 결과
    */
   calculateMeasurement(points: Point[], context: ToolContext): MeasurementResult {
     if (points.length < 1) {
-      return { value: 0, unit: 'cm/s', displayText: '...' };
+      return { value: 0, unit: '', displayText: '...' };
     }
 
     const point = points[0];
-    const { calibration, transformContext } = context;
+    const { calibration, transformContext, mode } = context;
 
+    // B-mode / M-mode: 단순 마커 (좌표 표시)
+    if (mode === 'B' || mode === 'M') {
+      return {
+        value: 0,
+        unit: '',
+        displayText: `(${point.x.toFixed(0)}, ${point.y.toFixed(0)})`,
+      };
+    }
+
+    // D-mode: 속도 측정
     // 캘리브레이션 없으면 픽셀 Y 좌표만 반환
     if (!calibration) {
       return {

@@ -71,6 +71,7 @@ export class CoordinateTransformer implements ICoordinateTransformer {
    * Canvas 좌표 → DICOM 픽셀 좌표
    *
    * 마우스 이벤트 좌표를 원본 이미지 좌표로 변환
+   * rotation, flipH, flipV 역변환 포함
    *
    * @param point - Canvas 좌표
    * @param context - 변환 컨텍스트
@@ -78,8 +79,17 @@ export class CoordinateTransformer implements ICoordinateTransformer {
    */
   canvasToDicom(point: Point, context: TransformContext): Point {
     const { viewport } = context;
-    const { imageWidth, imageHeight, canvasWidth, canvasHeight, zoom, pan } =
-      viewport;
+    const {
+      imageWidth,
+      imageHeight,
+      canvasWidth,
+      canvasHeight,
+      zoom,
+      pan,
+      rotation = 0,
+      flipH = false,
+      flipV = false,
+    } = viewport;
 
     // 1. 기본 스케일 계산 (Fit to canvas)
     const baseScale = this.calculateFitScale(viewport);
@@ -87,15 +97,42 @@ export class CoordinateTransformer implements ICoordinateTransformer {
     // 2. 최종 스케일 (기본 스케일 * 줌)
     const finalScale = baseScale * zoom;
 
-    // 3. 이미지가 Canvas 중앙에 위치할 때의 오프셋
-    const centerOffsetX = (canvasWidth - imageWidth * finalScale) / 2;
-    const centerOffsetY = (canvasHeight - imageHeight * finalScale) / 2;
+    // 3. Canvas 중앙 좌표
+    const canvasCenterX = canvasWidth / 2;
+    const canvasCenterY = canvasHeight / 2;
 
-    // 4. Canvas 좌표에서 Pan, Center offset 제거 후 스케일 역변환
-    const dicomX = (point.x - pan.x - centerOffsetX) / finalScale;
-    const dicomY = (point.y - pan.y - centerOffsetY) / finalScale;
+    // 4. Canvas 좌표에서 Pan 제거 후 중앙 기준으로 변환
+    let x = point.x - pan.x - canvasCenterX;
+    let y = point.y - pan.y - canvasCenterY;
 
-    // 5. 정수로 반올림 (DICOM 픽셀은 정수)
+    // 5. Rotation 역변환 (반시계 방향으로 회전)
+    if (rotation !== 0) {
+      const rad = (-rotation * Math.PI) / 180; // 역방향
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+      const newX = x * cos - y * sin;
+      const newY = x * sin + y * cos;
+      x = newX;
+      y = newY;
+    }
+
+    // 6. Scale 역변환
+    x = x / finalScale;
+    y = y / finalScale;
+
+    // 7. Flip 역변환 (flip은 자기 자신이 역변환)
+    if (flipH) {
+      x = -x;
+    }
+    if (flipV) {
+      y = -y;
+    }
+
+    // 8. 이미지 중앙 기준에서 원점 기준으로 복원
+    const dicomX = x + imageWidth / 2;
+    const dicomY = y + imageHeight / 2;
+
+    // 9. 정수로 반올림 (DICOM 픽셀은 정수)
     return {
       x: Math.round(dicomX),
       y: Math.round(dicomY),
@@ -106,6 +143,7 @@ export class CoordinateTransformer implements ICoordinateTransformer {
    * DICOM 픽셀 좌표 → Canvas 좌표
    *
    * 저장된 좌표를 화면 좌표로 변환
+   * rotation, flipH, flipV 적용 포함
    *
    * @param point - DICOM 픽셀 좌표
    * @param context - 변환 컨텍스트
@@ -113,8 +151,17 @@ export class CoordinateTransformer implements ICoordinateTransformer {
    */
   dicomToCanvas(point: Point, context: TransformContext): Point {
     const { viewport } = context;
-    const { imageWidth, imageHeight, canvasWidth, canvasHeight, zoom, pan } =
-      viewport;
+    const {
+      imageWidth,
+      imageHeight,
+      canvasWidth,
+      canvasHeight,
+      zoom,
+      pan,
+      rotation = 0,
+      flipH = false,
+      flipV = false,
+    } = viewport;
 
     // 1. 기본 스케일 계산
     const baseScale = this.calculateFitScale(viewport);
@@ -122,17 +169,40 @@ export class CoordinateTransformer implements ICoordinateTransformer {
     // 2. 최종 스케일
     const finalScale = baseScale * zoom;
 
-    // 3. 중앙 오프셋
-    const centerOffsetX = (canvasWidth - imageWidth * finalScale) / 2;
-    const centerOffsetY = (canvasHeight - imageHeight * finalScale) / 2;
+    // 3. DICOM 좌표를 이미지 중앙 기준으로 변환
+    let x = point.x - imageWidth / 2;
+    let y = point.y - imageHeight / 2;
 
-    // 4. DICOM 좌표 → Canvas 좌표
-    const canvasX = point.x * finalScale + centerOffsetX + pan.x;
-    const canvasY = point.y * finalScale + centerOffsetY + pan.y;
+    // 4. Flip 적용
+    if (flipH) {
+      x = -x;
+    }
+    if (flipV) {
+      y = -y;
+    }
+
+    // 5. Scale 적용
+    x = x * finalScale;
+    y = y * finalScale;
+
+    // 6. Rotation 적용 (시계 방향)
+    if (rotation !== 0) {
+      const rad = (rotation * Math.PI) / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+      const newX = x * cos - y * sin;
+      const newY = x * sin + y * cos;
+      x = newX;
+      y = newY;
+    }
+
+    // 7. Canvas 중앙 + Pan 적용
+    const canvasCenterX = canvasWidth / 2;
+    const canvasCenterY = canvasHeight / 2;
 
     return {
-      x: canvasX,
-      y: canvasY,
+      x: x + canvasCenterX + pan.x,
+      y: y + canvasCenterY + pan.y,
     };
   }
 

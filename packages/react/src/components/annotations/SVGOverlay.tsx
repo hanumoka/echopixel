@@ -36,6 +36,7 @@ import type {
   ShapeRenderData,
   TransformContext,
   AnnotationEventHandlers,
+  TempAnnotation,
 } from '@echopixel/core';
 import { coordinateTransformer } from '@echopixel/core';
 import { LengthShape } from './shapes/LengthShape';
@@ -64,6 +65,10 @@ export interface SVGOverlayProps {
   handlers?: AnnotationEventHandlers;
   /** 읽기 전용 (편집 불가) */
   readOnly?: boolean;
+  /** 임시 어노테이션 (드로잉 중 미리보기, Phase 3f) */
+  tempAnnotation?: TempAnnotation | null;
+  /** 임시 어노테이션 타입 (Length, Angle, Point) */
+  tempAnnotationType?: 'length' | 'angle' | 'point';
   /** 커스텀 스타일 */
   style?: CSSProperties;
   /** 커스텀 클래스명 */
@@ -105,6 +110,8 @@ export function SVGOverlay({
   config: customConfig,
   handlers,
   readOnly = false,
+  tempAnnotation = null,
+  tempAnnotationType,
   style,
   className,
 }: SVGOverlayProps) {
@@ -148,6 +155,39 @@ export function SVGOverlay({
       };
     });
   }, [annotations, currentFrame, transformContext, selectedId, hoveredId, config.strokeColor]);
+
+  // 임시 어노테이션 렌더링 데이터 (Phase 3f)
+  const tempRenderData = useMemo((): ShapeRenderData | null => {
+    if (!tempAnnotation || !tempAnnotationType) return null;
+
+    // 확정된 포인트들 + 현재 마우스 위치
+    const allPoints = tempAnnotation.currentPoint
+      ? [...tempAnnotation.points, tempAnnotation.currentPoint]
+      : tempAnnotation.points;
+
+    if (allPoints.length === 0) return null;
+
+    // DICOM → Canvas 좌표 변환
+    const canvasPoints = allPoints.map((p: Point) =>
+      coordinateTransformer.dicomToCanvas(p, transformContext)
+    );
+
+    // 라벨 위치 (마지막 포인트 근처)
+    const lastPoint = canvasPoints[canvasPoints.length - 1];
+    const labelPosition = { x: lastPoint.x + 10, y: lastPoint.y - 10 };
+
+    return {
+      id: 'temp-annotation',
+      type: tempAnnotationType,
+      points: canvasPoints,
+      labelPosition,
+      displayValue: tempAnnotation.measurement?.displayText || '...',
+      color: config.strokeColor,
+      isSelected: false,
+      isHovered: false,
+      annotation: null as unknown as Annotation, // 임시 어노테이션은 Annotation 객체 없음
+    };
+  }, [tempAnnotation, tempAnnotationType, transformContext, config.strokeColor]);
 
   // 선택 핸들러
   const handleSelect = useCallback(
@@ -193,6 +233,91 @@ export function SVGOverlay({
     [config, handleSelect, handleHover]
   );
 
+  // 임시 어노테이션 도형 렌더링 (점선 스타일)
+  const renderTempShape = useCallback(
+    (data: ShapeRenderData) => {
+      // 점선 스타일 설정 적용
+      const tempConfig = {
+        ...config,
+        strokeDasharray: '5,5', // 점선 패턴
+      };
+
+      const commonProps = {
+        data,
+        config: tempConfig,
+        onSelect: () => {}, // 임시 어노테이션은 선택 불가
+        onHover: () => {},  // 임시 어노테이션은 호버 불가
+      };
+
+      // 포인트 수에 따른 렌더링 결정
+      const pointCount = data.points.length;
+
+      switch (data.type) {
+        case 'length':
+          // Length: 2개 포인트 필요, 1개면 점만 표시
+          if (pointCount < 2) {
+            return (
+              <g key="temp-length-partial">
+                {data.points.map((p, i) => (
+                  <circle
+                    key={i}
+                    cx={p.x}
+                    cy={p.y}
+                    r={tempConfig.pointRadius}
+                    fill={tempConfig.strokeColor}
+                  />
+                ))}
+              </g>
+            );
+          }
+          return <LengthShape key="temp-length" {...commonProps} />;
+        case 'angle':
+          // Angle: 3개 포인트 필요, 2개면 선만, 1개면 점만 표시
+          if (pointCount < 2) {
+            return (
+              <g key="temp-angle-partial">
+                {data.points.map((p, i) => (
+                  <circle
+                    key={i}
+                    cx={p.x}
+                    cy={p.y}
+                    r={tempConfig.pointRadius}
+                    fill={tempConfig.strokeColor}
+                  />
+                ))}
+              </g>
+            );
+          }
+          if (pointCount < 3) {
+            // 2개 포인트: 선과 점 표시
+            const [p1, p2] = data.points;
+            return (
+              <g key="temp-angle-partial">
+                <line
+                  x1={p1.x}
+                  y1={p1.y}
+                  x2={p2.x}
+                  y2={p2.y}
+                  stroke={tempConfig.strokeColor}
+                  strokeWidth={tempConfig.strokeWidth}
+                  strokeDasharray={tempConfig.strokeDasharray}
+                  strokeLinecap="round"
+                />
+                <circle cx={p1.x} cy={p1.y} r={tempConfig.pointRadius} fill={tempConfig.strokeColor} />
+                <circle cx={p2.x} cy={p2.y} r={tempConfig.pointRadius} fill={tempConfig.strokeColor} />
+              </g>
+            );
+          }
+          return <AngleShape key="temp-angle" {...commonProps} />;
+        case 'point':
+          return <PointShape key="temp-point" {...commonProps} />;
+        default:
+          return null;
+      }
+    },
+    [config]
+  );
+
   return (
     <svg
       className={className}
@@ -211,6 +336,13 @@ export function SVGOverlay({
       <g className="annotation-shapes">
         {renderDataList.map(renderShape)}
       </g>
+
+      {/* 임시 어노테이션 (드로잉 중 미리보기, 점선 스타일) */}
+      {tempRenderData && (
+        <g className="temp-annotation" style={{ opacity: 0.8 }}>
+          {renderTempShape(tempRenderData)}
+        </g>
+      )}
     </svg>
   );
 }

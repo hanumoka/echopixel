@@ -11,6 +11,10 @@ import {
   useToolGroup,
   MouseBindings,
   KeyboardModifiers,
+  coordinateTransformer,
+  LengthTool,
+  AngleTool,
+  PointTool,
   type DicomImageInfo,
   type ViewportManagerLike,
   type Viewport,
@@ -18,6 +22,10 @@ import {
   type Annotation,
   type SVGRenderConfig,
   type TransformContext,
+  type MeasurementTool,
+  type ToolContext,
+  type TempAnnotation,
+  type ToolMouseEvent,
 } from '@echopixel/core';
 import { SVGOverlay } from './annotations/SVGOverlay';
 import { DicomCanvas, type DicomCanvasHandle } from './building-blocks/DicomCanvas';
@@ -27,6 +35,7 @@ import { DicomToolInfo } from './building-blocks/DicomToolInfo';
 import {
   DicomToolbar,
   DEFAULT_TOOLS,
+  ANNOTATION_TOOL_IDS,
   type ToolDefinition,
 } from './building-blocks/DicomToolbar';
 import type {
@@ -211,6 +220,31 @@ export const SingleDicomViewer = forwardRef<
   // 툴바 활성 도구 (좌클릭 바인딩)
   const [activeTool, setActiveTool] = useState('WindowLevel');
 
+  // 어노테이션 도구 상태 (Phase 3f)
+  // null이면 조작 도구 사용 중, 값이 있으면 MeasurementTool 활성
+  const [activeMeasurementToolId, setActiveMeasurementToolId] = useState<string | null>(null);
+  // 임시 어노테이션 (드로잉 중 미리보기)
+  const [tempAnnotation, setTempAnnotation] = useState<TempAnnotation | null>(null);
+
+  // MeasurementTool 인스턴스 (렌더링마다 재생성 방지)
+  const measurementToolsRef = useRef<Record<string, MeasurementTool>>({
+    Length: new LengthTool(),
+    Angle: new AngleTool(),
+    Point: new PointTool(),
+  });
+
+  // 컴포넌트 언마운트 시 MeasurementTool cleanup (Phase 3f)
+  useEffect(() => {
+    return () => {
+      // 모든 도구 비활성화 (메모리 누수 방지)
+      Object.values(measurementToolsRef.current).forEach(tool => {
+        if (tool.isActive()) {
+          tool.deactivate();
+        }
+      });
+    };
+  }, []);
+
   // DPR
   const [dpr, setDpr] = useState(() =>
     Math.min(window.devicePixelRatio || 1, 2)
@@ -228,7 +262,13 @@ export const SingleDicomViewer = forwardRef<
   // currentFrame ref 동기화
   useEffect(() => {
     currentFrameRef.current = currentFrame;
-  }, [currentFrame]);
+
+    // MeasurementTool context 업데이트 (프레임 변경 시)
+    if (activeMeasurementToolId) {
+      const tool = measurementToolsRef.current[activeMeasurementToolId];
+      tool?.updateContext({ frameIndex: currentFrame });
+    }
+  }, [currentFrame, activeMeasurementToolId]);
 
   // W/L ref 동기화
   useEffect(() => {
@@ -353,6 +393,66 @@ export const SingleDicomViewer = forwardRef<
     };
   }, [readOnlyAnnotations, onAnnotationSelect, onAnnotationUpdate, onAnnotationDelete]);
 
+  // ============================================================
+  // MeasurementTool Canvas 이벤트 처리 (Phase 3f)
+  // ============================================================
+
+  useEffect(() => {
+    const element = canvasContainerRef.current;
+    if (!element || !activeMeasurementToolId || !transformContext) return;
+
+    const tool = measurementToolsRef.current[activeMeasurementToolId];
+    if (!tool) return;
+
+    // 마우스 이벤트 → ToolMouseEvent 변환
+    const createToolEvent = (evt: MouseEvent): ToolMouseEvent => {
+      const rect = element.getBoundingClientRect();
+      const canvasX = evt.clientX - rect.left;
+      const canvasY = evt.clientY - rect.top;
+
+      // Canvas 좌표 → DICOM 좌표 변환
+      const dicomPoint = coordinateTransformer.canvasToDicom(
+        { x: canvasX, y: canvasY },
+        transformContext
+      );
+
+      return {
+        canvasX,
+        canvasY,
+        dicomX: dicomPoint.x,
+        dicomY: dicomPoint.y,
+        button: evt.button,
+        shiftKey: evt.shiftKey,
+        ctrlKey: evt.ctrlKey,
+        originalEvent: evt,
+      };
+    };
+
+    const handleMouseDown = (evt: MouseEvent) => {
+      // 좌클릭만 처리 (우클릭은 취소)
+      if (evt.button === 0) {
+        evt.preventDefault(); // 텍스트 선택 방지
+        tool.handleMouseDown(createToolEvent(evt));
+      } else if (evt.button === 2) {
+        // 우클릭: 드로잉 취소
+        tool.cancelDrawing();
+        setTempAnnotation(null);
+      }
+    };
+
+    const handleMouseMove = (evt: MouseEvent) => {
+      tool.handleMouseMove(createToolEvent(evt));
+    };
+
+    element.addEventListener('mousedown', handleMouseDown);
+    element.addEventListener('mousemove', handleMouseMove);
+
+    return () => {
+      element.removeEventListener('mousedown', handleMouseDown);
+      element.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, [activeMeasurementToolId, transformContext]);
+
   // Tool System 통합
   const { setToolActive: setToolGroupToolActive } = useToolGroup({
     toolGroupId,
@@ -385,32 +485,94 @@ export const SingleDicomViewer = forwardRef<
     }
   }, [isStaticImage]);
 
+  // 어노테이션 생성 완료 콜백 (Phase 3f)
+  const handleAnnotationCreated = useCallback((annotation: Annotation) => {
+    // 외부 핸들러 호출
+    onAnnotationUpdate?.(annotation);
+
+    // 도구 상태 초기화 (계속 그릴 수 있도록 ready 상태 유지)
+    setTempAnnotation(null);
+  }, [onAnnotationUpdate]);
+
+  // 임시 어노테이션 업데이트 콜백 (미리보기)
+  const handleTempUpdate = useCallback((temp: TempAnnotation | null) => {
+    setTempAnnotation(temp);
+  }, []);
+
   // 툴바에서 도구 선택 시 좌클릭 바인딩 변경
   const handleToolbarToolChange = useCallback((toolId: string) => {
+    const isAnnotationTool = (ANNOTATION_TOOL_IDS as readonly string[]).includes(toolId);
     const prevTool = activeTool;
-    setActiveTool(toolId);
+    const isPrevAnnotationTool = (ANNOTATION_TOOL_IDS as readonly string[]).includes(prevTool);
 
-    // 이전 도구: 기본 바인딩으로 복원 (좌클릭 제거)
-    if (prevTool !== toolId) {
-      const prevBindings = getDefaultBindings(prevTool);
-      setToolGroupToolActive(prevTool, prevBindings);
+    // 이전 어노테이션 도구 비활성화
+    if (activeMeasurementToolId && activeMeasurementToolId !== toolId) {
+      measurementToolsRef.current[activeMeasurementToolId]?.deactivate();
+      setTempAnnotation(null);
     }
 
-    // 새 도구: 기본 바인딩 + 좌클릭 추가
-    const newBindings = getDefaultBindings(toolId);
-    const primaryBinding: ToolBinding = { mouseButton: MouseBindings.Primary };
+    if (isAnnotationTool) {
+      // ========================================
+      // 어노테이션 도구 선택
+      // ========================================
+      const tool = measurementToolsRef.current[toolId];
+      if (tool && transformContext) {
+        // ToolContext 생성
+        const context: ToolContext = {
+          dicomId: viewportId,
+          frameIndex: currentFrame,
+          mode: 'B', // 기본값: B-mode (TODO: imageInfo에서 mode 가져오기)
+          calibration: undefined, // TODO: calibration 지원
+          transformContext,
+        };
 
-    // 이미 Primary가 있으면 추가하지 않음
-    const hasPrimary = newBindings.some(
-      b => b.mouseButton === MouseBindings.Primary && !b.modifierKey
-    );
+        // MeasurementTool 활성화
+        tool.activate(context, handleAnnotationCreated, handleTempUpdate);
 
-    if (!hasPrimary) {
-      setToolGroupToolActive(toolId, [...newBindings, primaryBinding]);
+        setActiveMeasurementToolId(toolId);
+        setActiveTool(toolId);
+
+        // 이전 도구가 조작 도구였으면 바인딩 복원
+        // (어노테이션 도구는 ToolGroup에 등록되지 않으므로 호출하지 않음)
+        if (!isPrevAnnotationTool && prevTool !== toolId) {
+          const prevBindings = getDefaultBindings(prevTool);
+          setToolGroupToolActive(prevTool, prevBindings);
+        }
+      }
     } else {
-      setToolGroupToolActive(toolId, newBindings);
+      // ========================================
+      // 조작 도구 선택
+      // ========================================
+      if (activeMeasurementToolId) {
+        measurementToolsRef.current[activeMeasurementToolId]?.deactivate();
+        setActiveMeasurementToolId(null);
+        setTempAnnotation(null);
+      }
+
+      setActiveTool(toolId);
+
+      // 이전 도구: 기본 바인딩으로 복원 (좌클릭 제거)
+      if (prevTool !== toolId) {
+        const prevBindings = getDefaultBindings(prevTool);
+        setToolGroupToolActive(prevTool, prevBindings);
+      }
+
+      // 새 도구: 기본 바인딩 + 좌클릭 추가
+      const newBindings = getDefaultBindings(toolId);
+      const primaryBinding: ToolBinding = { mouseButton: MouseBindings.Primary };
+
+      // 이미 Primary가 있으면 추가하지 않음
+      const hasPrimary = newBindings.some(
+        b => b.mouseButton === MouseBindings.Primary && !b.modifierKey
+      );
+
+      if (!hasPrimary) {
+        setToolGroupToolActive(toolId, [...newBindings, primaryBinding]);
+      } else {
+        setToolGroupToolActive(toolId, newBindings);
+      }
     }
-  }, [activeTool, getDefaultBindings, setToolGroupToolActive]);
+  }, [activeTool, activeMeasurementToolId, getDefaultBindings, setToolGroupToolActive, transformContext, viewportId, currentFrame, handleAnnotationCreated, handleTempUpdate]);
 
   // 비활성화된 도구 목록 (정지 이미지에서 StackScroll)
   const disabledToolbarTools = useMemo(() => {
@@ -733,8 +895,8 @@ export const SingleDicomViewer = forwardRef<
           onReady={handleCanvasReady}
         />
 
-        {/* SVG Annotation Overlay (Phase 3e) */}
-        {annotations.length > 0 && transformContext && (
+        {/* SVG Annotation Overlay (Phase 3e + 3f) */}
+        {(annotations.length > 0 || tempAnnotation) && transformContext && (
           <SVGOverlay
             annotations={annotations}
             currentFrame={currentFrame}
@@ -743,6 +905,13 @@ export const SingleDicomViewer = forwardRef<
             config={annotationConfig}
             handlers={annotationHandlers}
             readOnly={readOnlyAnnotations}
+            tempAnnotation={tempAnnotation}
+            tempAnnotationType={
+              activeMeasurementToolId === 'Length' ? 'length' :
+              activeMeasurementToolId === 'Angle' ? 'angle' :
+              activeMeasurementToolId === 'Point' ? 'point' :
+              undefined
+            }
           />
         )}
       </div>

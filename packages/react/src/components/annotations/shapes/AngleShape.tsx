@@ -154,6 +154,7 @@ export function AngleShape({
         stroke={strokeColor}
         strokeWidth={strokeWidth}
         strokeLinecap="round"
+        strokeDasharray={config.strokeDasharray}
         style={{ pointerEvents: 'none' }}
       />
 
@@ -166,6 +167,7 @@ export function AngleShape({
         stroke={strokeColor}
         strokeWidth={strokeWidth}
         strokeLinecap="round"
+        strokeDasharray={config.strokeDasharray}
         style={{ pointerEvents: 'none' }}
       />
 
@@ -177,6 +179,7 @@ export function AngleShape({
           stroke={strokeColor}
           strokeWidth={strokeWidth * 0.7}
           strokeLinecap="round"
+          strokeDasharray={config.strokeDasharray}
           style={{ pointerEvents: 'none' }}
         />
       )}

@@ -260,15 +260,21 @@ export default function App() {
     return map;
   }, [multiSeriesMap]);
 
-  // Single Viewport용 테스트 어노테이션 (Local 모드)
-  const singleTestAnnotations = useMemo<Annotation[]>(() => {
-    // viewportData가 없으면 빈 배열 반환
-    if (!viewportData?.imageInfo) return [];
+  // Single Viewport용 어노테이션 상태 (Phase 3f: 생성 기능 테스트)
+  const [singleAnnotations, setSingleAnnotations] = useState<Annotation[]>([]);
+
+  // viewportData가 변경되면 초기 테스트 어노테이션 설정
+  useEffect(() => {
+    if (!viewportData?.imageInfo) {
+      setSingleAnnotations([]);
+      return;
+    }
 
     const imgWidth = viewportData.imageInfo.columns;
     const imgHeight = viewportData.imageInfo.rows;
 
-    return [
+    // 초기 테스트 어노테이션 (기존 어노테이션 없을 때만)
+    setSingleAnnotations([
       // Length 어노테이션 (두 점 거리 측정)
       {
         id: 'single-length-1',
@@ -338,8 +344,14 @@ export default function App() {
         createdAt: Date.now(),
         updatedAt: Date.now(),
       },
-    ];
+    ]);
   }, [viewportData]);
+
+  // Single Viewport 어노테이션 업데이트 핸들러 (새 어노테이션 추가)
+  const handleSingleAnnotationUpdate = useCallback((annotation: Annotation) => {
+    console.log('[Phase 3f] Annotation created:', annotation);
+    setSingleAnnotations(prev => [...prev, annotation]);
+  }, []);
 
   // Multi Canvas용 DataSource (안정적인 참조 유지)
   const multiCanvasDataSource = useMemo(() => {
@@ -1230,8 +1242,10 @@ export default function App() {
               height={singleViewportHeight}
               showToolbar={true}
               showContextLossTest={true}
-              // Phase 3e: SVG 어노테이션 테스트
-              annotations={singleTestAnnotations}
+              // Phase 3e: SVG 어노테이션 표시
+              annotations={singleAnnotations}
+              // Phase 3f: 어노테이션 생성 콜백
+              onAnnotationUpdate={handleSingleAnnotationUpdate}
             />
           )}
 

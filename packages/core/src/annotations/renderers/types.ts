@@ -181,6 +181,8 @@ export interface SVGRenderConfig {
   strokeWidth: number;
   /** 선택됨 선 두께 */
   selectedStrokeWidth: number;
+  /** 점선 패턴 (예: '5,5' - 임시 어노테이션용) */
+  strokeDasharray?: string;
   /** 포인트 반지름 */
   pointRadius: number;
   /** 핸들 반지름 */

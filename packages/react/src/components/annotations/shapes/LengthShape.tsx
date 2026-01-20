@@ -85,6 +85,7 @@ export function LengthShape({
         stroke={strokeColor}
         strokeWidth={strokeWidth}
         strokeLinecap="round"
+        strokeDasharray={config.strokeDasharray}
         style={{ pointerEvents: 'none' }}
       />
 

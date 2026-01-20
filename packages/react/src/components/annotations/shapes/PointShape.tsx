@@ -85,6 +85,7 @@ export function PointShape({
         stroke={strokeColor}
         strokeWidth={strokeWidth}
         strokeLinecap="round"
+        strokeDasharray={config.strokeDasharray}
         style={{ pointerEvents: 'none' }}
       />
 
@@ -97,6 +98,7 @@ export function PointShape({
         stroke={strokeColor}
         strokeWidth={strokeWidth}
         strokeLinecap="round"
+        strokeDasharray={config.strokeDasharray}
         style={{ pointerEvents: 'none' }}
       />
 

@@ -25,6 +25,7 @@ export interface ToolDefinition {
  * 기본 제공 도구 정의
  */
 export const DEFAULT_TOOLS: ToolDefinition[] = [
+  // 조작 도구
   {
     id: 'WindowLevel',
     name: 'W/L',
@@ -43,7 +44,33 @@ export const DEFAULT_TOOLS: ToolDefinition[] = [
     icon: '🔍',
     description: '확대/축소',
   },
+  // 어노테이션 도구 (Phase 3f)
+  {
+    id: 'Length',
+    name: '거리',
+    icon: '📏',
+    description: '두 점 거리 측정',
+  },
+  {
+    id: 'Angle',
+    name: '각도',
+    icon: '∠',
+    description: '세 점 각도 측정',
+  },
+  {
+    id: 'Point',
+    name: '점',
+    icon: '●',
+    description: '단일 점 마커',
+  },
 ];
+
+/**
+ * 어노테이션 도구 ID 목록
+ *
+ * SingleDicomViewer에서 MeasurementTool 활성화 판단에 사용
+ */
+export const ANNOTATION_TOOL_IDS = ['Length', 'Angle', 'Point'] as const;
 
 /**
  * DicomToolbar Props
