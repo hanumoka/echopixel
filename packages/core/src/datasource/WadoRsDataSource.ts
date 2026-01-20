@@ -5,7 +5,7 @@ import type {
   LoadFrameOptions,
   WadoRsConfig,
 } from './types';
-import type { DicomImageInfo } from '../dicom/types';
+import type { DicomImageInfo } from '../dicom';
 import { LRUCache } from '../cache/LRUCache';
 import { retryFetch, type RetryOptions } from '../network/retry';
 import { NetworkError } from '../network/errors';

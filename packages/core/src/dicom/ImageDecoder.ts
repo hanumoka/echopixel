@@ -72,7 +72,8 @@ async function decodeWithImageDecoder(jpegData: Uint8Array): Promise<DecodedFram
  * createImageBitmap으로 디코딩 (폴백)
  */
 async function decodeWithCreateImageBitmap(jpegData: Uint8Array): Promise<DecodedFrame> {
-  const blob = new Blob([jpegData], { type: 'image/jpeg' });
+  // slice()로 ArrayBuffer 기반 복사본 생성 (SharedArrayBuffer 호환성)
+  const blob = new Blob([jpegData.slice()], { type: 'image/jpeg' });
   const bitmap = await createImageBitmap(blob);
 
   return {

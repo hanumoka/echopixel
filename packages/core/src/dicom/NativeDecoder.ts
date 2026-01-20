@@ -1,5 +1,5 @@
-import { DecodedFrame } from './types';
-import { DicomImageInfo } from './DicomParser';
+import type { DecodedFrame } from './types';
+import type { DicomImageInfo } from './DicomParser';
 
 /**
  * Native (비압축) 픽셀 데이터 디코딩 옵션
