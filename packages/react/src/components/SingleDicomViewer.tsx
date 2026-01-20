@@ -166,9 +166,10 @@ export const SingleDicomViewer = forwardRef<
   const [windowCenter, setWindowCenter] = useState<number | undefined>(undefined);
   const [windowWidth, setWindowWidth] = useState<number | undefined>(undefined);
 
-  // Transform (Pan/Zoom)
+  // Transform (Pan/Zoom/Rotation)
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1.0);
+  const [rotation, setRotation] = useState(0); // 각도 (degrees)
 
   // Tool System용 상태
   const [viewportElements] = useState(() => new Map<string, HTMLElement>());
@@ -236,7 +237,7 @@ export const SingleDicomViewer = forwardRef<
         id: viewportId,
         textureUnit: 0,
         windowLevel: wl,
-        transform: { pan, zoom, rotation: 0 },
+        transform: { pan, zoom, rotation },
         playback: {
           isPlaying,
           currentFrame,
@@ -278,7 +279,7 @@ export const SingleDicomViewer = forwardRef<
       const clampedFrame = Math.max(0, Math.min(frames.length - 1, frameIndex));
       setCurrentFrame(clampedFrame);
     },
-  }), [viewportId, windowCenter, windowWidth, pan, zoom, isPlaying, currentFrame, fps, imageInfo, frames.length, isEncapsulated]);
+  }), [viewportId, windowCenter, windowWidth, pan, zoom, rotation, isPlaying, currentFrame, fps, imageInfo, frames.length, isEncapsulated]);
 
   // Tool System 통합
   const { setToolActive: setToolGroupToolActive } = useToolGroup({
@@ -370,7 +371,7 @@ export const SingleDicomViewer = forwardRef<
       ? { center: windowCenter, width: windowWidth }
       : null;
 
-  const transform: TransformInfo = { pan, zoom };
+  const transform: TransformInfo = { pan, zoom, rotation };
 
   const imageStatus: ImageStatus = {
     columns: imageInfo.columns,
@@ -424,6 +425,15 @@ export const SingleDicomViewer = forwardRef<
     handleFrameChange(newFrame);
   }, [currentFrame, totalFrames, isPlaying, handleFrameChange]);
 
+  // 회전 (90° 단위)
+  const rotateLeft = useCallback(() => {
+    setRotation((prev) => (prev - 90 + 360) % 360);
+  }, []);
+
+  const rotateRight = useCallback(() => {
+    setRotation((prev) => (prev + 90) % 360);
+  }, []);
+
   // 뷰포트 리셋
   const resetViewport = useCallback(() => {
     windowCenterRef.current = undefined;
@@ -432,6 +442,7 @@ export const SingleDicomViewer = forwardRef<
     setWindowWidth(undefined);
     setPan({ x: 0, y: 0 });
     setZoom(1.0);
+    setRotation(0);
     canvasRef.current?.renderFrame(currentFrameRef.current);
   }, []);
 
@@ -590,6 +601,9 @@ export const SingleDicomViewer = forwardRef<
           disabledTools={disabledToolbarTools}
           showResetButton={true}
           onReset={resetViewport}
+          showRotateButtons={true}
+          onRotateLeft={rotateLeft}
+          onRotateRight={rotateRight}
           orientation={toolbarOrientation}
           compact={toolbarCompact}
           style={{ marginBottom: '10px' }}
@@ -624,6 +638,7 @@ export const SingleDicomViewer = forwardRef<
           windowWidth={windowWidth}
           pan={pan}
           zoom={zoom}
+          rotation={rotation}
           onReady={handleCanvasReady}
         />
       </div>

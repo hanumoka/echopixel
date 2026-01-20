@@ -55,11 +55,12 @@ export function DicomStatusBar({
     ? `${imageStatus.columns}x${imageStatus.rows}, ${imageStatus.frameCount} 프레임`
     : '');
 
-  // Transform 변경 여부 확인 (기본값: pan={0,0}, zoom=1.0)
+  // Transform 변경 여부 확인 (기본값: pan={0,0}, zoom=1.0, rotation=0)
   const hasTransformChange = transform && (
     transform.zoom !== 1.0 ||
     transform.pan.x !== 0 ||
-    transform.pan.y !== 0
+    transform.pan.y !== 0 ||
+    (transform.rotation && transform.rotation !== 0)
   );
 
   return (
@@ -97,10 +98,11 @@ export function DicomStatusBar({
         </span>
       )}
 
-      {/* Pan/Zoom (변경된 경우에만 표시) */}
+      {/* Pan/Zoom/Rotation (변경된 경우에만 표시) */}
       {hasTransformChange && transform && (
         <span style={{ color: '#cf8' }}>
           Zoom: {transform.zoom.toFixed(1)}x | Pan: ({Math.round(transform.pan.x)}, {Math.round(transform.pan.y)})
+          {transform.rotation ? ` | Rot: ${transform.rotation}°` : ''}
         </span>
       )}
     </div>

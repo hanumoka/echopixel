@@ -61,6 +61,12 @@ export interface DicomToolbarProps {
   showResetButton?: boolean;
   /** 리셋 버튼 클릭 콜백 */
   onReset?: () => void;
+  /** 회전 버튼 표시 여부 */
+  showRotateButtons?: boolean;
+  /** 좌 90° 회전 콜백 */
+  onRotateLeft?: () => void;
+  /** 우 90° 회전 콜백 */
+  onRotateRight?: () => void;
   /** 툴바 방향 */
   orientation?: 'horizontal' | 'vertical';
   /** 컴팩트 모드 (아이콘만 표시) */
@@ -113,6 +119,9 @@ export function DicomToolbar({
   disabledTools = [],
   showResetButton = true,
   onReset,
+  showRotateButtons = false,
+  onRotateLeft,
+  onRotateRight,
   orientation = 'horizontal',
   compact = false,
   style,
@@ -169,8 +178,8 @@ export function DicomToolbar({
         );
       })}
 
-      {/* 구분선 */}
-      {showResetButton && (
+      {/* 구분선 (회전 또는 리셋 버튼이 있을 때) */}
+      {(showRotateButtons || showResetButton) && (
         <div
           style={{
             width: isHorizontal ? '1px' : '80%',
@@ -179,6 +188,56 @@ export function DicomToolbar({
             margin: isHorizontal ? '0 4px' : '4px 0',
           }}
         />
+      )}
+
+      {/* 회전 버튼 */}
+      {showRotateButtons && (
+        <>
+          <button
+            onClick={onRotateLeft}
+            title="좌 90° 회전"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              padding: compact ? '8px' : '8px 12px',
+              minWidth: compact ? '36px' : '50px',
+              background: '#2a4a3a',
+              color: '#afa',
+              border: '2px solid transparent',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: compact ? '16px' : '13px',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <span>↺</span>
+            {!compact && <span>좌</span>}
+          </button>
+          <button
+            onClick={onRotateRight}
+            title="우 90° 회전"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              padding: compact ? '8px' : '8px 12px',
+              minWidth: compact ? '36px' : '50px',
+              background: '#2a4a3a',
+              color: '#afa',
+              border: '2px solid transparent',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: compact ? '16px' : '13px',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <span>↻</span>
+            {!compact && <span>우</span>}
+          </button>
+        </>
       )}
 
       {/* 리셋 버튼 */}

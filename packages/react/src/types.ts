@@ -13,13 +13,15 @@ export interface WindowLevelInfo {
 }
 
 /**
- * Transform (Pan/Zoom) 설정
+ * Transform (Pan/Zoom/Rotation) 설정
  */
 export interface TransformInfo {
   /** Pan offset */
   pan: { x: number; y: number };
   /** Zoom level (1.0 = 100%) */
   zoom: number;
+  /** Rotation angle (degrees) */
+  rotation?: number;
 }
 
 /**

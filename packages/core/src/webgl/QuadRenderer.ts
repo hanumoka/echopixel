@@ -15,7 +15,7 @@ export interface WindowLevelOptions {
 }
 
 /**
- * Transform 렌더링 옵션 (Pan/Zoom)
+ * Transform 렌더링 옵션 (Pan/Zoom/Rotation)
  *
  * Pan은 NDC 좌표 (-1 ~ 1 범위)로 전달해야 함
  * 픽셀 → NDC 변환: panNDC = panPixel * (2 / viewportSize)
@@ -27,6 +27,8 @@ export interface TransformOptions {
   panY: number;
   /** Zoom 배율 (기본값 1.0) */
   zoom: number;
+  /** Rotation 각도 (라디안, 기본값 0.0) */
+  rotation?: number;
 }
 
 /**
@@ -41,9 +43,10 @@ export class QuadRenderer {
   private windowCenterLocation: WebGLUniformLocation | null = null;
   private windowWidthLocation: WebGLUniformLocation | null = null;
   private applyWLLocation: WebGLUniformLocation | null = null;
-  // Pan/Zoom uniform locations
+  // Pan/Zoom/Rotation uniform locations
   private panLocation: WebGLUniformLocation | null = null;
   private zoomLocation: WebGLUniformLocation | null = null;
+  private rotationLocation: WebGLUniformLocation | null = null;
 
   constructor(gl: WebGL2RenderingContext) {
     this.gl = gl;
@@ -100,9 +103,10 @@ export class QuadRenderer {
     this.windowCenterLocation = gl.getUniformLocation(this.program, 'u_windowCenter');
     this.windowWidthLocation = gl.getUniformLocation(this.program, 'u_windowWidth');
     this.applyWLLocation = gl.getUniformLocation(this.program, 'u_applyWL');
-    // Pan/Zoom uniform locations
+    // Pan/Zoom/Rotation uniform locations
     this.panLocation = gl.getUniformLocation(this.program, 'u_pan');
     this.zoomLocation = gl.getUniformLocation(this.program, 'u_zoom');
+    this.rotationLocation = gl.getUniformLocation(this.program, 'u_rotation');
   }
 
   /**
@@ -179,13 +183,15 @@ export class QuadRenderer {
       gl.uniform1f(this.applyWLLocation, 0.0); // false
     }
 
-    // Pan/Zoom uniform 설정
+    // Pan/Zoom/Rotation uniform 설정
     if (transform) {
       gl.uniform2f(this.panLocation, transform.panX, transform.panY);
       gl.uniform1f(this.zoomLocation, transform.zoom);
+      gl.uniform1f(this.rotationLocation, transform.rotation ?? 0.0);
     } else {
       gl.uniform2f(this.panLocation, 0.0, 0.0);
       gl.uniform1f(this.zoomLocation, 1.0);
+      gl.uniform1f(this.rotationLocation, 0.0);
     }
 
     // VAO 바인딩
@@ -253,9 +259,10 @@ export class ArrayTextureRenderer {
   private windowCenterLocation: WebGLUniformLocation | null = null;
   private windowWidthLocation: WebGLUniformLocation | null = null;
   private applyWLLocation: WebGLUniformLocation | null = null;
-  // Pan/Zoom uniform locations
+  // Pan/Zoom/Rotation uniform locations
   private panLocation: WebGLUniformLocation | null = null;
   private zoomLocation: WebGLUniformLocation | null = null;
+  private rotationLocation: WebGLUniformLocation | null = null;
 
   constructor(gl: WebGL2RenderingContext) {
     this.gl = gl;
@@ -313,9 +320,10 @@ export class ArrayTextureRenderer {
     this.windowCenterLocation = gl.getUniformLocation(this.program, 'u_windowCenter');
     this.windowWidthLocation = gl.getUniformLocation(this.program, 'u_windowWidth');
     this.applyWLLocation = gl.getUniformLocation(this.program, 'u_applyWL');
-    // Pan/Zoom uniform locations
+    // Pan/Zoom/Rotation uniform locations
     this.panLocation = gl.getUniformLocation(this.program, 'u_pan');
     this.zoomLocation = gl.getUniformLocation(this.program, 'u_zoom');
+    this.rotationLocation = gl.getUniformLocation(this.program, 'u_rotation');
   }
 
   /**
@@ -400,13 +408,15 @@ export class ArrayTextureRenderer {
       gl.uniform1f(this.applyWLLocation, 0.0);
     }
 
-    // Pan/Zoom uniform 설정
+    // Pan/Zoom/Rotation uniform 설정
     if (transform) {
       gl.uniform2f(this.panLocation, transform.panX, transform.panY);
       gl.uniform1f(this.zoomLocation, transform.zoom);
+      gl.uniform1f(this.rotationLocation, transform.rotation ?? 0.0);
     } else {
       gl.uniform2f(this.panLocation, 0.0, 0.0);
       gl.uniform1f(this.zoomLocation, 1.0);
+      gl.uniform1f(this.rotationLocation, 0.0);
     }
 
     // VAO 바인딩

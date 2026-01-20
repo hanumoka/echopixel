@@ -52,6 +52,8 @@ export interface DicomCanvasProps {
   pan?: { x: number; y: number };
   /** Zoom level */
   zoom?: number;
+  /** Rotation angle (degrees) */
+  rotation?: number;
   /** WebGL 준비 완료 콜백 */
   onReady?: () => void;
   /** 렌더링 에러 콜백 */
@@ -107,6 +109,7 @@ export const DicomCanvas = forwardRef<DicomCanvasHandle, DicomCanvasProps>(
       windowWidth,
       pan = { x: 0, y: 0 },
       zoom = 1,
+      rotation = 0,
       onReady,
       onError,
       onContextLost,
@@ -362,7 +365,7 @@ export const DicomCanvas = forwardRef<DicomCanvasHandle, DicomCanvasProps>(
           width: `${width}px`,
           height: `${height}px`,
           background: '#000',
-          transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+          transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom}) rotate(${rotation}deg)`,
           transformOrigin: 'center center',
           cursor: 'crosshair',
           ...style,
