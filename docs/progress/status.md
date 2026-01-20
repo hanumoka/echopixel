@@ -173,9 +173,15 @@
 
 | 항목 | 상태 | 비고 |
 |------|------|------|
-| Calibration 지원 | ✅ | Pixel Spacing (0028,0030) + Ultrasound Region (0018,6011) |
+| Calibration 지원 | ✅ | Pixel Spacing + Ultrasound Region (Local File, WADO-RS) |
 | 측정 도구 (Ellipse, VTI) | ⏳ | 확장 도구 |
 | 플러그인 시스템 | ⏳ | 도구/계산기/렌더러 확장 |
+
+**Calibration 구현 상세**:
+- Local File: `getImageInfo()` → `getPixelSpacing()` / `getUltrasoundCalibration()`
+- WADO-RS: `parseDicomJson()` → Pixel Spacing, Ultrasound Calibration 파싱
+- WADO-RS fallback: 메타데이터에 없으면 전체 DICOM 인스턴스에서 추출
+- 단위: mm(Pixel Spacing) → cm 변환, Ultrasound는 이미 cm/pixel
 
 **설계 원칙**:
 - 유연성: 플러그인 기반 확장 가능
