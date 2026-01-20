@@ -15,7 +15,11 @@ import {
   type ViewportManagerLike,
   type Viewport,
   type ToolBinding,
+  type Annotation,
+  type SVGRenderConfig,
+  type TransformContext,
 } from '@echopixel/core';
+import { SVGOverlay } from './annotations/SVGOverlay';
 import { DicomCanvas, type DicomCanvasHandle } from './building-blocks/DicomCanvas';
 import { DicomStatusBar } from './building-blocks/DicomStatusBar';
 import { DicomControls } from './building-blocks/DicomControls';
@@ -97,6 +101,25 @@ export interface SingleDicomViewerProps {
   style?: React.CSSProperties;
   /** 커스텀 클래스명 */
   className?: string;
+
+  // ============================================================
+  // Annotation Props (Phase 3e)
+  // ============================================================
+
+  /** 어노테이션 목록 */
+  annotations?: Annotation[];
+  /** 선택된 어노테이션 ID */
+  selectedAnnotationId?: string | null;
+  /** 어노테이션 선택 핸들러 */
+  onAnnotationSelect?: (annotationId: string | null) => void;
+  /** 어노테이션 업데이트 핸들러 */
+  onAnnotationUpdate?: (annotation: Annotation) => void;
+  /** 어노테이션 삭제 핸들러 */
+  onAnnotationDelete?: (annotationId: string) => void;
+  /** 어노테이션 렌더링 설정 */
+  annotationConfig?: Partial<SVGRenderConfig>;
+  /** 읽기 전용 모드 (드래그 비활성화) */
+  readOnlyAnnotations?: boolean;
 }
 
 /**
@@ -142,6 +165,14 @@ export const SingleDicomViewer = forwardRef<
     showContextLossTest = false,
     style,
     className,
+    // Annotation props
+    annotations = [],
+    selectedAnnotationId = null,
+    onAnnotationSelect,
+    onAnnotationUpdate,
+    onAnnotationDelete,
+    annotationConfig,
+    readOnlyAnnotations = false,
   },
   ref
 ) {
@@ -286,6 +317,41 @@ export const SingleDicomViewer = forwardRef<
       setCurrentFrame(clampedFrame);
     },
   }), [viewportId, windowCenter, windowWidth, pan, zoom, rotation, isPlaying, currentFrame, fps, imageInfo, frames.length, isEncapsulated]);
+
+  // ============================================================
+  // Annotation System (Phase 3e)
+  // ============================================================
+
+  // TransformContext 생성 (DICOM 좌표 → Canvas 좌표 변환용)
+  const transformContext = useMemo<TransformContext | null>(() => {
+    // 이미지 정보가 없거나 캔버스 크기가 유효하지 않으면 null
+    if (!imageInfo || width <= 0 || height <= 0) return null;
+
+    return {
+      viewport: {
+        imageWidth: imageInfo.columns,
+        imageHeight: imageInfo.rows,
+        canvasWidth: width,
+        canvasHeight: height,
+        zoom,
+        pan,
+        rotation,
+        flipH,
+        flipV,
+      },
+    };
+  }, [imageInfo, width, height, zoom, pan, rotation, flipH, flipV]);
+
+  // Annotation event handlers
+  const annotationHandlers = useMemo(() => {
+    if (readOnlyAnnotations) return undefined;
+
+    return {
+      onSelect: onAnnotationSelect,
+      onUpdate: onAnnotationUpdate,
+      onDelete: onAnnotationDelete,
+    };
+  }, [readOnlyAnnotations, onAnnotationSelect, onAnnotationUpdate, onAnnotationDelete]);
 
   // Tool System 통합
   const { setToolActive: setToolGroupToolActive } = useToolGroup({
@@ -666,6 +732,19 @@ export const SingleDicomViewer = forwardRef<
           flipV={flipV}
           onReady={handleCanvasReady}
         />
+
+        {/* SVG Annotation Overlay (Phase 3e) */}
+        {annotations.length > 0 && transformContext && (
+          <SVGOverlay
+            annotations={annotations}
+            currentFrame={currentFrame}
+            transformContext={transformContext}
+            selectedId={selectedAnnotationId}
+            config={annotationConfig}
+            handlers={annotationHandlers}
+            readOnly={readOnlyAnnotations}
+          />
+        )}
       </div>
 
       {/* 재생 컨트롤 */}

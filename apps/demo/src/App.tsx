@@ -23,6 +23,7 @@ import {
   type DicomMetadata,
   type LayoutType,
   type Viewport,
+  type Annotation,
 } from '@echopixel/core';
 // DicomViewport는 더 이상 Single 모드에서 사용하지 않음 - SingleDicomViewer로 대체
 // import { DicomViewport } from './components/DicomViewport';
@@ -127,6 +128,218 @@ export default function App() {
   });
   // performanceOptions 변경 시 컴포넌트 리마운트를 위한 키
   const performanceKey = `${performanceOptions.maxVramMB}-${performanceOptions.dprOverride}-${performanceOptions.debugMode}`;
+
+  // ============================================================
+  // Phase 3e 테스트: SVG 어노테이션 오버레이
+  // ============================================================
+
+  // 테스트용 어노테이션 데이터 생성
+  const testAnnotations = useMemo<Map<string, Annotation[]>>(() => {
+    const map = new Map<string, Annotation[]>();
+
+    // multiSeriesMap이 비어있으면 빈 맵 반환
+    if (multiSeriesMap.size === 0) return map;
+
+    // 첫 번째 뷰포트에 테스트 어노테이션 추가
+    const firstViewportId = 'viewport-0';
+    const firstSeries = multiSeriesMap.get(firstViewportId);
+
+    if (firstSeries) {
+      const imgWidth = firstSeries.info.imageWidth;
+      const imgHeight = firstSeries.info.imageHeight;
+
+      const annotations: Annotation[] = [
+        // Length 어노테이션 (두 점 거리 측정)
+        {
+          id: 'test-length-1',
+          dicomId: firstSeries.info.seriesId || 'test-dicom',
+          frameIndex: 0,
+          type: 'length',
+          mode: 'B',
+          points: [
+            { x: Math.round(imgWidth * 0.2), y: Math.round(imgHeight * 0.3) },
+            { x: Math.round(imgWidth * 0.5), y: Math.round(imgHeight * 0.4) },
+          ],
+          value: 45.2,
+          unit: 'mm',
+          displayValue: '45.2 mm',
+          labelPosition: { x: Math.round(imgWidth * 0.35), y: Math.round(imgHeight * 0.25) },
+          color: '#00ff00',
+          visible: true,
+          source: 'user',
+          deletable: true,
+          editable: true,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+        // Angle 어노테이션 (세 점 각도 측정)
+        {
+          id: 'test-angle-1',
+          dicomId: firstSeries.info.seriesId || 'test-dicom',
+          frameIndex: 0,
+          type: 'angle',
+          mode: 'B',
+          points: [
+            { x: Math.round(imgWidth * 0.6), y: Math.round(imgHeight * 0.2) },
+            { x: Math.round(imgWidth * 0.7), y: Math.round(imgHeight * 0.4) },
+            { x: Math.round(imgWidth * 0.8), y: Math.round(imgHeight * 0.25) },
+          ],
+          value: 67.5,
+          unit: 'deg',
+          displayValue: '67.5°',
+          labelPosition: { x: Math.round(imgWidth * 0.75), y: Math.round(imgHeight * 0.15) },
+          color: '#ffff00',
+          visible: true,
+          source: 'user',
+          deletable: true,
+          editable: true,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+        // Point 어노테이션 (단일 점 마커)
+        {
+          id: 'test-point-1',
+          dicomId: firstSeries.info.seriesId || 'test-dicom',
+          frameIndex: 0,
+          type: 'point',
+          mode: 'B',
+          points: [
+            { x: Math.round(imgWidth * 0.5), y: Math.round(imgHeight * 0.7) },
+          ],
+          value: 0,
+          unit: '',
+          displayValue: 'Point 1',
+          labelPosition: { x: Math.round(imgWidth * 0.55), y: Math.round(imgHeight * 0.68) },
+          color: '#ff00ff',
+          visible: true,
+          source: 'ai',
+          deletable: false,
+          editable: true,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+      ];
+
+      map.set(firstViewportId, annotations);
+    }
+
+    // 두 번째 뷰포트에도 테스트 어노테이션 추가 (있는 경우)
+    const secondViewportId = 'viewport-1';
+    const secondSeries = multiSeriesMap.get(secondViewportId);
+
+    if (secondSeries) {
+      const imgWidth = secondSeries.info.imageWidth;
+      const imgHeight = secondSeries.info.imageHeight;
+
+      map.set(secondViewportId, [
+        {
+          id: 'test-length-2',
+          dicomId: secondSeries.info.seriesId || 'test-dicom-2',
+          frameIndex: 0,
+          type: 'length',
+          mode: 'B',
+          points: [
+            { x: Math.round(imgWidth * 0.3), y: Math.round(imgHeight * 0.5) },
+            { x: Math.round(imgWidth * 0.7), y: Math.round(imgHeight * 0.5) },
+          ],
+          value: 82.1,
+          unit: 'mm',
+          displayValue: '82.1 mm',
+          labelPosition: { x: Math.round(imgWidth * 0.5), y: Math.round(imgHeight * 0.45) },
+          color: '#00ffff',
+          visible: true,
+          source: 'server',
+          deletable: true,
+          editable: true,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+      ]);
+    }
+
+    return map;
+  }, [multiSeriesMap]);
+
+  // Single Viewport용 테스트 어노테이션 (Local 모드)
+  const singleTestAnnotations = useMemo<Annotation[]>(() => {
+    // viewportData가 없으면 빈 배열 반환
+    if (!viewportData?.imageInfo) return [];
+
+    const imgWidth = viewportData.imageInfo.columns;
+    const imgHeight = viewportData.imageInfo.rows;
+
+    return [
+      // Length 어노테이션 (두 점 거리 측정)
+      {
+        id: 'single-length-1',
+        dicomId: 'local-dicom',
+        frameIndex: 0,
+        type: 'length',
+        mode: 'B',
+        points: [
+          { x: Math.round(imgWidth * 0.15), y: Math.round(imgHeight * 0.25) },
+          { x: Math.round(imgWidth * 0.45), y: Math.round(imgHeight * 0.35) },
+        ],
+        value: 52.3,
+        unit: 'mm',
+        displayValue: '52.3 mm',
+        labelPosition: { x: Math.round(imgWidth * 0.30), y: Math.round(imgHeight * 0.20) },
+        color: '#00ff00',
+        visible: true,
+        source: 'user',
+        deletable: true,
+        editable: true,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      },
+      // Angle 어노테이션 (세 점 각도 측정)
+      {
+        id: 'single-angle-1',
+        dicomId: 'local-dicom',
+        frameIndex: 0,
+        type: 'angle',
+        mode: 'B',
+        points: [
+          { x: Math.round(imgWidth * 0.55), y: Math.round(imgHeight * 0.20) },
+          { x: Math.round(imgWidth * 0.65), y: Math.round(imgHeight * 0.45) },
+          { x: Math.round(imgWidth * 0.85), y: Math.round(imgHeight * 0.30) },
+        ],
+        value: 72.8,
+        unit: 'deg',
+        displayValue: '72.8°',
+        labelPosition: { x: Math.round(imgWidth * 0.75), y: Math.round(imgHeight * 0.15) },
+        color: '#ffff00',
+        visible: true,
+        source: 'user',
+        deletable: true,
+        editable: true,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      },
+      // Point 어노테이션 (단일 점 마커)
+      {
+        id: 'single-point-1',
+        dicomId: 'local-dicom',
+        frameIndex: 0,
+        type: 'point',
+        mode: 'B',
+        points: [
+          { x: Math.round(imgWidth * 0.50), y: Math.round(imgHeight * 0.75) },
+        ],
+        value: 0,
+        unit: '',
+        displayValue: 'Marker',
+        labelPosition: { x: Math.round(imgWidth * 0.55), y: Math.round(imgHeight * 0.73) },
+        color: '#ff00ff',
+        visible: true,
+        source: 'ai',
+        deletable: false,
+        editable: true,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      },
+    ];
+  }, [viewportData]);
 
   // Multi Canvas용 DataSource (안정적인 참조 유지)
   const multiCanvasDataSource = useMemo(() => {
@@ -1017,6 +1230,8 @@ export default function App() {
               height={singleViewportHeight}
               showToolbar={true}
               showContextLossTest={true}
+              // Phase 3e: SVG 어노테이션 테스트
+              annotations={singleTestAnnotations}
             />
           )}
 
@@ -1534,6 +1749,8 @@ export default function App() {
               performanceOptions={performanceOptions}
               onPlayingChange={handleMultiPlayingChange}
               onStatsUpdate={handleMultiStatsUpdate}
+              // Phase 3e: SVG 어노테이션 오버레이 테스트
+              annotations={testAnnotations}
               style={{
                 border: '1px solid #444',
                 marginBottom: '10px',
