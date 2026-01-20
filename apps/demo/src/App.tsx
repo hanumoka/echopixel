@@ -34,7 +34,9 @@ import {
   type HybridMultiViewportHandle,
   type HybridSeriesData as ReactHybridSeriesData,
   type HybridViewportStats,
+  type PerformanceOptions,
 } from '@echopixel/react';
+import { PerformanceOptionsPanel } from './components/PerformanceOptions';
 
 type ViewMode = 'single' | 'multi' | 'multi-canvas';
 type DataSourceMode = 'local' | 'wado-rs';
@@ -98,7 +100,7 @@ export default function App() {
   const [layout, setLayout] = useState<LayoutType>('grid-2x2');
   const [multiViewportReady, setMultiViewportReady] = useState(false);
   const [multiLoadingStatus, setMultiLoadingStatus] = useState('');
-  const [multiStats, setMultiStats] = useState({ fps: 0, frameTime: 0 });
+  const [multiStats, setMultiStats] = useState({ fps: 0, frameTime: 0, vramMB: 0 });
   const [isPlaying, setIsPlaying] = useState(false);
   const [fps, setFps] = useState(30);
 
@@ -116,6 +118,15 @@ export default function App() {
   // Multi 모드 (리팩토링) - @echopixel/react HybridMultiViewport 사용
   const [multiSeriesMap, setMultiSeriesMap] = useState<Map<string, ReactHybridSeriesData>>(new Map());
   const multiViewportRef = useRef<HybridMultiViewportHandle>(null);
+
+  // 성능 옵션 상태 (VRAM 제한, DPR 등)
+  const [performanceOptions, setPerformanceOptions] = useState<PerformanceOptions>({
+    maxVramMB: Infinity,  // 기본: 무제한
+    dprOverride: undefined,  // 기본: 자동
+    debugMode: false,
+  });
+  // performanceOptions 변경 시 컴포넌트 리마운트를 위한 키
+  const performanceKey = `${performanceOptions.maxVramMB}-${performanceOptions.dprOverride}-${performanceOptions.debugMode}`;
 
   // Multi Canvas용 DataSource (안정적인 참조 유지)
   const multiCanvasDataSource = useMemo(() => {
@@ -586,7 +597,7 @@ export default function App() {
 
   // Multi 모드 stats 업데이트 콜백
   const handleMultiStatsUpdate = useCallback((stats: HybridViewportStats) => {
-    setMultiStats({ fps: stats.fps, frameTime: stats.frameTime });
+    setMultiStats({ fps: stats.fps, frameTime: stats.frameTime, vramMB: stats.vramMB });
   }, []);
 
   // Multi 모드 재생 상태 변경 콜백
@@ -1480,6 +1491,14 @@ export default function App() {
             )}
           </div>
 
+          {/* 성능 옵션 패널 */}
+          <PerformanceOptionsPanel
+            options={performanceOptions}
+            onChange={setPerformanceOptions}
+            currentVramMB={multiStats.vramMB}
+            style={{ marginBottom: '15px' }}
+          />
+
           {/* 상태 표시 */}
           {multiViewportReady && (
             <div style={{
@@ -1495,7 +1514,7 @@ export default function App() {
             }}>
               <span>Multi-Viewport ({layout}) | {multiSeriesMap.size} viewports loaded</span>
               <span style={{ color: '#8f8' }}>
-                FPS: {multiStats.fps} | Frame Time: {multiStats.frameTime.toFixed(1)}ms
+                FPS: {multiStats.fps} | Frame Time: {multiStats.frameTime.toFixed(1)}ms | VRAM: {multiStats.vramMB.toFixed(1)}MB
               </span>
             </div>
           )}
@@ -1503,6 +1522,7 @@ export default function App() {
           {/* HybridMultiViewport (리팩토링 - @echopixel/react) */}
           {multiSeriesMap.size > 0 && (
             <ReactHybridMultiViewport
+              key={performanceKey}
               ref={multiViewportRef}
               layout={layout}
               width={1024}
@@ -1510,7 +1530,8 @@ export default function App() {
               seriesMap={multiSeriesMap}
               syncMode="frame-ratio"
               initialFps={fps}
-              showDefaultOverlay={false}
+              showDefaultOverlay={true}
+              performanceOptions={performanceOptions}
               onPlayingChange={handleMultiPlayingChange}
               onStatsUpdate={handleMultiStatsUpdate}
               style={{

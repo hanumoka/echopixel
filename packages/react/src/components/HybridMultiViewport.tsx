@@ -133,6 +133,34 @@ export interface HybridMultiViewportHandle {
 }
 
 /**
+ * 성능 옵션 (테스트/튜닝용)
+ */
+export interface PerformanceOptions {
+  /**
+   * 최대 VRAM 사용량 (MB)
+   * - 256, 512, 1024, 1536, 2048, 3072, 4096 등
+   * - Infinity: 무제한 (eviction 비활성화)
+   * 기본값: Infinity
+   */
+  maxVramMB?: number;
+
+  /**
+   * Device Pixel Ratio 오버라이드
+   * - 1.0: 저해상도 (빠름)
+   * - 2.0: 고해상도 (Retina)
+   * - undefined: 자동 (window.devicePixelRatio, 최대 2)
+   * 기본값: undefined (자동)
+   */
+  dprOverride?: number;
+
+  /**
+   * TextureLRUCache 디버그 로깅
+   * 기본값: false
+   */
+  debugMode?: boolean;
+}
+
+/**
  * HybridMultiViewport Props
  */
 export interface HybridMultiViewportProps {
@@ -162,6 +190,8 @@ export interface HybridMultiViewportProps {
   renderOverlay?: (viewport: Viewport | null, index: number) => ReactNode;
   /** 기본 오버레이 표시 여부 (renderOverlay 미지정 시, 기본 true) */
   showDefaultOverlay?: boolean;
+  /** 성능 옵션 (VRAM 제한, DPR 등) - 변경 시 컴포넌트 리마운트 권장 */
+  performanceOptions?: PerformanceOptions;
   /** 커스텀 스타일 */
   style?: CSSProperties;
   /** 커스텀 클래스명 */
@@ -206,11 +236,17 @@ export const HybridMultiViewport = forwardRef<
     onStatsUpdate,
     renderOverlay,
     showDefaultOverlay = true,
+    performanceOptions,
     style,
     className,
   },
   ref
 ) {
+  // 성능 옵션 추출
+  const maxVramMB = performanceOptions?.maxVramMB ?? Infinity;
+  const dprOverride = performanceOptions?.dprOverride;
+  const debugMode = performanceOptions?.debugMode ?? false;
+
   // Refs
   const wrapperRef = useRef<HTMLDivElement>(null);
   const glRef = useRef<WebGL2RenderingContext | null>(null);
@@ -220,12 +256,23 @@ export const HybridMultiViewport = forwardRef<
   const hybridManagerRef = useRef<HybridViewportManager | null>(null);
   const renderSchedulerRef = useRef<HybridRenderScheduler | null>(null);
   const syncEngineRef = useRef<FrameSyncEngine | null>(null);
+  // TextureLRUCache 생성 (성능 옵션 반영)
+  // 참고: performanceOptions 변경 시 컴포넌트를 key로 리마운트해야 새 설정이 적용됨
   const textureCacheRef = useRef<TextureLRUCache>(
-    new TextureLRUCache({
-      maxVRAMBytes: Number.MAX_SAFE_INTEGER, // eviction 비활성화
-      onEvict: () => {},
-      debug: false,
-    })
+    (() => {
+      const maxVRAMBytes = maxVramMB === Infinity
+        ? Number.MAX_SAFE_INTEGER
+        : maxVramMB * 1024 * 1024;
+      return new TextureLRUCache({
+        maxVRAMBytes,
+        onEvict: (viewportId: string, entry: TextureCacheEntry) => {
+          if (debugMode) {
+            console.log(`[TextureLRUCache] Evicted: ${viewportId} (${entry.sizeBytes} bytes)`);
+          }
+        },
+        debug: debugMode,
+      });
+    })()
   );
   const arrayRendererRef = useRef<ArrayTextureRenderer | null>(null);
 
@@ -252,8 +299,8 @@ export const HybridMultiViewport = forwardRef<
   const [viewportElements] = useState(() => new Map<string, HTMLElement>());
   const [viewportElementsVersion, setViewportElementsVersion] = useState(0);
 
-  // DPR
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  // DPR (성능 옵션 또는 자동)
+  const dpr = dprOverride ?? Math.min(window.devicePixelRatio || 1, 2);
 
   // 레이아웃 차원
   const { rows, cols } = getLayoutDimensions(layout);

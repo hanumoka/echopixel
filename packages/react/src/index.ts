@@ -84,6 +84,7 @@ export {
   type HybridMultiViewportProps,
   type HybridSeriesData,
   type HybridViewportStats,
+  type PerformanceOptions,
 } from './components/HybridMultiViewport';
 
 // Hooks (추후 구현)
