@@ -6,7 +6,7 @@
 |------|------|
 | **현재 Phase** | Phase 3 (Annotations) 🚧 구현 중 |
 | **마지막 업데이트** | 2026-01-20 |
-| **다음 마일스톤** | Phase 3d (데모 앱 통합 테스트) |
+| **다음 마일스톤** | Phase 3e (확장 도구 및 플러그인) |
 
 ---
 
@@ -147,12 +147,21 @@
 | SVGOverlay 통합 렌더링 | ✅ | HybridViewportSlot 내부 렌더링 |
 | 이벤트 핸들러 연결 | ✅ | 선택, 업데이트, 삭제 콜백 |
 
-#### Phase 3e: 확장 & 플러그인 ⏳ 대기
+#### Phase 3e: SingleDicomViewer 통합 ✅ 완료
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| SingleDicomViewer annotation props | ✅ | annotations, selectedAnnotationId, handlers, config |
+| TransformContext 생성 | ✅ | DICOM→Canvas 좌표 변환 |
+| SVGOverlay 통합 렌더링 | ✅ | 캔버스 컨테이너 내부 |
+| 데모 앱 테스트 어노테이션 | ✅ | Single (Local) 모드 + Multi 모드 |
+
+#### Phase 3f: 확장 & 플러그인 ⏳ 대기
 
 | 항목 | 상태 | 비고 |
 |------|------|------|
 | 측정 도구 (Ellipse, VTI) | ⏳ | 확장 도구 |
-| 데모 앱 통합 테스트 | ⏳ | 어노테이션 생성/편집 UI |
+| 어노테이션 생성/편집 UI | ⏳ | 실제 사용자 인터랙션 |
 | 플러그인 시스템 | ⏳ | 도구/계산기/렌더러 확장 |
 
 **설계 원칙**:
@@ -221,7 +230,7 @@
 
 | 모듈 | 파일 | 설명 | 상태 |
 |------|------|------|------|
-| **components/** | SingleDicomViewer.tsx | 단일 DICOM 뷰어 (풀 UI) | ✅ |
+| **components/** | SingleDicomViewer.tsx | 단일 DICOM 뷰어 (풀 UI + SVGOverlay) | ✅ |
 | | SingleDicomViewerGroup.tsx | 다중 SingleDicomViewer 그리드 배치 | ✅ |
 | | HybridMultiViewport.tsx | 대규모 뷰포트 (Single Canvas + DOM) | ✅ |
 | **building-blocks/** | DicomCanvas.tsx | WebGL 렌더링 캔버스 | ✅ |
@@ -315,11 +324,16 @@
    - [x] createTransformContext 헬퍼 함수
    - [x] HybridViewportSlot에 SVGOverlay 렌더링
    - [x] 어노테이션 이벤트 핸들러 연결
-18. **Phase 3e 구현**: ⬅️ 다음 마일스톤
-   - [ ] 데모 앱에서 어노테이션 테스트 (생성/편집 UI)
+18. ~~**Phase 3e 구현**~~ ✅ 완료
+   - [x] SingleDicomViewer에 SVGOverlay 통합
+   - [x] annotation props 추가 (annotations, selectedAnnotationId, handlers 등)
+   - [x] TransformContext 생성 로직
+   - [x] 데모 앱 테스트 어노테이션 (Single + Multi 모드)
+19. **Phase 3f 구현**: ⬅️ 다음 마일스톤
+   - [ ] 어노테이션 생성/편집 UI (도구 활성화, 클릭으로 포인트 추가)
    - [ ] 측정 도구 (Ellipse, VTI) - 선택적
    - [ ] 플러그인 시스템 - 선택적
-19. **npm 배포 준비**: README, CHANGELOG (Phase 5)
+20. **npm 배포 준비**: README, CHANGELOG (Phase 5)
 
 ---
 

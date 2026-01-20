@@ -6,6 +6,56 @@
 
 ---
 
+## 2026-01-20 세션 #21 (Phase 3e: SingleDicomViewer 어노테이션 통합)
+
+### 작업 내용
+
+**SingleDicomViewer SVGOverlay 통합**
+- [x] SVGOverlay 및 관련 타입 import 추가
+- [x] annotation props 추가 (annotations, selectedAnnotationId, onAnnotationSelect 등)
+- [x] TransformContext 생성 로직 (DICOM→Canvas 좌표 변환)
+- [x] annotationHandlers useMemo 생성
+- [x] SVGOverlay 렌더링 (캔버스 컨테이너 내부)
+
+**데모 앱 테스트 어노테이션**
+- [x] `singleTestAnnotations` useMemo 생성 (viewportData 기반)
+- [x] Length (녹색, 52.3mm), Angle (노란색, 72.8°), Point (마젠타) 테스트 데이터
+- [x] SingleDicomViewer에 `annotations` prop 전달
+- [x] Multi 모드용 `testAnnotations` 유지 (이전 세션에서 구현)
+
+### 파일 변경
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `packages/react/src/components/SingleDicomViewer.tsx` | SVGOverlay import, annotation props, TransformContext, 렌더링 |
+| `apps/demo/src/App.tsx` | singleTestAnnotations 생성, annotations prop 전달 |
+
+### 커밋
+
+```
+bfbc981 Add SVGOverlay support to SingleDicomViewer with test annotations
+```
+
+### 테스트 결과
+
+- ✅ Single Viewport (Local) 모드에서 SVG 어노테이션 렌더링 확인
+- ✅ Length, Angle, Point 3가지 타입 모두 정상 표시
+- ✅ 이미지 크기 비례 좌표 계산 정상 동작
+
+### 학습 포인트
+
+- TransformContext: viewport 정보 (imageWidth/Height, canvasWidth/Height, zoom, pan, rotation, flip)를 포함
+- SVGOverlay는 position: absolute로 캔버스 위에 오버레이
+- 어노테이션 좌표는 DICOM 픽셀 좌표로 저장, 렌더링 시 Canvas 좌표로 변환
+
+### 다음 세션 할 일
+
+- [ ] 어노테이션 인터랙션 테스트 (선택, 드래그)
+- [ ] Pan/Zoom 시 어노테이션 좌표 변환 검증
+- [ ] 어노테이션 생성 UI (도구 활성화 → 클릭으로 포인트 추가)
+
+---
+
 ## 2026-01-20 세션 #20 (Multi 모드 리팩토링 + 사이즈 조정 + 플립 기능)
 
 ### 작업 내용
