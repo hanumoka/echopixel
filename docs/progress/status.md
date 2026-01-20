@@ -5,7 +5,7 @@
 | 항목 | 상태 |
 |------|------|
 | **현재 Phase** | Phase 2.5 (Robustness) ✅ 완료 |
-| **마지막 업데이트** | 2026-01-19 |
+| **마지막 업데이트** | 2026-01-20 |
 | **다음 마일스톤** | Phase 3 (Annotations) |
 
 ---
@@ -103,6 +103,18 @@
 | | TextureLRUCache.ts | VRAM 기반 텍스처 캐시 |
 | **network/** | retry.ts, errors.ts | 재시도, 에러 처리 |
 
+### packages/react/src/ (신규)
+
+| 모듈 | 파일 | 설명 |
+|------|------|------|
+| **components/** | SingleDicomViewer.tsx | 단일 DICOM 뷰어 (풀 UI) |
+| **building-blocks/** | DicomCanvas.tsx | WebGL 렌더링 캔버스 |
+| | DicomControls.tsx | 재생/정지, FPS, 프레임 슬라이더 |
+| | DicomStatusBar.tsx | 이미지 정보, W/L, Transform 표시 |
+| | DicomToolInfo.tsx | 마우스/키보드 도구 안내 |
+| | DicomToolbar.tsx | 커스터마이징 가능한 도구 선택 툴바 |
+| **types.ts** | - | 공통 타입 정의 |
+
 ### apps/demo/src/
 
 | 파일 | 설명 |
@@ -132,8 +144,9 @@
 3. ~~**Tool System**: 기본 도구 구현~~ ✅ 완료
 4. ~~**Context Loss 복구**: WebGL 컨텍스트 손실 대응~~ ✅ 완료
 5. ~~**LRU Texture Cache**: VRAM 추적 및 관리~~ ✅ 완료
-6. **Phase 3 진입**: 좌표 변환, 측정 도구 (Annotations)
-7. **npm 배포 준비**: vite-plugin-dts, README, CHANGELOG (Phase 5)
+6. ~~**@echopixel/react 패키지**: Building Blocks 컴포넌트~~ ✅ 완료
+7. **Phase 3 진입**: 좌표 변환, 측정 도구 (Annotations)
+8. **npm 배포 준비**: vite-plugin-dts, README, CHANGELOG (Phase 5)
 
 ---
 

@@ -6,6 +6,59 @@
 
 ---
 
+## 2026-01-20 세션 #17 (@echopixel/react 패키지 구현)
+
+### 작업 내용
+
+**@echopixel/react 패키지 생성**
+- [x] `packages/react/` 패키지 구조 설정
+- [x] Vite + TypeScript + vite-plugin-dts 구성
+- [x] 공통 타입 정의 (`types.ts`)
+
+**Building Blocks 컴포넌트 구현**
+- [x] `DicomCanvas`: WebGL 렌더링 캔버스 (forwardRef + useImperativeHandle)
+- [x] `DicomControls`: 재생/정지, FPS 조절, 프레임 슬라이더
+- [x] `DicomStatusBar`: 이미지 정보, W/L, Pan/Zoom 상태 표시
+- [x] `DicomToolInfo`: 마우스/키보드 도구 안내
+- [x] `DicomToolbar`: 커스터마이징 가능한 도구 선택 툴바
+
+**SingleDicomViewer 컴포넌트**
+- [x] Building Blocks 조합한 완성형 단일 뷰어
+- [x] Tool System 통합 (useToolGroup)
+- [x] 툴바 도구 선택 시 좌클릭 바인딩 동적 변경
+
+**OHIF 스타일 뷰포트 스타일링**
+- [x] 뷰어 컨테이너: `#0b1a42` (어두운 인디고)
+- [x] 뷰포트 영역: `#000` (순수 검정) + `#333` border
+- [x] box-shadow로 깊이감 추가
+
+**버그 수정**
+- [x] 툴바 도구 선택 시 기존 바인딩 유실 문제 수정
+  - 원인: setToolActive가 바인딩을 대체함
+  - 해결: getDefaultBindings() + Primary 바인딩 추가 방식
+
+### 파일 변경
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `packages/react/` | 신규 패키지 생성 |
+| `packages/react/src/types.ts` | 공통 타입 정의 |
+| `packages/react/src/components/building-blocks/` | Building Blocks 컴포넌트 |
+| `packages/react/src/components/SingleDicomViewer.tsx` | 조합형 뷰어 |
+| `apps/demo/src/App.tsx` | SingleDicomViewer 테스트 추가 |
+
+### 학습 포인트
+- React Building Blocks 패턴: 작은 컴포넌트 조합으로 유연성 확보
+- forwardRef + useImperativeHandle: 외부 제어 API 노출
+- Tool System 바인딩: 기본 바인딩 유지하면서 추가 바인딩 적용
+- OHIF UI 디자인: 의료 영상 뷰어 표준 색상 체계
+
+### 다음 세션 할 일
+- [ ] MultiDicomViewer 구현 (Building Blocks 기반)
+- [ ] Phase 3 (Annotations) 설계 검토
+
+---
+
 ## 2026-01-19 세션 #16 (LRU Texture Cache 구현)
 
 ### 작업 내용
