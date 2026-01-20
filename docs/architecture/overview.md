@@ -185,6 +185,9 @@ bindArrayTexture(unit): void
 
 ### 4. DataSource Layer
 
+> **책임 범위**: 내장 DataSource는 **편의 기능(옵셔널)**으로 제공.
+> 프로덕션 환경에서는 **앱에서 직접 구현 권장** (인증, 캐싱, 에러 처리 등).
+
 #### DataSource Interface
 ```typescript
 interface DataSource {
@@ -194,10 +197,18 @@ interface DataSource {
 
 #### 구현체
 
-| DataSource | 설명 |
-|------------|------|
-| LocalFileDataSource | 로컬 파일 (blob: URL) |
-| WadoRsDataSource | WADO-RS 서버 통신, LRU 캐시, 재시도, 중복 요청 방지 |
+| DataSource | 설명 | 권장 용도 |
+|------------|------|----------|
+| LocalFileDataSource | 로컬 파일 (blob: URL) | 개발/테스트 |
+| WadoRsDataSource | WADO-RS 서버 통신, 기본 캐시/재시도 | 간단한 케이스 |
+| 앱 직접 구현 | 인증, 고급 캐싱, 커스텀 에러 처리 | **프로덕션 권장** |
+
+#### 앱 구현 시 EchoPixel 사용
+```typescript
+// 앱에서 WADO-RS 호출 후 EchoPixel에 데이터 전달
+const arrayBuffer = await myWadoRsClient.loadDicom(studyUID, seriesUID);
+viewer.loadDicom(arrayBuffer);
+```
 
 ---
 

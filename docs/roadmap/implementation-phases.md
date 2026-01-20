@@ -8,8 +8,9 @@
 | 2 | Multi-Viewport & Quality | ✅ 완료 |
 | 2.5 | Robustness (안정성 강화) | ✅ 완료 |
 | 2.6 | @echopixel/react 멀티 뷰어 | ✅ 완료 |
-| 2.7 | Multi Viewport Rotation/Flip | ⏳ 대기 |
-| 3 | Annotations | ⏳ 대기 |
+| 2.7 | Multi Viewport Rotation/Flip | ✅ 완료 |
+| 2.8 | Performance Options | ✅ 완료 |
+| 3 | Annotations | 📋 계획 완료 |
 | 4 | Plugin System & Extensions | ⏳ 대기 |
 | 5 | Release | ⏳ 대기 |
 
@@ -236,108 +237,89 @@ WebGL 컨텍스트가 손실될 때 (탭 전환, GPU 리셋 등) 자동 복구:
 
 ---
 
-## Phase 2.7: Multi Viewport Rotation/Flip ⏳ 대기
+## Phase 2.7: Multi Viewport Rotation/Flip ✅ 완료
 
 > **목표**: Multi 모드에서 각 뷰포트별 Rotation/Flip 지원
 > - SingleDicomViewer와 동일한 도구 지원
 > - 각 DICOM마다 독립적인 회전/플립 제어
 
-### 배경
+### 완료된 작업
 
-현재 SingleDicomViewer에만 Rotation(90°)/Flip(H/V) 기능이 구현됨.
-Multi 모드(HybridMultiViewport, MultiCanvasGrid)에서는 미지원.
-의료 영상에서 각 뷰포트별 회전/플립은 필수 기능.
+- [x] HybridMultiViewport Rotation (각 뷰포트별 90° 회전)
+- [x] HybridMultiViewport Flip (각 뷰포트별 H/V 플립)
+- [x] ArrayTextureRenderer 셰이더 (Vertex Shader에서 Flip uniform 적용)
+- [x] DicomMiniOverlay 도구 UI (회전/플립/리셋 버튼)
 
-### 작업 항목
-
-#### HybridMultiViewport Rotation/Flip
-- [ ] Viewport 상태에 rotation, flipH, flipV 추가
-- [ ] ArrayTextureRenderer에 rotation/flip 셰이더 지원
-- [ ] DicomMiniOverlay 또는 컨텍스트 메뉴에 회전/플립 UI 추가
-- [ ] 키보드 단축키 지원 (R: 회전, H: 가로플립, V: 세로플립)
-- [ ] resetViewport에 rotation/flip 초기화 포함
-
-#### MultiCanvasGrid Rotation/Flip
-- [ ] DicomViewport에 rotation/flip 상태 추가
-- [ ] compact 모드에서 미니 도구 UI 또는 키보드 지원
-
-#### 구현 방식 옵션
-
-**Option A**: CSS Transform 방식 (SingleDicomViewer 방식)
-- 장점: 구현 간단, GPU 가속
-- 단점: Single Canvas에서 각 뷰포트별 적용 어려움
-
-**Option B**: Shader 방식 (권장)
-- 장점: Single Canvas에서 각 뷰포트별 독립 적용 가능
-- 구현: Vertex Shader에서 UV 좌표 변환
-
-```glsl
-// rotation/flip을 위한 UV 변환
-vec2 transformUV(vec2 uv, float rotation, bool flipH, bool flipV) {
-  vec2 center = vec2(0.5);
-  vec2 centered = uv - center;
-
-  // Flip
-  if (flipH) centered.x = -centered.x;
-  if (flipV) centered.y = -centered.y;
-
-  // Rotation (90° 단위)
-  float rad = radians(rotation);
-  float c = cos(rad);
-  float s = sin(rad);
-  centered = vec2(c * centered.x - s * centered.y, s * centered.x + c * centered.y);
-
-  return centered + center;
-}
-```
+### 구현 방식: Shader 방식 (Option B)
 
 ---
 
-## Phase 3: Annotations ⏳ 대기
+## Phase 2.8: Performance Options ✅ 완료
 
-> **아키텍처**: DOM Overlay 기반 (Hybrid DOM-WebGL 활용)
-> - SVG 오버레이는 WebGL Canvas 위의 DOM 레이어에 렌더링
-> - Cornerstone3D SVGDrawingHelper 패턴 참고
+> **목표**: VRAM/DPR 설정을 통한 성능 테스트 지원
+
+### 완료된 작업
+
+- [x] PerformanceOptions 인터페이스 (maxVramMB, dprOverride, debugMode)
+- [x] HybridMultiViewport performanceOptions prop 추가
+- [x] PerformanceOptionsPanel (데모 앱 UI)
+- [x] VRAM 프리셋 (256MB ~ 4GB, Unlimited)
+- [x] DPR 프리셋 (1.0x, 1.5x, 2.0x, Auto)
+- [x] VRAM 사용량 실시간 표시
+
+---
+
+## Phase 3: Annotations 📋 계획 완료
+
+> **설계 원칙**:
+> - 유연성: 플러그인 기반 확장 가능한 구조
+> - 커스터마이징: 설정 기반 권한/제한 시스템
+> - 책임 분리: EchoPixel(CRUD/Export/Import) vs 앱(API/동기화)
+
+> **상세 계획서**: `docs/design/phase3-annotations-plan.md`
+
+### 결정 사항
+
+| 항목 | 결정 |
+|------|------|
+| DICOM 모드 | B + M + D 모두 지원 |
+| 좌표 저장 | DICOM 픽셀 좌표 (정수) |
+| 권한 시스템 | 설정 가능 (AI: 삭제❌/수정✅, User: 삭제✅/수정✅) |
+| 개수 제한 | DICOM 단위 15개 (User만, 설정 가능) |
+| 멀티 뷰포트 | 독립 (1 viewport = 1 DICOM) |
+| 내보내기 포맷 | JSON v1.0 (버전 관리) |
 
 ### 작업 항목
 
-#### 좌표 변환 시스템 (선행 작업)
-어노테이션 구현 전 필수 인프라:
+#### Phase 3a: 기본 인프라
+- [ ] 타입 및 인터페이스 정의
+- [ ] AnnotationStore (상태 관리 + 설정 기반 권한/제한)
+- [ ] Exporter/Importer (DICOM 좌표 기반 JSON)
+- [ ] HistoryManager (Undo/Redo + 초기화)
+- [ ] 좌표 변환 시스템 (B/M/D 모드별 계산기)
 
-- [ ] CoordinateTransformer 클래스
-  - Screen → Canvas 변환
-  - Canvas → Viewport (정규화 좌표)
-  - Viewport → DICOM Pixel (이미지 좌표)
-  - DICOM Pixel → World (mm 단위)
-- [ ] Pan/Zoom 상태 반영
-- [ ] 역변환 지원 (World → Screen)
+#### Phase 3b: 측정 도구
+- [ ] MeasurementTool 기본 클래스
+- [ ] LengthTool (B-mode, M-mode)
+- [ ] AngleTool (B-mode)
+- [ ] PointTool (D-mode 속도)
 
-#### DicomMetadataCache ⏳
-DICOM 메타데이터 캐싱 (좌표 변환, 측정에 필요):
+#### Phase 3c: SVG 오버레이
+- [ ] SVGOverlay 컴포넌트
+- [ ] AnnotationShape 렌더링
+- [ ] 프레임별 동기화
+- [ ] 드래그 핸들 (선택/수정)
 
-- [ ] Pixel Spacing 추출 및 캐싱
-- [ ] Image Position/Orientation
-- [ ] Calibration 정보
+#### Phase 3d: 확장 도구
+- [ ] EllipseTool
+- [ ] TraceTool
+- [ ] VTITool
+- [ ] 숨김 기능
 
-#### 어노테이션 엔진
-- [ ] DOM Overlay 기반 SVG 레이어
-- [ ] 핸들/그립 인터랙션 (DOM 이벤트 활용)
-- [ ] 상태 머신 (생성/편집/선택)
-
-#### 측정 도구
-- [ ] 거리 측정 (2점 라인)
-- [ ] 영역 측정 (타원, 다각형)
-- [ ] Doppler Trace (속도 엔벨로프)
-- [ ] 각도 측정 (3점)
-
-#### 캘리브레이션
-- [ ] Pixel Spacing 태그 활용
-- [ ] 수동 캘리브레이션 도구
-
-#### 직렬화
-- [ ] JSON 내보내기/가져오기
-- [ ] DICOM SR 생성
-- [ ] STOW-RS 업로드
+#### Phase 3e: 통합
+- [ ] HybridMultiViewport 통합
+- [ ] 플러그인 시스템 테스트
+- [ ] 데모 앱 연동
 
 ---
 

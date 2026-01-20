@@ -4,9 +4,9 @@
 
 | 항목 | 상태 |
 |------|------|
-| **현재 Phase** | Phase 2.7 (Multi Viewport Rotation/Flip) ✅ 완료 |
+| **현재 Phase** | Phase 3 (Annotations) 📋 계획 완료 |
 | **마지막 업데이트** | 2026-01-20 |
-| **다음 마일스톤** | Phase 3 (Annotations) |
+| **다음 마일스톤** | Phase 3a (기본 인프라) 구현 |
 
 ---
 
@@ -24,7 +24,7 @@
 | 동시 뷰포트 | **16개** | ✅ 달성 | 16개 동시 표시 성공 |
 | 프레임 레이트 | **30fps+** | ✅ **60fps** | 목표 2배 초과 달성 |
 | Frame Time | **<33ms** | ✅ **0.1~3ms** | 목표 10배+ 초과 달성 |
-| GPU 메모리 | **<1.5GB** | ⏳ 검증 필요 | 측정 도구 필요 |
+| GPU 메모리 | **<1.5GB** | ✅ 측정 가능 | Performance Options 패널 추가 |
 | 동기화 지연 | **<16ms** | ⏳ 검증 필요 | 측정 도구 필요 |
 | 프레임 드롭 | **<1%** | ✅ 양호 | 드롭 관찰 안됨 |
 
@@ -90,9 +90,49 @@
 | ArrayTextureRenderer 셰이더 | ✅ | Vertex Shader에서 Flip uniform 적용 |
 | DicomMiniOverlay 도구 UI | ✅ | 회전/플립/리셋 버튼 추가 (선택 시 표시) |
 
-### Phase 3~5: 대기
+### Phase 2.8: Performance Options ✅ 완료
 
-- **Phase 3**: Annotations (좌표 변환, SVG 오버레이, 측정 도구)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| PerformanceOptions 인터페이스 | ✅ | maxVramMB, dprOverride, debugMode |
+| HybridMultiViewport props | ✅ | performanceOptions prop 추가 |
+| PerformanceOptionsPanel | ✅ | 데모 앱 UI (VRAM/DPR/Debug 설정) |
+| VRAM 프리셋 | ✅ | 256MB ~ 4GB, Unlimited |
+| DPR 프리셋 | ✅ | 1.0x, 1.5x, 2.0x, Auto |
+| VRAM 사용량 표시 | ✅ | 상태 바 + 프로그레스 바 |
+
+### Phase 3: Annotations 📋 계획 완료
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 요구사항 분석 | ✅ | Viviane 분석 완료 |
+| 아키텍처 설계 | ✅ | 플러그인 기반 유연한 구조 |
+| 좌표 변환 시스템 | ⏳ | B/M/D 모드별 계산기 (플러그인) |
+| AnnotationStore | ⏳ | 상태 관리 + 설정 기반 권한/제한 |
+| Exporter/Importer | ⏳ | DICOM 좌표 기반 JSON (v1.0) |
+| HistoryManager | ⏳ | Undo/Redo + 초기화 |
+| SVG 오버레이 | ⏳ | 프레임별 동기화 |
+| 측정 도구 (Length, Angle) | ⏳ | 기본 도구 |
+| 측정 도구 (Ellipse, VTI) | ⏳ | 확장 도구 |
+| 플러그인 시스템 | ⏳ | 도구/계산기/렌더러 확장 |
+
+**설계 원칙**:
+- 유연성: 플러그인 기반 확장 가능
+- 커스터마이징: 설정 기반 권한/제한
+- 책임 분리: EchoPixel(렌더링/CRUD/Export) vs 앱(네트워크/API/동기화)
+- DataSource: WADO-RS/URI는 앱 구현 권장 (내장 DataSource는 옵셔널)
+
+**결정 사항**:
+- 권한: AI(삭제❌/수정✅/카운트❌), User(삭제✅/수정✅/카운트✅) - 설정 가능
+- 개수 제한: DICOM 단위 15개 (User만, 설정 가능)
+- 좌표계: DICOM 픽셀 좌표 저장, 모드별 물리 단위 표시
+- 멀티 뷰포트: 독립 (1 viewport = 1 DICOM)
+- 내보내기: JSON 포맷 v1.0 (버전 관리)
+
+> 상세: [phase3-annotations-plan.md](../design/phase3-annotations-plan.md)
+
+### Phase 4~5: 대기
+
 - **Phase 4**: Plugin System & 16-bit 확장
 - **Phase 5**: npm v1.0.0 배포
 
@@ -149,9 +189,10 @@
 | 파일 | 설명 |
 |------|------|
 | App.tsx | 메인 데모 앱 (3개 모드: Single, Multi, Multi-Canvas) |
-| DicomViewport.tsx | 단일 뷰포트 컴포넌트 (레거시) |
-| MultiViewport.tsx | Phase 2 멀티뷰포트 (레거시) |
-| MultiCanvasGrid.tsx | 멀티 캔버스 (비교용, 의도적 유지) |
+| components/PerformanceOptions.tsx | 성능 옵션 패널 (VRAM/DPR/Debug) |
+| components/MultiCanvasGrid.tsx | 멀티 캔버스 (비교용, 의도적 유지) |
+| components/DicomViewport.tsx | 단일 뷰포트 컴포넌트 (레거시) |
+| components/MultiViewport.tsx | Phase 2 멀티뷰포트 (레거시) |
 
 ---
 
@@ -187,11 +228,22 @@
    - [x] HybridMultiViewport Rotation/Flip 지원 (셰이더 기반)
    - [x] ArrayTextureRenderer 셰이더 Flip uniform 추가
    - [x] DicomMiniOverlay 도구 UI (회전/플립/리셋 버튼)
-12. **Phase 3 진입**: ⬅️ 다음 마일스톤
-   - [ ] 좌표 변환 시스템 (이미지 좌표 ↔ 캔버스 좌표)
-   - [ ] SVG 오버레이 기본 구조
-   - [ ] 측정 도구 (Length, Angle)
-13. **npm 배포 준비**: vite-plugin-dts, README, CHANGELOG (Phase 5)
+12. ~~**Phase 2.8 Performance Options**~~ ✅ 완료
+   - [x] PerformanceOptions 인터페이스 (VRAM, DPR, Debug)
+   - [x] HybridMultiViewport performanceOptions prop
+   - [x] 데모 앱 PerformanceOptionsPanel UI
+   - [x] VRAM 사용량 실시간 표시
+13. ~~**Phase 3 계획**~~ ✅ 완료
+   - [x] Viviane 코드 분석 (좌표계, 측정 도구)
+   - [x] 요구사항 결정 (권한, 개수 제한, 좌표계)
+   - [x] 아키텍처 설계 (phase3-annotations-plan.md)
+14. **Phase 3a 구현**: ⬅️ 다음 마일스톤
+   - [ ] 타입 및 인터페이스 정의
+   - [ ] AnnotationStore (상태 관리)
+   - [ ] HistoryManager (Undo/Redo)
+   - [ ] 좌표 변환 시스템 (B/M/D 모드)
+15. **Phase 3b~e**: 측정 도구, SVG 오버레이, 통합
+16. **npm 배포 준비**: vite-plugin-dts, README, CHANGELOG (Phase 5)
 
 ---
 
