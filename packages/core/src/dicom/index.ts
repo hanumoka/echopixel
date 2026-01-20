@@ -8,11 +8,12 @@ export {
   getUint16Value,
   getStringValue,
   getImageInfo,
+  getPixelSpacing,
   isEncapsulated,
   getTransferSyntaxName,
   extractPixelData,
 } from './DicomParser';
-export type { DicomImageInfo } from './DicomParser';
+export type { DicomImageInfo, PixelSpacing } from './DicomParser';
 
 // Image Decoder
 export { isImageDecoderSupported, decodeJpeg, closeDecodedFrame } from './ImageDecoder';

@@ -15,6 +15,7 @@ import {
   LengthTool,
   AngleTool,
   PointTool,
+  DICOM_UNIT_CODES,
   type DicomImageInfo,
   type ViewportManagerLike,
   type Viewport,
@@ -26,6 +27,7 @@ import {
   type ToolContext,
   type TempAnnotation,
   type ToolMouseEvent,
+  type CalibrationData,
 } from '@echopixel/core';
 import { SVGOverlay } from './annotations/SVGOverlay';
 import { DicomCanvas, type DicomCanvasHandle } from './building-blocks/DicomCanvas';
@@ -367,6 +369,19 @@ export const SingleDicomViewer = forwardRef<
     // 이미지 정보가 없거나 캔버스 크기가 유효하지 않으면 null
     if (!imageInfo || width <= 0 || height <= 0) return null;
 
+    // Calibration 생성 (Pixel Spacing → CalibrationData)
+    // Pixel Spacing은 mm/pixel, CalibrationData는 cm/pixel 사용
+    let calibration: CalibrationData | undefined;
+    if (imageInfo.pixelSpacing) {
+      calibration = {
+        // mm → cm 변환 (/10)
+        physicalDeltaX: imageInfo.pixelSpacing.columnSpacing / 10,
+        physicalDeltaY: imageInfo.pixelSpacing.rowSpacing / 10,
+        unitX: DICOM_UNIT_CODES.CENTIMETER,
+        unitY: DICOM_UNIT_CODES.CENTIMETER,
+      };
+    }
+
     return {
       viewport: {
         imageWidth: imageInfo.columns,
@@ -379,6 +394,8 @@ export const SingleDicomViewer = forwardRef<
         flipH,
         flipV,
       },
+      calibration,
+      mode: 'B' as const, // 기본값: B-mode (TODO: imageInfo에서 mode 가져오기)
     };
   }, [imageInfo, width, height, zoom, pan, rotation, flipH, flipV]);
 
@@ -518,11 +535,12 @@ export const SingleDicomViewer = forwardRef<
       const tool = measurementToolsRef.current[toolId];
       if (tool && transformContext) {
         // ToolContext 생성
+        // calibration은 transformContext에 이미 포함되어 있음
         const context: ToolContext = {
           dicomId: viewportId,
           frameIndex: currentFrame,
-          mode: 'B', // 기본값: B-mode (TODO: imageInfo에서 mode 가져오기)
-          calibration: undefined, // TODO: calibration 지원
+          mode: transformContext.mode ?? 'B',
+          calibration: transformContext.calibration,
           transformContext,
         };
 
@@ -572,7 +590,7 @@ export const SingleDicomViewer = forwardRef<
         setToolGroupToolActive(toolId, newBindings);
       }
     }
-  }, [activeTool, activeMeasurementToolId, getDefaultBindings, setToolGroupToolActive, transformContext, viewportId, currentFrame, handleAnnotationCreated, handleTempUpdate]);
+  }, [activeTool, activeMeasurementToolId, getDefaultBindings, setToolGroupToolActive, transformContext, viewportId, currentFrame, handleAnnotationCreated, handleTempUpdate, imageInfo]);
 
   // 비활성화된 도구 목록 (정지 이미지에서 StackScroll)
   const disabledToolbarTools = useMemo(() => {

@@ -160,6 +160,57 @@ export function getStringValue(
 }
 
 /**
+ * Pixel Spacing (0028,0030) 파싱
+ *
+ * 형식: "row_spacing\column_spacing" (예: "0.5\0.5")
+ * 단위: mm (DICOM 표준)
+ *
+ * @returns PixelSpacing 또는 undefined (태그 없거나 파싱 실패)
+ */
+export function getPixelSpacing(
+  buffer: ArrayBuffer,
+  dataset: DicomDataset,
+): PixelSpacing | undefined {
+  // Pixel Spacing 태그: (0028,0030)
+  const pixelSpacingStr = getStringValue(buffer, dataset, '00280030');
+  if (!pixelSpacingStr) {
+    return undefined;
+  }
+
+  // 백슬래시로 분리
+  const parts = pixelSpacingStr.split('\\');
+  if (parts.length < 2) {
+    return undefined;
+  }
+
+  const rowSpacing = parseFloat(parts[0]);
+  const columnSpacing = parseFloat(parts[1]);
+
+  // 유효한 숫자인지 확인
+  if (isNaN(rowSpacing) || isNaN(columnSpacing) || rowSpacing <= 0 || columnSpacing <= 0) {
+    return undefined;
+  }
+
+  return {
+    rowSpacing,
+    columnSpacing,
+  };
+}
+
+/**
+ * Pixel Spacing 정보
+ *
+ * DICOM 태그 (0028,0030)에서 추출
+ * 단위: mm (DICOM 표준)
+ */
+export interface PixelSpacing {
+  /** 행 간격 (mm) - 인접한 행 사이의 물리적 거리 */
+  rowSpacing: number;
+  /** 열 간격 (mm) - 인접한 열 사이의 물리적 거리 */
+  columnSpacing: number;
+}
+
+/**
  * 이미지 렌더링에 필요한 기본 정보 추출
  */
 export interface DicomImageInfo {
@@ -171,6 +222,8 @@ export interface DicomImageInfo {
   pixelRepresentation: number;
   photometricInterpretation: string;
   samplesPerPixel: number;
+  /** Pixel Spacing (mm) - calibration에 사용 */
+  pixelSpacing?: PixelSpacing;
 }
 
 export function getImageInfo(
@@ -194,6 +247,7 @@ export function getImageInfo(
     pixelRepresentation: getUint16Value(buffer, dataset, '00280103') ?? 0,
     photometricInterpretation: getStringValue(buffer, dataset, '00280004') ?? 'MONOCHROME2',
     samplesPerPixel: getUint16Value(buffer, dataset, '00280002') ?? 1,
+    pixelSpacing: getPixelSpacing(buffer, dataset),
   };
 }
 /**
