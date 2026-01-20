@@ -340,13 +340,24 @@ export const HybridMultiViewport = forwardRef<
       }
 
       let transform: TransformOptions | undefined;
-      if (viewport.transform && (viewport.transform.pan.x !== 0 || viewport.transform.pan.y !== 0 || viewport.transform.zoom !== 1.0)) {
+      const t = viewport.transform;
+      // transform이 기본값이 아닌 경우에만 적용
+      const hasTransform = t && (
+        t.pan.x !== 0 || t.pan.y !== 0 ||
+        t.zoom !== 1.0 ||
+        t.rotation !== 0 ||
+        t.flipH || t.flipV
+      );
+      if (hasTransform) {
         const viewportWidth = bounds.width || 1;
         const viewportHeight = bounds.height || 1;
         transform = {
-          panX: viewport.transform.pan.x * (2 / viewportWidth),
-          panY: -viewport.transform.pan.y * (2 / viewportHeight),
-          zoom: viewport.transform.zoom,
+          panX: t.pan.x * (2 / viewportWidth),
+          panY: -t.pan.y * (2 / viewportHeight),
+          zoom: t.zoom,
+          rotation: (t.rotation * Math.PI) / 180, // degree → radian
+          flipH: t.flipH,
+          flipV: t.flipV,
         };
       }
 
@@ -719,6 +730,58 @@ export const HybridMultiViewport = forwardRef<
     setHoveredViewportId(null);
   }, []);
 
+  // Rotation/Flip 핸들러
+  const handleRotateLeft = useCallback((viewportId: string) => {
+    const hybridManager = hybridManagerRef.current;
+    const viewport = hybridManager?.getViewport(viewportId);
+    if (!hybridManager || !viewport) return;
+
+    const newRotation = (viewport.transform.rotation - 90 + 360) % 360;
+    hybridManager.setViewportRotation(viewportId, newRotation);
+    setViewports(hybridManager.getAllViewports());
+    renderSchedulerRef.current?.renderSingleFrame();
+  }, []);
+
+  const handleRotateRight = useCallback((viewportId: string) => {
+    const hybridManager = hybridManagerRef.current;
+    const viewport = hybridManager?.getViewport(viewportId);
+    if (!hybridManager || !viewport) return;
+
+    const newRotation = (viewport.transform.rotation + 90) % 360;
+    hybridManager.setViewportRotation(viewportId, newRotation);
+    setViewports(hybridManager.getAllViewports());
+    renderSchedulerRef.current?.renderSingleFrame();
+  }, []);
+
+  const handleFlipH = useCallback((viewportId: string) => {
+    const hybridManager = hybridManagerRef.current;
+    const viewport = hybridManager?.getViewport(viewportId);
+    if (!hybridManager || !viewport) return;
+
+    hybridManager.setViewportFlipH(viewportId, !viewport.transform.flipH);
+    setViewports(hybridManager.getAllViewports());
+    renderSchedulerRef.current?.renderSingleFrame();
+  }, []);
+
+  const handleFlipV = useCallback((viewportId: string) => {
+    const hybridManager = hybridManagerRef.current;
+    const viewport = hybridManager?.getViewport(viewportId);
+    if (!hybridManager || !viewport) return;
+
+    hybridManager.setViewportFlipV(viewportId, !viewport.transform.flipV);
+    setViewports(hybridManager.getAllViewports());
+    renderSchedulerRef.current?.renderSingleFrame();
+  }, []);
+
+  const handleResetViewport = useCallback((viewportId: string) => {
+    const hybridManager = hybridManagerRef.current;
+    if (!hybridManager) return;
+
+    hybridManager.resetViewport(viewportId);
+    setViewports(hybridManager.getAllViewports());
+    renderSchedulerRef.current?.renderSingleFrame();
+  }, []);
+
   return (
     <div
       ref={wrapperRef}
@@ -793,6 +856,15 @@ export const HybridMultiViewport = forwardRef<
                   totalFrames={viewport?.series?.frameCount}
                   isPlaying={viewport?.playback.isPlaying}
                   isSelected={activeViewportId === id}
+                  showTools={true}
+                  rotation={viewport?.transform.rotation}
+                  flipH={viewport?.transform.flipH}
+                  flipV={viewport?.transform.flipV}
+                  onRotateLeft={() => handleRotateLeft(id)}
+                  onRotateRight={() => handleRotateRight(id)}
+                  onFlipH={() => handleFlipH(id)}
+                  onFlipV={() => handleFlipV(id)}
+                  onReset={() => handleResetViewport(id)}
                 />
               ) : null}
             </HybridViewportSlot>

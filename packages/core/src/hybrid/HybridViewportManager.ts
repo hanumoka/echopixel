@@ -344,6 +344,20 @@ export class HybridViewportManager {
   }
 
   /**
+   * 뷰포트 가로 플립 설정
+   */
+  setViewportFlipH(viewportId: string, flipH: boolean): void {
+    this.viewportManager.setViewportFlipH(viewportId, flipH);
+  }
+
+  /**
+   * 뷰포트 세로 플립 설정
+   */
+  setViewportFlipV(viewportId: string, flipV: boolean): void {
+    this.viewportManager.setViewportFlipV(viewportId, flipV);
+  }
+
+  /**
    * 뷰포트 Transform 초기화
    */
   resetViewportTransform(viewportId: string): void {

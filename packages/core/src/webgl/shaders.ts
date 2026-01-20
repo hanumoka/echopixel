@@ -2,7 +2,7 @@
  * Vertex Shader (정점 쉐이더)
  * - 사각형의 4개 꼭짓점 위치 설정
  * - 텍스처 좌표를 Fragment Shader로 전달
- * - Pan/Zoom/Rotation 변환 적용
+ * - Pan/Zoom/Rotation/Flip 변환 적용
  *
  * 참고: 단일 텍스처와 배열 텍스처 모두 동일한 Vertex Shader 사용
  */
@@ -12,13 +12,17 @@ export const VERTEX_SHADER_SOURCE = `#version 300 es
 layout(location = 0) in vec2 a_position;
 layout(location = 1) in vec2 a_texCoord;
 
-// Pan/Zoom/Rotation uniforms
+// Pan/Zoom/Rotation/Flip uniforms
 // u_pan: NDC 좌표 (-1 ~ 1 범위, 픽셀 → NDC 변환 필요)
 // u_zoom: 확대 배율 (기본값 1.0)
 // u_rotation: 회전 각도 (라디안, 기본값 0.0)
+// u_flipH: 가로 플립 (0.0 = false, 1.0 = true)
+// u_flipV: 세로 플립 (0.0 = false, 1.0 = true)
 uniform vec2 u_pan;
 uniform float u_zoom;
 uniform float u_rotation;
+uniform float u_flipH;
+uniform float u_flipV;
 
 // 출력: Fragment Shader로 전달할 텍스처 좌표
 out vec2 v_texCoord;
@@ -27,12 +31,18 @@ void main() {
   // Zoom 적용 (중앙 기준 스케일)
   vec2 scaledPos = a_position * u_zoom;
 
+  // Flip 적용 (Zoom 후, Rotation 전)
+  vec2 flippedPos = vec2(
+    u_flipH > 0.5 ? -scaledPos.x : scaledPos.x,
+    u_flipV > 0.5 ? -scaledPos.y : scaledPos.y
+  );
+
   // Rotation 적용 (중앙 기준 회전)
   float cosR = cos(u_rotation);
   float sinR = sin(u_rotation);
   vec2 rotatedPos = vec2(
-    scaledPos.x * cosR - scaledPos.y * sinR,
-    scaledPos.x * sinR + scaledPos.y * cosR
+    flippedPos.x * cosR - flippedPos.y * sinR,
+    flippedPos.x * sinR + flippedPos.y * cosR
   );
 
   // Pan 적용 (NDC 좌표)

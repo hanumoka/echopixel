@@ -33,6 +33,8 @@ function createDefaultTransform(): ViewportTransform {
     pan: { x: 0, y: 0 },
     zoom: 1.0,
     rotation: 0,
+    flipH: false,
+    flipV: false,
   };
 }
 
@@ -283,7 +285,7 @@ export class ViewportManager {
   /**
    * 뷰포트 Rotation 설정
    *
-   * 이미지 회전 각도를 설정합니다 (미래용).
+   * 이미지 회전 각도를 설정합니다.
    *
    * @param viewportId - 뷰포트 ID
    * @param rotation - 회전 각도 (degree)
@@ -299,9 +301,43 @@ export class ViewportManager {
   }
 
   /**
+   * 뷰포트 가로 플립 설정
+   *
+   * 이미지를 좌우로 반전합니다.
+   *
+   * @param viewportId - 뷰포트 ID
+   * @param flipH - 가로 플립 여부
+   */
+  setViewportFlipH(viewportId: string, flipH: boolean): void {
+    const viewport = this.viewports.get(viewportId);
+    if (!viewport) {
+      throw new Error(`Viewport not found: ${viewportId}`);
+    }
+
+    viewport.transform.flipH = flipH;
+  }
+
+  /**
+   * 뷰포트 세로 플립 설정
+   *
+   * 이미지를 상하로 반전합니다.
+   *
+   * @param viewportId - 뷰포트 ID
+   * @param flipV - 세로 플립 여부
+   */
+  setViewportFlipV(viewportId: string, flipV: boolean): void {
+    const viewport = this.viewports.get(viewportId);
+    if (!viewport) {
+      throw new Error(`Viewport not found: ${viewportId}`);
+    }
+
+    viewport.transform.flipV = flipV;
+  }
+
+  /**
    * 뷰포트 Transform 초기화
    *
-   * Pan, Zoom, Rotation을 기본값으로 리셋합니다.
+   * Pan, Zoom, Rotation, Flip을 기본값으로 리셋합니다.
    *
    * @param viewportId - 뷰포트 ID
    */

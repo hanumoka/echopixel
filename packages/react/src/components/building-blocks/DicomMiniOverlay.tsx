@@ -43,6 +43,24 @@ export interface DicomMiniOverlayProps {
   label?: string;
   /** 선택됨 상태 */
   isSelected?: boolean;
+  /** 도구 버튼 표시 여부 (회전, 플립) */
+  showTools?: boolean;
+  /** 현재 회전 각도 (degree) */
+  rotation?: number;
+  /** 현재 가로 플립 상태 */
+  flipH?: boolean;
+  /** 현재 세로 플립 상태 */
+  flipV?: boolean;
+  /** 좌 90° 회전 콜백 */
+  onRotateLeft?: () => void;
+  /** 우 90° 회전 콜백 */
+  onRotateRight?: () => void;
+  /** 가로 플립 토글 콜백 */
+  onFlipH?: () => void;
+  /** 세로 플립 토글 콜백 */
+  onFlipV?: () => void;
+  /** 리셋 콜백 */
+  onReset?: () => void;
   /** 커스텀 스타일 */
   style?: CSSProperties;
   /** 커스텀 클래스명 */
@@ -72,9 +90,41 @@ export function DicomMiniOverlay({
   showWindowLevel = false,
   label,
   isSelected = false,
+  showTools = false,
+  rotation = 0,
+  flipH = false,
+  flipV = false,
+  onRotateLeft,
+  onRotateRight,
+  onFlipH,
+  onFlipV,
+  onReset,
   style,
   className,
 }: DicomMiniOverlayProps) {
+  // 도구 버튼 스타일
+  const toolButtonStyle: CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '24px',
+    height: '24px',
+    background: 'rgba(0, 0, 0, 0.6)',
+    color: '#aaa',
+    border: 'none',
+    borderRadius: '3px',
+    cursor: 'pointer',
+    fontSize: '12px',
+    padding: 0,
+    transition: 'all 0.15s ease',
+    pointerEvents: 'auto', // 버튼만 클릭 가능
+  };
+
+  const activeToolButtonStyle: CSSProperties = {
+    ...toolButtonStyle,
+    background: 'rgba(74, 158, 255, 0.6)',
+    color: '#fff',
+  };
   return (
     <div
       className={className}
@@ -157,20 +207,89 @@ export function DicomMiniOverlay({
           </span>
         )}
 
-        {/* 우하단: W/L 값 */}
-        {showWindowLevel && windowLevel && (
-          <span
-            style={{
-              background: 'rgba(0, 0, 0, 0.5)',
-              padding: '2px 6px',
-              borderRadius: '3px',
-              fontSize: '10px',
-              color: '#8cf',
-            }}
-          >
-            W:{Math.round(windowLevel.width)} L:{Math.round(windowLevel.center)}
-          </span>
-        )}
+        {/* 우하단: W/L 값 또는 도구 버튼 */}
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+          {showWindowLevel && windowLevel && (
+            <span
+              style={{
+                background: 'rgba(0, 0, 0, 0.5)',
+                padding: '2px 6px',
+                borderRadius: '3px',
+                fontSize: '10px',
+                color: '#8cf',
+              }}
+            >
+              W:{Math.round(windowLevel.width)} L:{Math.round(windowLevel.center)}
+            </span>
+          )}
+
+          {/* 도구 버튼 (선택됨 상태에서만 표시) */}
+          {showTools && isSelected && (
+            <div style={{ display: 'flex', gap: '2px', marginLeft: '4px' }}>
+              {/* 회전 버튼 */}
+              <button
+                onClick={onRotateLeft}
+                title="좌 90° 회전"
+                style={toolButtonStyle}
+              >
+                ↺
+              </button>
+              <button
+                onClick={onRotateRight}
+                title="우 90° 회전"
+                style={toolButtonStyle}
+              >
+                ↻
+              </button>
+
+              {/* 플립 버튼 */}
+              <button
+                onClick={onFlipH}
+                title="가로 플립 (좌우 반전)"
+                style={flipH ? activeToolButtonStyle : toolButtonStyle}
+              >
+                ⇆
+              </button>
+              <button
+                onClick={onFlipV}
+                title="세로 플립 (상하 반전)"
+                style={flipV ? activeToolButtonStyle : toolButtonStyle}
+              >
+                ⇅
+              </button>
+
+              {/* 리셋 버튼 */}
+              <button
+                onClick={onReset}
+                title="리셋"
+                style={{
+                  ...toolButtonStyle,
+                  color: '#f88',
+                }}
+              >
+                ⟲
+              </button>
+
+              {/* 현재 상태 표시 */}
+              {(rotation !== 0 || flipH || flipV) && (
+                <span
+                  style={{
+                    background: 'rgba(74, 158, 255, 0.5)',
+                    padding: '2px 4px',
+                    borderRadius: '3px',
+                    fontSize: '9px',
+                    color: '#fff',
+                    marginLeft: '2px',
+                  }}
+                >
+                  {rotation !== 0 && `${rotation}°`}
+                  {flipH && ' H'}
+                  {flipV && ' V'}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

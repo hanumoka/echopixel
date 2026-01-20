@@ -68,7 +68,7 @@ export interface ViewportSeriesInfo {
 }
 
 /**
- * 이미지 변환 상태 (Pan, Zoom, Rotation)
+ * 이미지 변환 상태 (Pan, Zoom, Rotation, Flip)
  *
  * Tool System에서 사용하는 이미지 조작 상태
  */
@@ -77,8 +77,12 @@ export interface ViewportTransform {
   pan: { x: number; y: number };
   /** 확대 배율 (1.0 = 원본 크기) */
   zoom: number;
-  /** 회전 각도 (degree, 미래용) */
+  /** 회전 각도 (degree) */
   rotation: number;
+  /** 가로 플립 (좌우 반전) */
+  flipH: boolean;
+  /** 세로 플립 (상하 반전) */
+  flipV: boolean;
 }
 
 /**

@@ -4,9 +4,9 @@
 
 | 항목 | 상태 |
 |------|------|
-| **현재 Phase** | Phase 2.6 (@echopixel/react 멀티 뷰어) ✅ 완료 |
+| **현재 Phase** | Phase 2.7 (Multi Viewport Rotation/Flip) ✅ 완료 |
 | **마지막 업데이트** | 2026-01-20 |
-| **다음 마일스톤** | Phase 2.7 (Multi Viewport Rotation/Flip) |
+| **다음 마일스톤** | Phase 3 (Annotations) |
 
 ---
 
@@ -81,14 +81,14 @@
 | 플립 기능 (가로/세로) | ✅ | CSS transform scaleX/Y 기반 |
 | 데모 중복 Hybrid 모드 제거 | ✅ | 로컬 HybridViewport 폴더 삭제 |
 
-### Phase 2.7: Multi Viewport Rotation/Flip ⏳ 대기
+### Phase 2.7: Multi Viewport Rotation/Flip ✅ 완료
 
 | 항목 | 상태 | 비고 |
 |------|------|------|
-| HybridMultiViewport Rotation | ⏳ | 각 뷰포트별 90° 회전 |
-| HybridMultiViewport Flip | ⏳ | 각 뷰포트별 H/V 플립 |
-| ArrayTextureRenderer 셰이더 | ⏳ | UV 좌표 변환 방식 |
-| DicomMiniOverlay 도구 UI | ⏳ | 회전/플립 버튼 추가 |
+| HybridMultiViewport Rotation | ✅ | 각 뷰포트별 90° 회전 (셰이더 기반) |
+| HybridMultiViewport Flip | ✅ | 각 뷰포트별 H/V 플립 (셰이더 기반) |
+| ArrayTextureRenderer 셰이더 | ✅ | Vertex Shader에서 Flip uniform 적용 |
+| DicomMiniOverlay 도구 UI | ✅ | 회전/플립/리셋 버튼 추가 (선택 시 표시) |
 
 ### Phase 3~5: 대기
 
@@ -183,11 +183,11 @@
 8. ~~**데모 앱 리팩토링**~~ ✅ 완료 (Single 모드 SingleDicomViewer 필수)
 9. ~~**데모 Multi 모드 리팩토링**~~ ✅ 완료 (@echopixel/react HybridMultiViewport 사용)
 10. ~~**Single Viewport 사이즈 조정**~~ ✅ 완료 (반응형 레이아웃 + UI)
-11. **Phase 2.7 진입**: ⬅️ 다음 마일스톤
-   - [ ] HybridMultiViewport Rotation/Flip 지원
-   - [ ] ArrayTextureRenderer 셰이더 UV 변환
-   - [ ] DicomMiniOverlay 도구 UI
-12. **Phase 3 진입**:
+11. ~~**Phase 2.7 Multi Viewport Rotation/Flip**~~ ✅ 완료
+   - [x] HybridMultiViewport Rotation/Flip 지원 (셰이더 기반)
+   - [x] ArrayTextureRenderer 셰이더 Flip uniform 추가
+   - [x] DicomMiniOverlay 도구 UI (회전/플립/리셋 버튼)
+12. **Phase 3 진입**: ⬅️ 다음 마일스톤
    - [ ] 좌표 변환 시스템 (이미지 좌표 ↔ 캔버스 좌표)
    - [ ] SVG 오버레이 기본 구조
    - [ ] 측정 도구 (Length, Angle)
