@@ -5,7 +5,7 @@ import type {
   LoadFrameOptions,
   WadoRsConfig,
 } from './types';
-import type { DicomImageInfo } from '../dicom';
+import type { DicomImageInfo, PixelSpacing, UltrasoundCalibration } from '../dicom';
 import { LRUCache } from '../cache/LRUCache';
 import { retryFetch, type RetryOptions } from '../network/retry';
 import { NetworkError } from '../network/errors';
@@ -462,6 +462,12 @@ export class WadoRsDataSource implements DataSource {
       throw new NetworkError('Missing required image dimensions', 'BAD_REQUEST');
     }
 
+    // Pixel Spacing 파싱 (0028,0030)
+    const pixelSpacing = this.parsePixelSpacing(json);
+
+    // Ultrasound Region Calibration 파싱 (0018,6011)
+    const ultrasoundCalibration = this.parseUltrasoundCalibration(json);
+
     const imageInfo: DicomImageInfo = {
       rows,
       columns,
@@ -471,6 +477,8 @@ export class WadoRsDataSource implements DataSource {
       pixelRepresentation: getNumberValue('00280103') ?? 0,
       photometricInterpretation: getStringValue('00280004') ?? 'MONOCHROME2',
       samplesPerPixel: getNumberValue('00280002') ?? 1,
+      pixelSpacing,
+      ultrasoundCalibration,
     };
 
     // 프레임 수 (00280008 - Number of Frames)
@@ -488,6 +496,108 @@ export class WadoRsDataSource implements DataSource {
       frameCount,
       isEncapsulated,
       transferSyntax,
+    };
+  }
+
+  /**
+   * Pixel Spacing (0028,0030) 파싱
+   * DICOM JSON 형식: { "00280030": { "vr": "DS", "Value": ["0.5\\0.5"] } }
+   */
+  private parsePixelSpacing(json: Record<string, unknown>): PixelSpacing | undefined {
+    const element = json['00280030'] as { Value?: unknown[] } | undefined;
+    if (!element?.Value || element.Value.length === 0) {
+      return undefined;
+    }
+
+    const value = element.Value[0];
+
+    // 문자열 형식: "row\\column"
+    if (typeof value === 'string') {
+      const parts = value.split('\\');
+      if (parts.length >= 2) {
+        const rowSpacing = parseFloat(parts[0]);
+        const columnSpacing = parseFloat(parts[1]);
+        if (Number.isFinite(rowSpacing) && Number.isFinite(columnSpacing) &&
+            rowSpacing > 0 && columnSpacing > 0) {
+          return { rowSpacing, columnSpacing };
+        }
+      }
+    }
+
+    // 숫자 배열 형식: [row, column]
+    if (Array.isArray(element.Value) && element.Value.length >= 2) {
+      const rowSpacing = typeof element.Value[0] === 'number' ? element.Value[0] : parseFloat(String(element.Value[0]));
+      const columnSpacing = typeof element.Value[1] === 'number' ? element.Value[1] : parseFloat(String(element.Value[1]));
+      if (Number.isFinite(rowSpacing) && Number.isFinite(columnSpacing) &&
+          rowSpacing > 0 && columnSpacing > 0) {
+        return { rowSpacing, columnSpacing };
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Ultrasound Region Calibration (0018,6011) 파싱
+   * DICOM JSON 형식:
+   * {
+   *   "00186011": {
+   *     "vr": "SQ",
+   *     "Value": [{
+   *       "00186024": { "vr": "US", "Value": [3] },  // Physical Units X
+   *       "00186026": { "vr": "US", "Value": [3] },  // Physical Units Y
+   *       "0018602C": { "vr": "FD", "Value": [0.02] }, // Physical Delta X
+   *       "0018602E": { "vr": "FD", "Value": [0.02] }  // Physical Delta Y
+   *     }]
+   *   }
+   * }
+   */
+  private parseUltrasoundCalibration(json: Record<string, unknown>): UltrasoundCalibration | undefined {
+    const sequenceElement = json['00186011'] as { Value?: Record<string, unknown>[] } | undefined;
+    if (!sequenceElement?.Value || sequenceElement.Value.length === 0) {
+      return undefined;
+    }
+
+    // 첫 번째 Ultrasound Region 아이템에서 calibration 추출
+    const item = sequenceElement.Value[0];
+    if (!item) {
+      return undefined;
+    }
+
+    const getItemNumber = (tag: string): number | undefined => {
+      const el = item[tag] as { Value?: unknown[] } | undefined;
+      const val = el?.Value?.[0];
+      return typeof val === 'number' ? val : undefined;
+    };
+
+    // Physical Units X/Y Direction (0018,6024 / 0018,6026)
+    const physicalUnitsX = getItemNumber('00186024');
+    const physicalUnitsY = getItemNumber('00186026');
+
+    // Physical Delta X/Y (0018,602C / 0018,602E)
+    const physicalDeltaX = getItemNumber('0018602C');
+    const physicalDeltaY = getItemNumber('0018602E');
+
+    // 모든 필수 값이 있고 유효한지 확인
+    if (physicalUnitsX === undefined || physicalUnitsY === undefined ||
+        physicalDeltaX === undefined || physicalDeltaY === undefined) {
+      return undefined;
+    }
+
+    // 값 유효성 검증
+    if (!Number.isFinite(physicalDeltaX) || !Number.isFinite(physicalDeltaY) ||
+        physicalDeltaX === 0 || physicalDeltaY === 0) {
+      return undefined;
+    }
+
+    // cm 단위 (3)가 아닌 경우 스킵 (선택적 - 다른 단위도 지원 가능)
+    // 현재는 모든 단위를 허용하고 SingleDicomViewer에서 변환 처리
+
+    return {
+      physicalDeltaX,
+      physicalDeltaY,
+      physicalUnitsX,
+      physicalUnitsY,
     };
   }
 
