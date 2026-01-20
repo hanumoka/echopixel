@@ -71,6 +71,19 @@ d5a4a75 Add Ultrasound Region Calibration support for cardiac echo DICOM files
   - Long form: Tag(4) + VR(2) + Reserved(2) + Length(4) + Value
 - **바이트 스캔 접근법**: 완전한 시퀀스 파싱 없이 태그 패턴을 직접 검색
 
+**WADO-RS Calibration 지원**
+- [x] `WadoRsDataSource.parseDicomJson()`에 Pixel Spacing, Ultrasound Calibration 파싱 추가
+- [x] 문제: WADO-RS 서버가 Sequence 태그(0018,6011)를 메타데이터에 포함하지 않음
+- [x] 해결: 데모 앱에서 calibration 없을 때 전체 DICOM 인스턴스 로드하여 추출
+
+### 커밋
+
+```
+d5a4a75 Add Ultrasound Region Calibration support for cardiac echo DICOM files
+bd8d17e Add Pixel Spacing and Ultrasound Calibration parsing to WadoRsDataSource
+d2c1b47 Add fallback calibration extraction for WADO-RS in demo app
+```
+
 ### 다음 세션 할 일
 
 - [ ] 어노테이션 선택/편집 UI
