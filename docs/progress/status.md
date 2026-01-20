@@ -173,7 +173,7 @@
 
 | 항목 | 상태 | 비고 |
 |------|------|------|
-| Calibration 지원 | ✅ | DICOM Pixel Spacing (0028,0030) → cm/mm 변환 |
+| Calibration 지원 | ✅ | Pixel Spacing (0028,0030) + Ultrasound Region (0018,6011) |
 | 측정 도구 (Ellipse, VTI) | ⏳ | 확장 도구 |
 | 플러그인 시스템 | ⏳ | 도구/계산기/렌더러 확장 |
 
@@ -349,7 +349,7 @@
    - [x] 임시 어노테이션 렌더링 (점선 미리보기)
    - [x] CoordinateTransformer rotation/flip 좌표 변환
 20. **Phase 3g 구현** (진행 중): ⬅️ 다음 마일스톤
-   - [x] Calibration 지원 (DICOM Pixel Spacing → mm/cm 변환)
+   - [x] Calibration 지원 (Pixel Spacing + Ultrasound Region Calibration → mm/cm)
    - [ ] 측정 도구 확장 (Ellipse, VTI)
    - [ ] 플러그인 시스템
    - [ ] 어노테이션 선택/편집 UI

@@ -14,33 +14,45 @@
 - [x] `PixelSpacing` 인터페이스 추가 (rowSpacing, columnSpacing in mm)
 - [x] `getPixelSpacing()` 함수 구현: DICOM 태그 (0028,0030) 파싱
 - [x] `DicomImageInfo`에 `pixelSpacing?: PixelSpacing` 필드 추가
-- [x] `dicom/index.ts`에 export 추가
+
+**Ultrasound Region Calibration 파싱** (심초음파용)
+- [x] `UltrasoundCalibration` 인터페이스 추가 (physicalDeltaX/Y, physicalUnitsX/Y)
+- [x] `ULTRASOUND_PHYSICAL_UNITS` 상수 추가 (CM=3, SECONDS=4, CM_PER_SEC=5)
+- [x] `getUltrasoundCalibration()` 함수 구현: Sequence of Ultrasound Regions (0018,6011) 파싱
+- [x] Physical Delta X/Y (0018,602C/602E) - FD 8바이트 double 파싱
+- [x] Physical Units X/Y Direction (0018,6024/6026) - US 2바이트 파싱
+- [x] Short form / Long form VR 인코딩 모두 지원
+- [x] `DicomImageInfo`에 `ultrasoundCalibration` 필드 추가
 
 **SingleDicomViewer Calibration 통합**
 - [x] `transformContext` useMemo에서 `CalibrationData` 생성
+- [x] Pixel Spacing (우선) → Ultrasound Region (대체) 순서로 Calibration 사용
 - [x] mm → cm 변환 적용 (DICOM Pixel Spacing은 mm, CalibrationData는 cm 사용)
 - [x] `TransformContext`에 `calibration`, `mode` 포함
-- [x] `handleToolbarToolChange` dependency array에 `imageInfo` 추가
 
 ### 파일 변경
 
 | 파일 | 변경 내용 |
 |------|-----------|
-| `packages/core/src/dicom/DicomParser.ts` | PixelSpacing 인터페이스, getPixelSpacing() 함수 |
-| `packages/core/src/dicom/index.ts` | getPixelSpacing, PixelSpacing export |
-| `packages/react/.../SingleDicomViewer.tsx` | CalibrationData 생성, TransformContext에 calibration 포함 |
+| `packages/core/src/dicom/DicomParser.ts` | PixelSpacing, UltrasoundCalibration 인터페이스, getPixelSpacing(), getUltrasoundCalibration() 함수 |
+| `packages/core/src/dicom/index.ts` | getPixelSpacing, PixelSpacing, getUltrasoundCalibration, UltrasoundCalibration, ULTRASOUND_PHYSICAL_UNITS export |
+| `packages/core/src/index.ts` | getUltrasoundCalibration, ULTRASOUND_PHYSICAL_UNITS, UltrasoundCalibration export |
+| `packages/react/.../SingleDicomViewer.tsx` | CalibrationData 생성 (pixelSpacing 또는 ultrasoundCalibration 사용) |
 
 ### 커밋
 
 ```
 bcc1f0a Add Pixel Spacing parsing and calibration support for measurements
+d5a4a75 Add Ultrasound Region Calibration support for cardiac echo DICOM files
 ```
 
 ### 측정 흐름
 
 ```
-1. DICOM 로드 → getImageInfo() → pixelSpacing (mm)
+1. DICOM 로드 → getImageInfo() → pixelSpacing (mm) 또는 ultrasoundCalibration (cm/pixel)
 2. SingleDicomViewer → CalibrationData (cm) 생성
+   - Pixel Spacing 있으면 → mm → cm 변환 (/10)
+   - 없으면 Ultrasound Calibration → physicalDeltaX/Y 사용
 3. TransformContext에 calibration 포함
 4. MeasurementTool.activate() → ToolContext 전달
 5. LengthTool.calculateMeasurement() → CoordinateTransformer.calculateDistance()
@@ -50,8 +62,14 @@ bcc1f0a Add Pixel Spacing parsing and calibration support for measurements
 ### 학습 포인트
 
 - **DICOM Pixel Spacing**: 태그 (0028,0030), 형식 "row\\column", 단위 mm
-- **TransformContext 통합**: calibration과 mode를 TransformContext에 포함하여 일관성 유지
-- **단위 변환**: DICOM은 mm 사용, CalibrationData는 cm/pixel 사용 → /10 변환 필요
+- **DICOM Ultrasound Region Calibration**:
+  - Sequence of Ultrasound Regions (0018,6011)
+  - Physical Delta X/Y (0018,602C/602E) - FD (8바이트 double), cm/pixel
+  - Physical Units (0018,6024/6026) - US (2바이트), 3=cm, 4=sec, 5=cm/s
+- **VR 인코딩**: FD는 보통 long form이지만 시퀀스 내부에서는 short form일 수 있음
+  - Short form: Tag(4) + VR(2) + Length(2) + Value
+  - Long form: Tag(4) + VR(2) + Reserved(2) + Length(4) + Value
+- **바이트 스캔 접근법**: 완전한 시퀀스 파싱 없이 태그 패턴을 직접 검색
 
 ### 다음 세션 할 일
 
