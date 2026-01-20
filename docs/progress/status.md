@@ -78,6 +78,7 @@
 | 데모 앱 리팩토링 | ✅ | SingleDicomViewer 필수 사용 |
 | 데모 Multi 모드 리팩토링 | ✅ | @echopixel/react HybridMultiViewport 사용 |
 | Single Viewport 사이즈 조정 | ✅ | 반응형 레이아웃 + 크기 조정 UI |
+| 플립 기능 (가로/세로) | ✅ | CSS transform scaleX/Y 기반 |
 
 ### Phase 3~5: 대기
 

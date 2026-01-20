@@ -67,6 +67,16 @@ export interface DicomToolbarProps {
   onRotateLeft?: () => void;
   /** 우 90° 회전 콜백 */
   onRotateRight?: () => void;
+  /** 플립 버튼 표시 여부 */
+  showFlipButtons?: boolean;
+  /** 가로 플립 콜백 */
+  onFlipHorizontal?: () => void;
+  /** 세로 플립 콜백 */
+  onFlipVertical?: () => void;
+  /** 현재 가로 플립 상태 */
+  flipH?: boolean;
+  /** 현재 세로 플립 상태 */
+  flipV?: boolean;
   /** 툴바 방향 */
   orientation?: 'horizontal' | 'vertical';
   /** 컴팩트 모드 (아이콘만 표시) */
@@ -122,6 +132,11 @@ export function DicomToolbar({
   showRotateButtons = false,
   onRotateLeft,
   onRotateRight,
+  showFlipButtons = false,
+  onFlipHorizontal,
+  onFlipVertical,
+  flipH = false,
+  flipV = false,
   orientation = 'horizontal',
   compact = false,
   style,
@@ -178,8 +193,8 @@ export function DicomToolbar({
         );
       })}
 
-      {/* 구분선 (회전 또는 리셋 버튼이 있을 때) */}
-      {(showRotateButtons || showResetButton) && (
+      {/* 구분선 (회전, 플립, 또는 리셋 버튼이 있을 때) */}
+      {(showRotateButtons || showFlipButtons || showResetButton) && (
         <div
           style={{
             width: isHorizontal ? '1px' : '80%',
@@ -236,6 +251,56 @@ export function DicomToolbar({
           >
             <span>↻</span>
             {!compact && <span>우</span>}
+          </button>
+        </>
+      )}
+
+      {/* 플립 버튼 */}
+      {showFlipButtons && (
+        <>
+          <button
+            onClick={onFlipHorizontal}
+            title="가로 플립 (좌우 반전)"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              padding: compact ? '8px' : '8px 12px',
+              minWidth: compact ? '36px' : '50px',
+              background: flipH ? '#4a4a2a' : '#2a3a4a',
+              color: flipH ? '#ff8' : '#8cf',
+              border: flipH ? '2px solid #aa8' : '2px solid transparent',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: compact ? '16px' : '13px',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <span>⇆</span>
+            {!compact && <span>가로</span>}
+          </button>
+          <button
+            onClick={onFlipVertical}
+            title="세로 플립 (상하 반전)"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              padding: compact ? '8px' : '8px 12px',
+              minWidth: compact ? '36px' : '50px',
+              background: flipV ? '#4a4a2a' : '#2a3a4a',
+              color: flipV ? '#ff8' : '#8cf',
+              border: flipV ? '2px solid #aa8' : '2px solid transparent',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: compact ? '16px' : '13px',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <span>⇅</span>
+            {!compact && <span>세로</span>}
           </button>
         </>
       )}

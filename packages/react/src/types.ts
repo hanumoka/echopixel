@@ -13,7 +13,7 @@ export interface WindowLevelInfo {
 }
 
 /**
- * Transform (Pan/Zoom/Rotation) 설정
+ * Transform (Pan/Zoom/Rotation/Flip) 설정
  */
 export interface TransformInfo {
   /** Pan offset */
@@ -22,6 +22,10 @@ export interface TransformInfo {
   zoom: number;
   /** Rotation angle (degrees) */
   rotation?: number;
+  /** Horizontal flip (좌우 반전) */
+  flipH?: boolean;
+  /** Vertical flip (상하 반전) */
+  flipV?: boolean;
 }
 
 /**

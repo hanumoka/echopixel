@@ -166,10 +166,12 @@ export const SingleDicomViewer = forwardRef<
   const [windowCenter, setWindowCenter] = useState<number | undefined>(undefined);
   const [windowWidth, setWindowWidth] = useState<number | undefined>(undefined);
 
-  // Transform (Pan/Zoom/Rotation)
+  // Transform (Pan/Zoom/Rotation/Flip)
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1.0);
   const [rotation, setRotation] = useState(0); // 각도 (degrees)
+  const [flipH, setFlipH] = useState(false); // 가로 플립
+  const [flipV, setFlipV] = useState(false); // 세로 플립
 
   // Tool System용 상태
   const [viewportElements] = useState(() => new Map<string, HTMLElement>());
@@ -371,7 +373,7 @@ export const SingleDicomViewer = forwardRef<
       ? { center: windowCenter, width: windowWidth }
       : null;
 
-  const transform: TransformInfo = { pan, zoom, rotation };
+  const transform: TransformInfo = { pan, zoom, rotation, flipH, flipV };
 
   const imageStatus: ImageStatus = {
     columns: imageInfo.columns,
@@ -434,6 +436,15 @@ export const SingleDicomViewer = forwardRef<
     setRotation((prev) => (prev + 90) % 360);
   }, []);
 
+  // 플립 (토글)
+  const toggleFlipH = useCallback(() => {
+    setFlipH((prev) => !prev);
+  }, []);
+
+  const toggleFlipV = useCallback(() => {
+    setFlipV((prev) => !prev);
+  }, []);
+
   // 뷰포트 리셋
   const resetViewport = useCallback(() => {
     windowCenterRef.current = undefined;
@@ -443,6 +454,8 @@ export const SingleDicomViewer = forwardRef<
     setPan({ x: 0, y: 0 });
     setZoom(1.0);
     setRotation(0);
+    setFlipH(false);
+    setFlipV(false);
     canvasRef.current?.renderFrame(currentFrameRef.current);
   }, []);
 
@@ -605,6 +618,11 @@ export const SingleDicomViewer = forwardRef<
           showRotateButtons={true}
           onRotateLeft={rotateLeft}
           onRotateRight={rotateRight}
+          showFlipButtons={true}
+          onFlipHorizontal={toggleFlipH}
+          onFlipVertical={toggleFlipV}
+          flipH={flipH}
+          flipV={flipV}
           orientation={toolbarOrientation}
           compact={toolbarCompact}
           style={{ marginBottom: '10px' }}
@@ -640,6 +658,8 @@ export const SingleDicomViewer = forwardRef<
           pan={pan}
           zoom={zoom}
           rotation={rotation}
+          flipH={flipH}
+          flipV={flipV}
           onReady={handleCanvasReady}
         />
       </div>

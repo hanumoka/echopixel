@@ -6,7 +6,7 @@
 
 ---
 
-## 2026-01-20 세션 #20 (Multi 모드 리팩토링 + Single Viewport 사이즈 조정)
+## 2026-01-20 세션 #20 (Multi 모드 리팩토링 + 사이즈 조정 + 플립 기능)
 
 ### 작업 내용
 
@@ -26,12 +26,23 @@
 - [x] 외부 컨테이너에 `display: 'inline-block'` 추가 (내용물 크기에 맞춤)
 - [x] `width`, `height` 변경 시 자동 재렌더링 (useEffect dependency 추가)
 
+**플립 기능 (가로/세로 반전)**
+- [x] `types.ts`: `TransformInfo`에 `flipH`, `flipV` 추가
+- [x] `DicomCanvas.tsx`: CSS transform `scale(flipH ? -zoom : zoom, flipV ? -zoom : zoom)` 적용
+- [x] `DicomToolbar.tsx`: 플립 버튼 추가 (⇆ 가로, ⇅ 세로) + 활성 상태 시각화
+- [x] `DicomStatusBar.tsx`: 플립 상태 표시 (`Flip: H`, `Flip: V`, `Flip: HV`)
+- [x] `SingleDicomViewer.tsx`: 플립 상태 관리, 토글 핸들러, 리셋 시 초기화
+
 ### 파일 변경
 
 | 파일 | 변경 내용 |
 |------|-----------|
 | `apps/demo/src/App.tsx` | Multi 모드 리팩토링, 사이즈 조정 UI |
-| `packages/react/src/components/SingleDicomViewer.tsx` | 반응형 레이아웃, 사이즈 변경 시 재렌더링 |
+| `packages/react/src/types.ts` | `TransformInfo`에 `flipH`, `flipV` 추가 |
+| `packages/react/src/components/SingleDicomViewer.tsx` | 반응형, 사이즈 재렌더링, 플립 상태/핸들러 |
+| `packages/react/src/components/building-blocks/DicomCanvas.tsx` | 플립 props + CSS transform |
+| `packages/react/src/components/building-blocks/DicomToolbar.tsx` | 플립 버튼 + 상태 시각화 |
+| `packages/react/src/components/building-blocks/DicomStatusBar.tsx` | 플립 상태 표시 |
 
 ### 코드 변경 상세
 
@@ -52,6 +63,12 @@ useEffect(() => {
 }, [windowCenter, windowWidth, currentFrame, webglReady, frames.length, width, height]); // width, height 추가
 ```
 
+**DicomCanvas.tsx (플립 적용)**
+```tsx
+// CSS transform에 플립 적용 - zoom과 결합
+transform: `translate(...) scale(${flipH ? -zoom : zoom}, ${flipV ? -zoom : zoom}) rotate(...)`
+```
+
 ### 알려진 이슈 (미사용 코드)
 
 리팩토링 후 더 이상 사용되지 않는 코드 (향후 정리 필요):
@@ -64,6 +81,7 @@ useEffect(() => {
 - `onChange` vs `onBlur` 검증: 즉시 클램핑은 타이핑 방해 → blur 시점 검증이 UX 개선
 - `display: inline-block`: 컨테이너가 내용물 크기에 맞게 축소
 - Canvas 크기 변경 시 버퍼 초기화됨 → 명시적 재렌더링 필요
+- CSS `scale(x, y)`: 음수 값으로 플립 구현 가능, zoom과 결합하여 `scale(-zoom, zoom)` 형태로 적용
 
 ### 다음 세션 할 일
 
