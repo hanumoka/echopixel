@@ -72,6 +72,8 @@ export interface DicomViewportProps {
   responsive?: boolean;
   /** 종횡비 유지 여부 (responsive=true일 때만 적용, 기본값: true) */
   maintainAspectRatio?: boolean;
+  /** 간소화 모드 (Multi Canvas Grid용) - 캔버스만 표시, UI 요소 숨김 */
+  compact?: boolean;
   /** 로딩 상태 콜백 */
   onLoadingChange?: (loading: boolean) => void;
   /** 메타데이터 로드 완료 콜백 */
@@ -91,6 +93,7 @@ export const DicomViewport = forwardRef<DicomViewportHandle, DicomViewportProps>
   height: propHeight = 512,
   responsive = false,
   maintainAspectRatio = true,
+  compact = false,
   onLoadingChange,
   onMetadataLoaded,
   onError,
@@ -687,6 +690,17 @@ export const DicomViewport = forwardRef<DicomViewportHandle, DicomViewportProps>
     }
   }, [dpr]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 캔버스 크기 변경 시 현재 프레임 다시 렌더링 (responsive 모드에서 리사이즈 시)
+  useEffect(() => {
+    if (webglReady && frames.length > 0 && initialRenderDoneRef.current) {
+      // 약간의 지연 후 렌더링 (캔버스 크기 변경 완료 대기)
+      const timer = setTimeout(() => {
+        renderFrame(currentFrameRef.current);
+      }, 16); // ~1 frame at 60fps
+      return () => clearTimeout(timer);
+    }
+  }, [width, height, webglReady, frames.length, renderFrame]);
+
   // 프레임 변경 핸들러
   const handleFrameChange = useCallback((newFrame: number) => {
     setCurrentFrame(newFrame);
@@ -876,43 +890,45 @@ export const DicomViewport = forwardRef<DicomViewportHandle, DicomViewportProps>
       tabIndex={0}
       onKeyDown={handleKeyDown}
     >
-      {/* 상태 표시 */}
-      <div style={{
-        padding: '8px 12px',
-        marginBottom: '10px',
-        background: '#2a2a2a',
-        color: '#fff',
-        borderRadius: '4px',
-        fontSize: '13px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        gap: '12px',
-      }}>
-        <span>{status}</span>
-        <span style={{ color: '#8f8', fontSize: '11px' }}>
-          DPR: {dpr} | Canvas: {Math.floor(width * dpr)}x{Math.floor(height * dpr)}
-        </span>
-        {windowCenter !== undefined && windowWidth !== undefined && (
-          <span style={{ color: '#8cf' }}>
-            W/L: {Math.round(windowWidth)} / {Math.round(windowCenter)}
+      {/* 상태 표시 - compact 모드에서 숨김 */}
+      {!compact && (
+        <div style={{
+          padding: '8px 12px',
+          marginBottom: '10px',
+          background: '#2a2a2a',
+          color: '#fff',
+          borderRadius: '4px',
+          fontSize: '13px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '12px',
+        }}>
+          <span>{status}</span>
+          <span style={{ color: '#8f8', fontSize: '11px' }}>
+            DPR: {dpr} | Canvas: {Math.floor(width * dpr)}x{Math.floor(height * dpr)}
           </span>
-        )}
-        {(zoom !== 1.0 || pan.x !== 0 || pan.y !== 0) && (
-          <span style={{ color: '#cf8' }}>
-            Zoom: {zoom.toFixed(1)}x | Pan: ({Math.round(pan.x)}, {Math.round(pan.y)})
-          </span>
-        )}
-      </div>
+          {windowCenter !== undefined && windowWidth !== undefined && (
+            <span style={{ color: '#8cf' }}>
+              W/L: {Math.round(windowWidth)} / {Math.round(windowCenter)}
+            </span>
+          )}
+          {(zoom !== 1.0 || pan.x !== 0 || pan.y !== 0) && (
+            <span style={{ color: '#cf8' }}>
+              Zoom: {zoom.toFixed(1)}x | Pan: ({Math.round(pan.x)}, {Math.round(pan.y)})
+            </span>
+          )}
+        </div>
+      )}
 
       {/* 캔버스 컨테이너 (Tool System + 렌더 에러 오버레이 포함) */}
       <div
         ref={canvasContainerRef}
         style={{
           position: 'relative',
-          width,
-          height,
-          marginBottom: '10px',
+          width: compact ? '100%' : width,
+          height: compact ? '100%' : height,
+          marginBottom: compact ? 0 : '10px',
           overflow: 'hidden', // Pan/Zoom 시 캔버스가 컨테이너를 벗어나지 않도록
           // 반응형 모드일 때 남은 공간 채우기
           ...(responsive && {
@@ -930,12 +946,12 @@ export const DicomViewport = forwardRef<DicomViewportHandle, DicomViewportProps>
           width={Math.floor(width * dpr)}
           height={Math.floor(height * dpr)}
           style={{
-            border: '1px solid #444',
+            border: compact ? 'none' : '1px solid #444',
             background: '#000',
             display: 'block',
             // CSS 크기: 원래 크기 유지 (화면 표시 크기)
-            width: `${width}px`,
-            height: `${height}px`,
+            width: compact ? '100%' : `${width}px`,
+            height: compact ? '100%' : `${height}px`,
             // Pan/Zoom 적용 (CSS Transform)
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
             transformOrigin: 'center center',
@@ -1024,8 +1040,8 @@ export const DicomViewport = forwardRef<DicomViewportHandle, DicomViewportProps>
         )}
       </div>
 
-      {/* 프레임 컨트롤 */}
-      {totalFrames > 1 && (
+      {/* 프레임 컨트롤 - compact 모드에서 숨김 */}
+      {!compact && totalFrames > 1 && (
         <div style={{
           padding: '12px',
           background: '#1a1a2e',
@@ -1114,92 +1130,94 @@ export const DicomViewport = forwardRef<DicomViewportHandle, DicomViewportProps>
         </div>
       )}
 
-      {/* 도구 설명 - 항상 표시, 정지/동영상 모드에 따라 다르게 표시 */}
-      <div style={{
-        marginTop: '12px',
-        padding: '10px',
-        background: '#1a1a2e',
-        borderRadius: '4px',
-        fontSize: '12px',
-        color: '#aaa',
-      }}>
-        <div style={{ marginBottom: '8px', color: '#8cf', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          🖱️ 마우스 도구
-          <span style={{
-            fontSize: '10px',
-            padding: '2px 6px',
-            borderRadius: '3px',
-            background: isStaticImage ? '#2a4a2a' : '#2a2a4a',
-            color: isStaticImage ? '#8f8' : '#88f',
-          }}>
-            {isStaticImage ? '정지 이미지' : '동영상'}
-          </span>
-        </div>
+      {/* 도구 설명 - compact 모드에서 숨김 */}
+      {!compact && (
         <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(2, 1fr)',
-          gap: '6px 16px',
+          marginTop: '12px',
+          padding: '10px',
+          background: '#1a1a2e',
+          borderRadius: '4px',
+          fontSize: '12px',
+          color: '#aaa',
         }}>
-          <div><span style={{ color: '#fff' }}>우클릭 드래그</span> → Window/Level (밝기/대비)</div>
-          <div><span style={{ color: '#fff' }}>중클릭 드래그</span> → Pan (이미지 이동)</div>
-          <div><span style={{ color: '#fff' }}>Shift + 좌클릭</span> → Zoom (확대/축소)</div>
-          {/* 휠 동작: 정지 이미지=줌, 동영상=프레임 전환 */}
-          <div>
-            <span style={{ color: '#fff' }}>휠 스크롤</span> →{' '}
-            {isStaticImage ? (
-              <span style={{ color: '#cf8' }}>Zoom (확대/축소)</span>
-            ) : (
-              <span>프레임 전환</span>
-            )}
+          <div style={{ marginBottom: '8px', color: '#8cf', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            🖱️ 마우스 도구
+            <span style={{
+              fontSize: '10px',
+              padding: '2px 6px',
+              borderRadius: '3px',
+              background: isStaticImage ? '#2a4a2a' : '#2a2a4a',
+              color: isStaticImage ? '#8f8' : '#88f',
+            }}>
+              {isStaticImage ? '정지 이미지' : '동영상'}
+            </span>
+          </div>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(2, 1fr)',
+            gap: '6px 16px',
+          }}>
+            <div><span style={{ color: '#fff' }}>우클릭 드래그</span> → Window/Level (밝기/대비)</div>
+            <div><span style={{ color: '#fff' }}>중클릭 드래그</span> → Pan (이미지 이동)</div>
+            <div><span style={{ color: '#fff' }}>Shift + 좌클릭</span> → Zoom (확대/축소)</div>
+            {/* 휠 동작: 정지 이미지=줌, 동영상=프레임 전환 */}
+            <div>
+              <span style={{ color: '#fff' }}>휠 스크롤</span> →{' '}
+              {isStaticImage ? (
+                <span style={{ color: '#cf8' }}>Zoom (확대/축소)</span>
+              ) : (
+                <span>프레임 전환</span>
+              )}
+            </div>
+          </div>
+          {/* 키보드 단축키 - 동영상 모드에서만 표시 */}
+          {!isStaticImage && (
+            <>
+              <div style={{ marginTop: '10px', marginBottom: '6px', color: '#cf8', fontWeight: 'bold' }}>
+                ⌨️ 키보드 단축키
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px' }}>
+                <span><span style={{ color: '#fff' }}>Space</span> 재생/정지</span>
+                <span><span style={{ color: '#fff' }}>← →</span> 프레임 이동</span>
+                <span><span style={{ color: '#fff' }}>↑ ↓</span> FPS 조절</span>
+                <span><span style={{ color: '#fff' }}>R</span> 전체 리셋</span>
+              </div>
+            </>
+          )}
+          {/* 정지 이미지 모드 - R 키 설명만 표시 */}
+          {isStaticImage && (
+            <>
+              <div style={{ marginTop: '10px', marginBottom: '6px', color: '#cf8', fontWeight: 'bold' }}>
+                ⌨️ 키보드 단축키
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px' }}>
+                <span><span style={{ color: '#fff' }}>R</span> 전체 리셋</span>
+              </div>
+            </>
+          )}
+
+          {/* Context Loss 테스트 버튼 (개발용) */}
+          <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid #333' }}>
+            <button
+              onClick={testContextLoss}
+              style={{
+                padding: '6px 12px',
+                fontSize: '12px',
+                background: '#c44',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+              }}
+            >
+              🧪 Test Context Loss (2초 후 복구)
+            </button>
+            <span style={{ marginLeft: '10px', fontSize: '11px', color: '#888' }}>
+              현재 프레임이 유지되는지 확인
+            </span>
           </div>
         </div>
-        {/* 키보드 단축키 - 동영상 모드에서만 표시 */}
-        {!isStaticImage && (
-          <>
-            <div style={{ marginTop: '10px', marginBottom: '6px', color: '#cf8', fontWeight: 'bold' }}>
-              ⌨️ 키보드 단축키
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px' }}>
-              <span><span style={{ color: '#fff' }}>Space</span> 재생/정지</span>
-              <span><span style={{ color: '#fff' }}>← →</span> 프레임 이동</span>
-              <span><span style={{ color: '#fff' }}>↑ ↓</span> FPS 조절</span>
-              <span><span style={{ color: '#fff' }}>R</span> 전체 리셋</span>
-            </div>
-          </>
-        )}
-        {/* 정지 이미지 모드 - R 키 설명만 표시 */}
-        {isStaticImage && (
-          <>
-            <div style={{ marginTop: '10px', marginBottom: '6px', color: '#cf8', fontWeight: 'bold' }}>
-              ⌨️ 키보드 단축키
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px' }}>
-              <span><span style={{ color: '#fff' }}>R</span> 전체 리셋</span>
-            </div>
-          </>
-        )}
-
-        {/* Context Loss 테스트 버튼 (개발용) */}
-        <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid #333' }}>
-          <button
-            onClick={testContextLoss}
-            style={{
-              padding: '6px 12px',
-              fontSize: '12px',
-              background: '#c44',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-            }}
-          >
-            🧪 Test Context Loss (2초 후 복구)
-          </button>
-          <span style={{ marginLeft: '10px', fontSize: '11px', color: '#888' }}>
-            현재 프레임이 유지되는지 확인
-          </span>
-        </div>
-      </div>
+      )}
     </div>
   );
 });

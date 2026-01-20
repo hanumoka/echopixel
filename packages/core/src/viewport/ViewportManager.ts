@@ -383,6 +383,22 @@ export class ViewportManager {
         rows = 4;
         cols = 4;
         break;
+      case 'grid-5x5':
+        rows = 5;
+        cols = 5;
+        break;
+      case 'grid-6x6':
+        rows = 6;
+        cols = 6;
+        break;
+      case 'grid-7x7':
+        rows = 7;
+        cols = 7;
+        break;
+      case 'grid-8x8':
+        rows = 8;
+        cols = 8;
+        break;
       case 'custom':
         rows = config.rows ?? 1;
         cols = config.cols ?? 1;
@@ -393,18 +409,43 @@ export class ViewportManager {
     }
 
     // 각 셀의 크기 계산
+    // 학습 포인트: Math.floor로 인한 "남는 픽셀" 문제 해결
+    // - 균등 분할 시 소수점 버림으로 1-2픽셀이 남을 수 있음
+    // - 해결: 마지막 열/행에 남는 픽셀을 할당하여 Canvas 전체를 채움
     const totalGapWidth = gap * (cols - 1);
     const totalGapHeight = gap * (rows - 1);
-    const cellWidth = Math.floor((this.canvasWidth - totalGapWidth) / cols);
-    const cellHeight = Math.floor((this.canvasHeight - totalGapHeight) / rows);
+    const availableWidth = this.canvasWidth - totalGapWidth;
+    const availableHeight = this.canvasHeight - totalGapHeight;
+    const baseCellWidth = Math.floor(availableWidth / cols);
+    const baseCellHeight = Math.floor(availableHeight / rows);
+
+    // 남는 픽셀 계산 (마지막 열/행에 분배)
+    const extraWidth = availableWidth - baseCellWidth * cols;
+    const extraHeight = availableHeight - baseCellHeight * rows;
 
     // 뷰포트 생성 (좌상단부터)
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
-        // WebGL 좌표계: 좌하단이 원점
-        // 따라서 y 좌표를 뒤집어야 함
-        const x = col * (cellWidth + gap);
-        const y = (rows - 1 - row) * (cellHeight + gap);
+        // 마지막 열/행은 남는 픽셀을 추가로 할당
+        const cellWidth = baseCellWidth + (col === cols - 1 ? extraWidth : 0);
+        const cellHeight = baseCellHeight + (row === rows - 1 ? extraHeight : 0);
+
+        // X 좌표: 이전 셀들의 너비 합
+        let x = 0;
+        for (let c = 0; c < col; c++) {
+          x += baseCellWidth + (c === cols - 1 ? extraWidth : 0) + gap;
+        }
+
+        // Y 좌표: WebGL 좌표계 (좌하단 원점)
+        // DOM 좌표 (row 0 = 상단)을 WebGL 좌표로 변환
+        const webglRow = rows - 1 - row;
+        let y = 0;
+        for (let r = 0; r < webglRow; r++) {
+          // WebGL에서 r=0은 하단, r=rows-1은 상단
+          // DOM row가 마지막(rows-1)이면 WebGL row는 0
+          const domRow = rows - 1 - r;
+          y += baseCellHeight + (domRow === rows - 1 ? extraHeight : 0) + gap;
+        }
 
         const bounds: Rect = {
           x,

@@ -401,72 +401,85 @@ export function MultiViewport({
       </div>
 
       {/* Canvas Container */}
+      {/* 학습 포인트: border를 외부 wrapper에 배치하여 Canvas CSS 크기에 영향 안 줌 */}
       <div
         style={{
-          position: 'relative',
-          width: `${width}px`,
-          height: `${height}px`,
           border: '1px solid #444',
-          background: '#000',
+          borderRadius: '2px',
+          display: 'inline-block', // 내부 컨텐츠 크기에 맞춤
         }}
       >
-        <canvas
-          ref={canvasRef}
-          width={Math.floor(width * dpr)}
-          height={Math.floor(height * dpr)}
+        <div
           style={{
-            display: 'block',
-            width: '100%',
-            height: '100%',
-            cursor: 'pointer',
+            position: 'relative',
+            width: `${width}px`,
+            height: `${height}px`,
+            background: '#000',
           }}
-          onClick={handleCanvasClick}
-          onMouseMove={handleCanvasMouseMove}
-          onMouseLeave={handleCanvasMouseLeave}
-        />
+        >
+          <canvas
+            ref={canvasRef}
+            width={Math.floor(width * dpr)}
+            height={Math.floor(height * dpr)}
+            style={{
+              display: 'block',
+              width: '100%',
+              height: '100%',
+              cursor: 'pointer',
+            }}
+            onClick={handleCanvasClick}
+            onMouseMove={handleCanvasMouseMove}
+            onMouseLeave={handleCanvasMouseLeave}
+          />
 
-        {/* Viewport Hover Overlay */}
-        {viewports.map((vp, index) => {
-          // WebGL 좌표 → CSS 좌표 변환 (Y축 반전)
-          // vp.bounds는 canvas의 물리적 픽셀 기준 (canvas.width, canvas.height)
-          // CSS는 논리적 픽셀 기준 (width, height props)
-          const canvasPixelHeight = height * dpr;
-          const cssX = vp.bounds.x / dpr;
-          const cssY = (canvasPixelHeight - vp.bounds.y - vp.bounds.height) / dpr;
-          const cssWidth = vp.bounds.width / dpr;
-          const cssHeight = vp.bounds.height / dpr;
+          {/* Viewport Hover Overlay */}
+          {/* 학습 포인트: Canvas 물리 픽셀 → CSS 픽셀 변환 */}
+          {/* - Canvas 물리 크기: width * dpr, height * dpr */}
+          {/* - Canvas CSS 크기: width, height (100% of container) */}
+          {/* - 변환: cssPos = physicalPos / dpr */}
+          {viewports.map((vp) => {
+            // WebGL 좌표 → CSS 좌표 변환 (Y축 반전)
+            // vp.bounds는 canvas의 물리적 픽셀 기준
+            // CSS는 논리적 픽셀 기준 (width, height props)
+            const canvasPhysicalWidth = Math.floor(width * dpr);
+            const canvasPhysicalHeight = Math.floor(height * dpr);
 
-          const isHovered = hoveredViewportId === vp.id;
-          const isActive = activeViewportId === vp.id;
+            // 물리 픽셀 → CSS 픽셀 비율 (정확한 변환을 위해)
+            const scaleX = width / canvasPhysicalWidth;
+            const scaleY = height / canvasPhysicalHeight;
 
-          // 디버그: 첫 렌더링 시 좌표 확인
-          if (index === 0) {
-            console.log('[Overlay] bounds:', vp.bounds, 'dpr:', dpr, 'css:', { cssX, cssY, cssWidth, cssHeight });
-          }
+            const cssX = vp.bounds.x * scaleX;
+            const cssY = (canvasPhysicalHeight - vp.bounds.y - vp.bounds.height) * scaleY;
+            const cssWidth = vp.bounds.width * scaleX;
+            const cssHeight = vp.bounds.height * scaleY;
 
-          return (
-            <div
-              key={vp.id}
-              style={{
-                position: 'absolute',
-                left: `${cssX}px`,
-                top: `${cssY}px`,
-                width: `${cssWidth}px`,
-                height: `${cssHeight}px`,
-                border: isActive
-                  ? '3px solid #4cf'
-                  : isHovered
-                  ? '2px solid rgba(100, 200, 255, 0.7)'
-                  : '1px solid rgba(255, 255, 255, 0.15)',
-                background: isHovered ? 'rgba(100, 200, 255, 0.1)' : 'transparent',
-                boxSizing: 'border-box',
-                pointerEvents: 'none',
-                transition: 'border 0.1s ease, background 0.1s ease',
-                borderRadius: '2px',
-              }}
-            />
-          );
-        })}
+            const isHovered = hoveredViewportId === vp.id;
+            const isActive = activeViewportId === vp.id;
+
+            return (
+              <div
+                key={vp.id}
+                style={{
+                  position: 'absolute',
+                  left: `${cssX}px`,
+                  top: `${cssY}px`,
+                  width: `${cssWidth}px`,
+                  height: `${cssHeight}px`,
+                  border: isActive
+                    ? '3px solid #4cf'
+                    : isHovered
+                    ? '2px solid rgba(100, 200, 255, 0.7)'
+                    : '1px solid rgba(255, 255, 255, 0.15)',
+                  background: isHovered ? 'rgba(100, 200, 255, 0.1)' : 'transparent',
+                  boxSizing: 'border-box',
+                  pointerEvents: 'none',
+                  transition: 'border 0.1s ease, background 0.1s ease',
+                  borderRadius: '2px',
+                }}
+              />
+            );
+          })}
+        </div>
       </div>
 
       {/* 컨트롤 */}

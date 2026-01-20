@@ -518,17 +518,18 @@ export function MultiCanvasGrid({
               style={{
                 position: 'relative',
                 cursor: 'pointer',
+                // border 두께를 일정하게 유지 (2px)하여 hover 시 resize 방지
                 border: isMaster
-                  ? '3px solid #fa8'
+                  ? '2px solid #fa8'
                   : isActive
-                  ? '3px solid #4cf'
+                  ? '2px solid #4cf'
                   : isHovered
                   ? '2px solid rgba(100, 200, 255, 0.7)'
-                  : '1px solid #333',
+                  : '2px solid #333',
                 borderRadius: '4px',
                 overflow: 'hidden',
                 background: isHovered ? 'rgba(100, 200, 255, 0.05)' : '#000',
-                transition: 'border 0.15s ease, background 0.15s ease, box-shadow 0.15s ease',
+                transition: 'border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease',
                 boxSizing: 'border-box',
                 boxShadow: isHovered ? '0 0 10px rgba(100, 200, 255, 0.3)' : 'none',
               }}
@@ -565,11 +566,11 @@ export function MultiCanvasGrid({
                 #{index + 1} {isMaster && '(M)'}
               </div>
 
-              {/* 호버 시 UID 표시 */}
+              {/* 호버 시 UID 표시 - 상단에 표시하여 하단 컨트롤 가리지 않음 */}
               {isHovered && (
                 <div style={{
                   position: 'absolute',
-                  bottom: '4px',
+                  top: '24px',
                   left: '4px',
                   right: '4px',
                   padding: '4px 6px',
@@ -579,6 +580,7 @@ export function MultiCanvasGrid({
                   fontFamily: 'monospace',
                   borderRadius: '3px',
                   wordBreak: 'break-all',
+                  zIndex: 10,
                 }}>
                   UID: ...{slot.instanceUid.slice(-25)}
                 </div>

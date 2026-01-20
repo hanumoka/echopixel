@@ -28,6 +28,7 @@ import { DicomViewport } from './components/DicomViewport';
 import { MultiCanvasGrid } from './components/MultiCanvasGrid';
 import { HybridMultiViewport, type SeriesData as HybridSeriesData } from './components/HybridViewport';
 import { HardwareInfoPanel, type TextureMemoryInfo } from './components/HardwareInfoPanel';
+import { SingleDicomViewer } from '@echopixel/react';
 
 type ViewMode = 'single' | 'multi' | 'multi-canvas' | 'hybrid';
 type DataSourceMode = 'local' | 'wado-rs';
@@ -61,6 +62,9 @@ export default function App() {
 
   // 뷰 모드 (단일/멀티)
   const [viewMode, setViewMode] = useState<ViewMode>('single');
+
+  // 새 컴포넌트 테스트 토글 (Single 모드용)
+  const [useNewComponent, setUseNewComponent] = useState(false);
 
   // 데이터 소스 모드
   const [mode, setMode] = useState<DataSourceMode>('local');
@@ -886,14 +890,40 @@ export default function App() {
             border: '1px solid #a47',
             borderRadius: '4px',
           }}>
-            <h3 style={{ margin: '0 0 10px 0', color: '#e8b4f8', fontSize: '16px' }}>
-              🖼️ Single Viewport
-            </h3>
-            <p style={{ margin: 0, color: '#b8a8c8', fontSize: '13px', lineHeight: '1.5' }}>
-              단일 DICOM 파일을 로드하여 하나의 뷰포트에서 재생합니다.
-              로컬 파일 또는 WADO-RS 서버에서 데이터를 가져올 수 있습니다.
-              Window/Level, Pan, Zoom, 프레임 탐색 등 기본 도구를 테스트할 수 있습니다.
-            </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <h3 style={{ margin: '0 0 10px 0', color: '#e8b4f8', fontSize: '16px' }}>
+                  🖼️ Single Viewport
+                </h3>
+                <p style={{ margin: 0, color: '#b8a8c8', fontSize: '13px', lineHeight: '1.5' }}>
+                  단일 DICOM 파일을 로드하여 하나의 뷰포트에서 재생합니다.
+                  로컬 파일 또는 WADO-RS 서버에서 데이터를 가져올 수 있습니다.
+                  Window/Level, Pan, Zoom, 프레임 탐색 등 기본 도구를 테스트할 수 있습니다.
+                </p>
+              </div>
+              {/* 새 컴포넌트 테스트 토글 */}
+              <label style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '6px 12px',
+                background: useNewComponent ? '#2a4a2a' : '#1a1a2a',
+                border: useNewComponent ? '1px solid #4a7' : '1px solid #444',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '12px',
+                color: useNewComponent ? '#8f8' : '#888',
+                whiteSpace: 'nowrap',
+              }}>
+                <input
+                  type="checkbox"
+                  checked={useNewComponent}
+                  onChange={(e) => setUseNewComponent(e.target.checked)}
+                  style={{ cursor: 'pointer' }}
+                />
+                @echopixel/react
+              </label>
+            </div>
           </div>
 
           {/* 데이터 소스 모드 선택 */}
@@ -1083,13 +1113,25 @@ export default function App() {
 
           {/* DICOM 뷰포트 - 로컬 모드 */}
           {mode === 'local' && viewportData && (
-            <DicomViewport
-              frames={viewportData.frames}
-              imageInfo={viewportData.imageInfo}
-              isEncapsulated={viewportData.isEncapsulated}
-              width={512}
-              height={512}
-            />
+            useNewComponent ? (
+              <SingleDicomViewer
+                frames={viewportData.frames}
+                imageInfo={viewportData.imageInfo}
+                isEncapsulated={viewportData.isEncapsulated}
+                width={512}
+                height={512}
+                showToolbar={true}
+                showContextLossTest={true}
+              />
+            ) : (
+              <DicomViewport
+                frames={viewportData.frames}
+                imageInfo={viewportData.imageInfo}
+                isEncapsulated={viewportData.isEncapsulated}
+                width={512}
+                height={512}
+              />
+            )
           )}
 
           {/* DICOM 뷰포트 - WADO-RS 모드 */}
