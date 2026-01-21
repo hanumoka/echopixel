@@ -6,6 +6,121 @@
 
 ---
 
+## 2026-01-21 세션 #28 (더블클릭 확대 뷰 & 버그 수정)
+
+### 작업 내용
+
+**더블클릭 확대 뷰 기능 구현** ⭐
+- [x] Multi ViewPort에서 DICOM 더블클릭 시 Single Viewport 확대 뷰 표시
+- [x] HybridViewportSlot: `onDoubleClick` prop 추가
+- [x] HybridMultiViewport: `onViewportDoubleClick` prop 추가
+- [x] 데모 앱: `expandedViewportId` 상태, 오버레이 렌더링
+- [x] ESC 키로 확대 뷰 닫기
+- [x] 확대 뷰 열릴 때 body 스크롤 비활성화
+- [x] 뷰포트 ID ↔ seriesMap 키 양방향 매핑
+
+**코드 리뷰 및 버그 수정** ⭐
+- [x] **더블클릭 이벤트 핸들러 중복 제거**
+  - 문제: React `onDoubleClick` + native `dblclick` 리스너 동시 존재 → 콜백 여러 번 호출
+  - 수정: native dblclick 리스너 제거, React onDoubleClick만 사용
+  - 파일: `HybridMultiViewport.tsx` - handleDblClick, addEventListener 삭제
+- [x] **setTimeout 500ms race condition 해결**
+  - 문제: ID 매핑이 타이밍에 의존 (불안정)
+  - 수정: `onViewportIdsReady` 콜백 prop 추가
+  - 파일: `HybridMultiViewport.tsx` - useEffect에서 viewportIds/seriesMap 준비 시 콜백 호출
+  - 파일: `App.tsx` - handleViewportIdsReady 콜백으로 대체
+
+### 파일 변경
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `packages/react/.../HybridViewportSlot.tsx` | onDoubleClick prop 추가 |
+| `packages/react/.../HybridMultiViewport.tsx` | onViewportDoubleClick prop, onViewportIdsReady prop, 중복 이벤트 핸들러 제거 |
+| `apps/demo/src/App.tsx` | expandedViewportId 상태, 확대 뷰 오버레이, handleViewportIdsReady |
+
+### 핵심 코드
+
+**onViewportIdsReady 콜백 (HybridMultiViewport.tsx)**
+```typescript
+// viewportIds와 seriesMap이 모두 준비되면 콜백 호출
+useEffect(() => {
+  if (!onViewportIdsReady || viewportIds.length === 0 || !seriesMap || seriesMap.size === 0) {
+    return;
+  }
+  const seriesKeys = Array.from(seriesMap.keys());
+  onViewportIdsReady(viewportIds, seriesKeys);
+}, [viewportIds, seriesMap, onViewportIdsReady]);
+```
+
+**ID 매핑 콜백 사용 (App.tsx)**
+```typescript
+// setTimeout 대신 콜백 사용
+const handleViewportIdsReady = useCallback((internalIds: string[], seriesKeys: string[]) => {
+  const mapping = new Map<string, string>();
+  for (let i = 0; i < internalIds.length && i < seriesKeys.length; i++) {
+    mapping.set(internalIds[i], seriesKeys[i]);
+  }
+  setViewportIdToSeriesKeyMap(mapping);
+}, []);
+```
+
+### 학습 포인트
+
+- **React vs Native 이벤트 중복**: 동일 요소에 React onDoubleClick + native addEventListener('dblclick') 모두 등록하면 콜백이 여러 번 호출됨
+- **setTimeout 안티패턴**: 타이밍에 의존한 초기화는 race condition 발생 → 콜백 기반 접근이 안정적
+- **ID 매핑 문제**: HybridMultiViewport 내부 ID (viewport-timestamp-random)와 seriesMap 키 (viewport-0, viewport-1)가 다름 → 양방향 매핑 필요
+
+### 다음 세션 할 일
+
+- [ ] 어노테이션 선택/편집 UI (DragHandle 통합)
+- [ ] 포인트 드래그 편집
+- [ ] 라벨 위치 이동
+
+---
+
+## 2026-01-21 세션 #27 (데모앱 탭 정리 & 문서화)
+
+### 작업 내용
+
+**데모앱 탭 순서 및 제목 변경**
+- [x] 탭 순서 변경: Single → Multi (multi-canvas) → Multi (multi)
+- [x] 탭 제목 변경:
+  - `Single ViewPort`
+  - `Multi ViewPort (Single viewPort 기반)` (구 multi-canvas)
+  - `Multi ViewPort (Single canvas 기반)` (구 multi)
+
+**CLAUDE.md 문서화**
+- [x] 데모앱 뷰포트 모드 섹션 추가
+- [x] 기능 적용 순서 문서화 (필수 가이드라인)
+
+### 핵심 결정사항 ⭐
+
+**기능 적용 순서 (개발 파이프라인)**:
+```
+Single ViewPort → Multi ViewPort (Single viewPort 기반) → Multi ViewPort (Single canvas 기반)
+```
+
+| 순서 | 모드 | 이유 |
+|------|------|------|
+| 1 | Single ViewPort | 기능 개발/검증 기준점 |
+| 2 | Multi (Single viewPort 기반) | Single을 여러 개 배치 → 기능 자연 적용 |
+| 3 | Multi (Single canvas 기반) | WebGL 분할 → 별도 최적화 필요 |
+
+### 파일 변경
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `apps/demo/src/App.tsx` | 탭 순서 변경, 탭 제목 변경 |
+| `CLAUDE.md` | "데모앱 뷰포트 모드" 섹션 추가 |
+
+### 다음 세션 할 일
+
+- [ ] 어노테이션 선택/편집 UI (DragHandle 통합)
+- [ ] 포인트 드래그 편집
+- [ ] 라벨 위치 이동
+
+---
+
 ## 2026-01-21 세션 #26 (종횡비 보정 & 도구바 영역 예약)
 
 ### 작업 내용

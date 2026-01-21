@@ -143,6 +143,8 @@ export interface HybridMultiViewportHandle {
   getViewport: (viewportId: string) => Viewport | null;
   /** 모든 뷰포트 정보 가져오기 */
   getAllViewports: () => Viewport[];
+  /** 모든 뷰포트 ID 가져오기 (내부 ID) */
+  getViewportIds: () => string[];
   /** 통계 가져오기 */
   getStats: () => HybridViewportStats;
   /** 단일 프레임 렌더링 (정지 상태에서) */
@@ -199,6 +201,8 @@ export interface HybridMultiViewportProps {
   initialFps?: number;
   /** 뷰포트 클릭 콜백 */
   onViewportClick?: (viewportId: string) => void;
+  /** 뷰포트 더블클릭 콜백 (확대 보기 등) */
+  onViewportDoubleClick?: (viewportId: string) => void;
   /** 선택된 뷰포트 변경 콜백 */
   onActiveViewportChange?: (viewportId: string | null) => void;
   /** 재생 상태 변경 콜백 */
@@ -247,6 +251,13 @@ export interface HybridMultiViewportProps {
   showAnnotations?: boolean;
   /** 어노테이션 표시 토글 핸들러 */
   onAnnotationsVisibilityChange?: (visible: boolean) => void;
+
+  // =========================================================================
+  // Lifecycle Callbacks
+  // =========================================================================
+
+  /** 내부 뷰포트 ID 목록이 준비되면 호출 (seriesMap 키와 내부 ID 매핑용) */
+  onViewportIdsReady?: (viewportIds: string[], seriesKeys: string[]) => void;
 
   /** 커스텀 스타일 */
   style?: CSSProperties;
@@ -316,6 +327,7 @@ export const HybridMultiViewport = forwardRef<
     syncMode = 'frame-ratio',
     initialFps = 30,
     onViewportClick,
+    onViewportDoubleClick,
     onActiveViewportChange,
     onPlayingChange,
     onStatsUpdate,
@@ -337,6 +349,8 @@ export const HybridMultiViewport = forwardRef<
     showAnnotationTools = false,
     showAnnotations = true,
     onAnnotationsVisibilityChange,
+    // Lifecycle callbacks
+    onViewportIdsReady,
     style,
     className,
   },
@@ -1012,6 +1026,16 @@ export const HybridMultiViewport = forwardRef<
     setIsInitialized(true);
   }, [dpr, slotCount, setupRenderCallbacks, onPlayingChange]);
 
+  // onViewportIdsReady 콜백 호출 (viewportIds와 seriesMap이 모두 준비되면)
+  useEffect(() => {
+    if (!onViewportIdsReady || viewportIds.length === 0 || !seriesMap || seriesMap.size === 0) {
+      return;
+    }
+
+    const seriesKeys = Array.from(seriesMap.keys());
+    onViewportIdsReady(viewportIds, seriesKeys);
+  }, [viewportIds, seriesMap, onViewportIdsReady]);
+
   // 시리즈 데이터 로드
   useEffect(() => {
     if (!seriesMap || !isInitialized || !glRef.current || !hybridManagerRef.current) return;
@@ -1221,10 +1245,11 @@ export const HybridMultiViewport = forwardRef<
     resetAllViewports,
     getViewport: (viewportId: string) => hybridManagerRef.current?.getViewport(viewportId) ?? null,
     getAllViewports: () => viewports,
+    getViewportIds: () => viewportIds,
     getStats,
     renderSingleFrame: () => renderSchedulerRef.current?.renderSingleFrame(),
     testContextLoss,
-  }), [playAll, pauseAll, togglePlayAll, setFps, fpsState, isPlayingState, resetAllViewports, viewports, getStats, testContextLoss]);
+  }), [playAll, pauseAll, togglePlayAll, setFps, fpsState, isPlayingState, resetAllViewports, viewports, viewportIds, getStats, testContextLoss]);
 
   // 뷰포트 이벤트 핸들러
   const handleViewportClick = useCallback((viewportId: string) => {
@@ -1232,6 +1257,10 @@ export const HybridMultiViewport = forwardRef<
     onActiveViewportChange?.(viewportId);
     onViewportClick?.(viewportId);
   }, [onViewportClick, onActiveViewportChange]);
+
+  const handleViewportDoubleClick = useCallback((viewportId: string) => {
+    onViewportDoubleClick?.(viewportId);
+  }, [onViewportDoubleClick]);
 
   const handleViewportMouseEnter = useCallback((viewportId: string) => {
     setHoveredViewportId(viewportId);
@@ -1716,6 +1745,7 @@ export const HybridMultiViewport = forwardRef<
               isSelected={activeViewportId === id}
               isHovered={hoveredViewportId === id}
               onClick={handleViewportClick}
+              onDoubleClick={handleViewportDoubleClick}
               onMouseEnter={handleViewportMouseEnter}
               onMouseLeave={handleViewportMouseLeave}
               onElementRef={(element) => {

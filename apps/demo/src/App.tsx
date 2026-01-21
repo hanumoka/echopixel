@@ -121,6 +121,20 @@ export default function App() {
   const [multiSeriesMap, setMultiSeriesMap] = useState<Map<string, ReactHybridSeriesData>>(new Map());
   const multiViewportRef = useRef<HybridMultiViewportHandle>(null);
 
+  // 확대 뷰 상태 (Multi ViewPort에서 더블클릭 시)
+  // internalViewportId ↔ seriesMap key 양방향 매핑 (HybridMultiViewport 내부 ID와 seriesMap 키가 다름)
+  const [expandedViewportId, setExpandedViewportId] = useState<string | null>(null);
+  const [viewportIdToSeriesKeyMap, setViewportIdToSeriesKeyMap] = useState<Map<string, string>>(new Map());
+
+  // 역매핑: seriesKey → internalViewportId (아래 multiAnnotationsForHybrid에서 사용)
+  const seriesKeyToViewportIdMap = useMemo(() => {
+    const reverseMap = new Map<string, string>();
+    for (const [internalId, seriesKey] of viewportIdToSeriesKeyMap) {
+      reverseMap.set(seriesKey, internalId);
+    }
+    return reverseMap;
+  }, [viewportIdToSeriesKeyMap]);
+
   // 성능 옵션 상태 (VRAM 제한, DPR 등)
   const [performanceOptions, setPerformanceOptions] = useState<PerformanceOptions>({
     maxVramMB: Infinity,  // 기본: 무제한
@@ -274,6 +288,45 @@ export default function App() {
   const [multiActiveTool, setMultiActiveTool] = useState('WindowLevel');
   const [multiShowAnnotations, setMultiShowAnnotations] = useState(true);
 
+  // multiAnnotations를 내부 ID 기반으로 변환 (HybridMultiViewport용)
+  const multiAnnotationsForHybrid = useMemo(() => {
+    const convertedMap = new Map<string, Annotation[]>();
+    for (const [seriesKey, annotations] of multiAnnotations) {
+      const internalId = seriesKeyToViewportIdMap.get(seriesKey);
+      if (internalId) {
+        convertedMap.set(internalId, annotations);
+      } else {
+        // 매핑이 없으면 원래 키 사용 (fallback)
+        convertedMap.set(seriesKey, annotations);
+      }
+    }
+    return convertedMap;
+  }, [multiAnnotations, seriesKeyToViewportIdMap]);
+
+  // ESC 키로 확대 뷰 닫기
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && expandedViewportId) {
+        setExpandedViewportId(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [expandedViewportId]);
+
+  // 확대 뷰 열릴 때 body 스크롤 비활성화
+  useEffect(() => {
+    if (expandedViewportId) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [expandedViewportId]);
+
   // viewportData가 변경되면 초기 테스트 어노테이션 설정
   useEffect(() => {
     if (!viewportData?.imageInfo) {
@@ -395,46 +448,53 @@ export default function App() {
   // ============================================================
 
   // Multi Viewport 어노테이션 생성/업데이트 핸들러
+  // 내부 뷰포트 ID → seriesKey로 변환하여 저장 (오버레이와 공유)
   const handleMultiAnnotationUpdate = useCallback((viewportId: string, annotation: Annotation) => {
+    // 내부 ID를 seriesKey로 변환 (매핑이 없으면 그대로 사용)
+    const seriesKey = viewportIdToSeriesKeyMap.get(viewportId) || viewportId;
+    console.log('[Phase 3g] Multi Annotation update - internalId:', viewportId, 'seriesKey:', seriesKey);
+
     setMultiAnnotations(prev => {
       const newMap = new Map(prev);
-      const viewportAnnotations = newMap.get(viewportId) ?? [];
+      const viewportAnnotations = newMap.get(seriesKey) ?? [];
 
       const existingIndex = viewportAnnotations.findIndex(a => a.id === annotation.id);
       if (existingIndex >= 0) {
         // 기존 어노테이션 업데이트
-        console.log('[Phase 3g] Multi Annotation updated:', viewportId, annotation.id);
+        console.log('[Phase 3g] Multi Annotation updated:', seriesKey, annotation.id);
         const newList = [...viewportAnnotations];
         newList[existingIndex] = annotation;
-        newMap.set(viewportId, newList);
+        newMap.set(seriesKey, newList);
       } else {
         // 새 어노테이션 추가
-        console.log('[Phase 3g] Multi Annotation created:', viewportId, annotation.id);
-        newMap.set(viewportId, [...viewportAnnotations, annotation]);
+        console.log('[Phase 3g] Multi Annotation created:', seriesKey, annotation.id);
+        newMap.set(seriesKey, [...viewportAnnotations, annotation]);
       }
 
       return newMap;
     });
-  }, []);
+  }, [viewportIdToSeriesKeyMap]);
 
   // Multi Viewport 어노테이션 선택 핸들러
   const handleMultiAnnotationSelect = useCallback((viewportId: string, annotationId: string | null) => {
-    console.log('[Phase 3g] Multi Annotation selected:', viewportId, annotationId);
+    const seriesKey = viewportIdToSeriesKeyMap.get(viewportId) || viewportId;
+    console.log('[Phase 3g] Multi Annotation selected:', seriesKey, annotationId);
     setMultiSelectedAnnotationId(annotationId);
-  }, []);
+  }, [viewportIdToSeriesKeyMap]);
 
   // Multi Viewport 어노테이션 삭제 핸들러
   const handleMultiAnnotationDelete = useCallback((viewportId: string, annotationId: string) => {
-    console.log('[Phase 3g] Multi Annotation deleted:', viewportId, annotationId);
+    const seriesKey = viewportIdToSeriesKeyMap.get(viewportId) || viewportId;
+    console.log('[Phase 3g] Multi Annotation deleted:', seriesKey, annotationId);
     setMultiAnnotations(prev => {
       const newMap = new Map(prev);
-      const viewportAnnotations = newMap.get(viewportId) ?? [];
-      newMap.set(viewportId, viewportAnnotations.filter(a => a.id !== annotationId));
+      const viewportAnnotations = newMap.get(seriesKey) ?? [];
+      newMap.set(seriesKey, viewportAnnotations.filter(a => a.id !== annotationId));
       return newMap;
     });
     // 삭제된 어노테이션이 선택된 상태였으면 선택 해제
     setMultiSelectedAnnotationId(prev => prev === annotationId ? null : prev);
-  }, []);
+  }, [viewportIdToSeriesKeyMap]);
 
   // Multi Canvas용 DataSource (안정적인 참조 유지)
   const multiCanvasDataSource = useMemo(() => {
@@ -916,7 +976,18 @@ export default function App() {
     setMultiSeriesMap(newSeriesMap);
     setMultiLoadingStatus('');
     setMultiViewportReady(true);
+    // ID 매핑은 onViewportIdsReady 콜백에서 처리됨
   };
+
+  // HybridMultiViewport에서 내부 뷰포트 ID가 준비되면 호출되는 콜백
+  const handleViewportIdsReady = useCallback((internalIds: string[], seriesKeys: string[]) => {
+    const mapping = new Map<string, string>();
+    for (let i = 0; i < internalIds.length && i < seriesKeys.length; i++) {
+      mapping.set(internalIds[i], seriesKeys[i]);
+    }
+    console.log('[Demo] Built viewport ID mapping via callback:', Object.fromEntries(mapping));
+    setViewportIdToSeriesKeyMap(mapping);
+  }, []);
 
   // 재생/정지 토글 (리팩토링 - ref 사용)
   const toggleMultiPlay = useCallback(() => {
@@ -989,24 +1060,7 @@ export default function App() {
             transition: 'all 0.2s',
           }}
         >
-          🖼️ Single Viewport
-        </button>
-        <button
-          onClick={() => handleViewModeChange('multi')}
-          style={{
-            padding: '12px 24px',
-            background: viewMode === 'multi' ? '#1f3d2d' : '#1a1a1a',
-            color: viewMode === 'multi' ? '#b4f8c8' : '#888',
-            border: 'none',
-            borderRadius: '8px 8px 0 0',
-            cursor: 'pointer',
-            fontWeight: viewMode === 'multi' ? 'bold' : 'normal',
-            fontSize: '14px',
-            borderBottom: viewMode === 'multi' ? '3px solid #7a4' : '3px solid transparent',
-            transition: 'all 0.2s',
-          }}
-        >
-          🎯 Multi (Single Canvas)
+          Single ViewPort
         </button>
         <button
           onClick={() => handleViewModeChange('multi-canvas')}
@@ -1023,7 +1077,24 @@ export default function App() {
             transition: 'all 0.2s',
           }}
         >
-          🔲 Multi (Multi Canvas)
+          Multi ViewPort (Single viewPort 기반)
+        </button>
+        <button
+          onClick={() => handleViewModeChange('multi')}
+          style={{
+            padding: '12px 24px',
+            background: viewMode === 'multi' ? '#1f3d2d' : '#1a1a1a',
+            color: viewMode === 'multi' ? '#b4f8c8' : '#888',
+            border: 'none',
+            borderRadius: '8px 8px 0 0',
+            cursor: 'pointer',
+            fontWeight: viewMode === 'multi' ? 'bold' : 'normal',
+            fontSize: '14px',
+            borderBottom: viewMode === 'multi' ? '3px solid #7a4' : '3px solid transparent',
+            transition: 'all 0.2s',
+          }}
+        >
+          Multi ViewPort (Single canvas 기반)
         </button>
       </div>
 
@@ -1884,8 +1955,13 @@ export default function App() {
               performanceOptions={performanceOptions}
               onPlayingChange={handleMultiPlayingChange}
               onStatsUpdate={handleMultiStatsUpdate}
+              onViewportDoubleClick={(viewportId) => {
+                console.log('[Demo] onViewportDoubleClick called:', viewportId);
+                setExpandedViewportId(viewportId);
+              }}
               // Phase 3g: 어노테이션 생성 기능
-              annotations={multiAnnotations.size > 0 ? multiAnnotations : testAnnotations}
+              // 어노테이션은 내부 ID 기반 맵으로 변환하여 전달
+              annotations={multiAnnotationsForHybrid.size > 0 ? multiAnnotationsForHybrid : testAnnotations}
               selectedAnnotationId={multiSelectedAnnotationId}
               onAnnotationSelect={handleMultiAnnotationSelect}
               onAnnotationUpdate={handleMultiAnnotationUpdate}
@@ -1896,11 +1972,155 @@ export default function App() {
               onToolChange={setMultiActiveTool}
               showAnnotations={multiShowAnnotations}
               onAnnotationsVisibilityChange={setMultiShowAnnotations}
+              // ID 매핑 콜백 (setTimeout 대신 안정적인 방식)
+              onViewportIdsReady={handleViewportIdsReady}
               style={{
                 border: '1px solid #444',
                 marginBottom: '10px',
               }}
             />
+          )}
+
+          {/* 확대 뷰 버튼 패널 */}
+          {multiSeriesMap.size > 0 && (
+            <div style={{
+              padding: '10px',
+              marginBottom: '10px',
+              background: '#1a2a3a',
+              borderRadius: '4px',
+              display: 'flex',
+              gap: '10px',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+            }}>
+              <span style={{ color: '#8cf', fontSize: '13px' }}>🔍 확대 보기:</span>
+              {Array.from(multiSeriesMap.keys()).map((viewportId) => (
+                <button
+                  key={viewportId}
+                  onClick={() => {
+                    console.log('[Demo] Expand button clicked:', viewportId);
+                    setExpandedViewportId(viewportId);
+                  }}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '12px',
+                    background: '#2a3a4a',
+                    color: '#fff',
+                    border: '1px solid #4a6a8a',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {viewportId}
+                </button>
+              ))}
+              <span style={{ color: '#888', fontSize: '11px', marginLeft: '10px' }}>
+                (또는 뷰포트 더블클릭)
+              </span>
+            </div>
+          )}
+
+          {/* 디버그: expandedViewportId 상태 표시 */}
+          <div style={{ color: '#ff0', fontSize: '12px', marginBottom: '10px' }}>
+            [DEBUG] expandedViewportId: {expandedViewportId || 'null'},
+            mappedKey: {expandedViewportId ? (viewportIdToSeriesKeyMap.get(expandedViewportId) || 'not found') : 'null'}
+          </div>
+
+          {/* 확대 뷰 오버레이 (더블클릭 시) */}
+          {expandedViewportId && (
+            <div
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(0, 0, 0, 0.98)',
+                zIndex: 1000,
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+              }}
+            >
+              {/* 헤더 */}
+              <div
+                style={{
+                  flexShrink: 0,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '12px 20px',
+                  background: '#1a1a2e',
+                  borderBottom: '1px solid #333',
+                  color: '#fff',
+                }}
+              >
+                <h2 style={{ margin: 0, fontSize: '16px' }}>
+                  🔍 확대 보기: {viewportIdToSeriesKeyMap.get(expandedViewportId) || expandedViewportId}
+                </h2>
+                <button
+                  onClick={() => setExpandedViewportId(null)}
+                  style={{
+                    padding: '8px 16px',
+                    fontSize: '13px',
+                    background: '#c44',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ✕ 닫기 (ESC)
+                </button>
+              </div>
+
+              {/* 확대된 SingleDicomViewer */}
+              {(() => {
+                // 내부 뷰포트 ID → seriesMap 키 변환
+                const seriesKey = viewportIdToSeriesKeyMap.get(expandedViewportId!) || expandedViewportId!;
+                const seriesData = multiSeriesMap.get(seriesKey);
+                if (!seriesData) {
+                  console.log('[Demo] No seriesData found for key:', seriesKey);
+                  return <div style={{ color: '#f88', padding: '20px' }}>시리즈 데이터를 찾을 수 없습니다: {seriesKey}</div>;
+                }
+
+                // 뷰어 크기 계산 (헤더 ~50px, 패딩 40px, 여유 60px)
+                const viewerWidth = Math.min(window.innerWidth - 80, 900);
+                const viewerHeight = Math.min(window.innerHeight - 150, 600);
+
+                return (
+                  <div
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'flex-start', // 상단부터 시작
+                      padding: '20px',
+                      paddingTop: '10px',
+                      overflow: 'auto',
+                      minHeight: 0,
+                    }}
+                  >
+                    <SingleDicomViewer
+                      frames={seriesData.frames}
+                      imageInfo={seriesData.imageInfo}
+                      isEncapsulated={seriesData.isEncapsulated}
+                      width={viewerWidth}
+                      height={viewerHeight}
+                      initialFps={30}
+                      showAnnotations={true}
+                      showToolbar={true}
+                      showControls={true}
+                      annotations={multiAnnotations.get(seriesKey) || []}
+                      selectedAnnotationId={multiSelectedAnnotationId}
+                      onAnnotationSelect={(id) => handleMultiAnnotationSelect(seriesKey, id)}
+                      onAnnotationUpdate={(annotation) => handleMultiAnnotationUpdate(seriesKey, annotation)}
+                      onAnnotationDelete={(id) => handleMultiAnnotationDelete(seriesKey, id)}
+                    />
+                  </div>
+                );
+              })()}
+            </div>
           )}
 
           {/* 컨트롤 */}

@@ -45,6 +45,8 @@ export interface HybridViewportSlotProps {
   isHovered?: boolean;
   /** 클릭 핸들러 */
   onClick?: (viewportId: string) => void;
+  /** 더블클릭 핸들러 */
+  onDoubleClick?: (viewportId: string) => void;
   /** 마우스 진입 핸들러 */
   onMouseEnter?: (viewportId: string) => void;
   /** 마우스 이탈 핸들러 */
@@ -80,6 +82,7 @@ export function HybridViewportSlot({
   isSelected = false,
   isHovered = false,
   onClick,
+  onDoubleClick,
   onMouseEnter,
   onMouseLeave,
   onElementRef,
@@ -129,6 +132,11 @@ export function HybridViewportSlot({
     onClick?.(viewportId);
   }, [onClick, viewportId]);
 
+  // 더블클릭 핸들러
+  const handleDoubleClick = useCallback(() => {
+    onDoubleClick?.(viewportId);
+  }, [onDoubleClick, viewportId]);
+
   // 마우스 진입 핸들러
   const handleMouseEnter = useCallback(() => {
     onMouseEnter?.(viewportId);
@@ -143,6 +151,7 @@ export function HybridViewportSlot({
     <div
       data-viewport-id={viewportId}
       onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       className={className}

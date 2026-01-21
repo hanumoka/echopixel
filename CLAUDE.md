@@ -164,6 +164,31 @@ echopixel/
 └── docs/              # 문서
 ```
 
+## 데모앱 뷰포트 모드 ⭐
+
+> **Claude에게**: 기능 구현 시 반드시 이 순서를 따르세요.
+
+### 뷰포트 모드 (탭 순서)
+
+| 순서 | 탭 이름 | 내부 모드 | 설명 |
+|------|---------|-----------|------|
+| 1 | Single ViewPort | `single` | 단일 뷰포트, 단일 캔버스 |
+| 2 | Multi ViewPort (Single viewPort 기반) | `multi-canvas` | 다중 뷰포트, 각 뷰포트가 독립 캔버스 |
+| 3 | Multi ViewPort (Single canvas 기반) | `multi` | 다중 뷰포트, 하나의 캔버스를 WebGL로 분할 |
+
+### 기능 적용 순서 (필수)
+
+```
+Single ViewPort → Multi ViewPort (Single viewPort 기반) → Multi ViewPort (Single canvas 기반)
+```
+
+**이유:**
+1. **Single ViewPort**: 새 기능을 먼저 개발/검증하는 기준점
+2. **Multi ViewPort (Single viewPort 기반)**: Single ViewPort를 여러 개 배치한 구조이므로, Single에서 구현한 기능이 자연스럽게 적용됨
+3. **Multi ViewPort (Single canvas 기반)**: 하나의 캔버스에 여러 뷰포트를 WebGL로 분할하여 그리는 방식이므로, 별도 최적화/구현이 필요
+
+**주의**: 탭 순서 = 기능 구현 우선순위 = 구현 난이도 순서
+
 ## 문서 관리 체계
 
 ### docs/ 디렉토리 구조

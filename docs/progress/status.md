@@ -5,7 +5,7 @@
 | 항목 | 상태 |
 |------|------|
 | **현재 Phase** | Phase 3 (Annotations) ✅ 핵심 완료 |
-| **마지막 업데이트** | 2026-01-21 (종횡비 보정 구현) |
+| **마지막 업데이트** | 2026-01-21 (더블클릭 확대 뷰 + 버그 수정) |
 | **다음 마일스톤** | Phase 3g-2 (어노테이션 선택/편집 UI) 또는 Phase 4 |
 
 ---
@@ -183,6 +183,8 @@
 | 어노테이션 표시 토글 | ✅ | showAnnotations prop + 데모 UI |
 | 도구바 영역 항상 예약 | ✅ | DICOM 영역 크기 변화 방지 (선택/해제 시) |
 | 종횡비 보정 (Aspect Ratio) | ✅ | Cornerstone 방식 fit-to-viewport, 이미지 비율 유지 |
+| 더블클릭 확대 뷰 | ✅ | Multi ViewPort에서 DICOM 더블클릭 → Single 뷰 확대 |
+| onViewportIdsReady 콜백 | ✅ | setTimeout 대신 안정적인 ID 매핑 콜백 |
 | 측정 도구 (Ellipse, VTI) | ⏳ | 확장 도구 (선택적) |
 | 플러그인 시스템 | ⏳ | 도구/계산기/렌더러 확장 (선택적) |
 
