@@ -302,6 +302,14 @@ export class ToolGroup {
    * 마우스 다운 이벤트 처리
    */
   private onMouseDown(evt: MouseEvent, viewportId: string, element: HTMLElement): void {
+    // ★ 어노테이션 관련 요소 클릭이면 무시 (어노테이션 편집/선택 우선)
+    // - .drag-handle: 어노테이션 포인트 드래그 핸들
+    // - .annotation-shape: 어노테이션 도형 (선택용)
+    const target = evt.target as Element;
+    if (target.closest('.drag-handle, .annotation-shape')) {
+      return;
+    }
+
     const normalizedEvt = normalizeMouseEvent(evt, element, viewportId);
 
     // 델타 계산을 위한 컨텍스트 초기화

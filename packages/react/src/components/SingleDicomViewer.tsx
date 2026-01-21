@@ -51,6 +51,12 @@ import type {
 } from '../types';
 
 /**
+ * 조작 도구 ID 목록 (ToolGroup에 등록된 도구들)
+ * 어노테이션 도구 선택 시 이 도구들의 Primary 바인딩을 해제합니다.
+ */
+const MANIPULATION_TOOL_IDS = ['WindowLevel', 'Pan', 'Zoom', 'StackScroll'] as const;
+
+/**
  * SingleDicomViewer 외부 제어용 핸들
  */
 export interface SingleDicomViewerHandle {
@@ -602,11 +608,15 @@ export const SingleDicomViewer = forwardRef<
         setActiveMeasurementToolId(toolId);
         setActiveTool(toolId);
 
-        // 이전 도구가 조작 도구였으면 바인딩 복원
-        // (어노테이션 도구는 ToolGroup에 등록되지 않으므로 호출하지 않음)
-        if (!isPrevAnnotationTool && prevTool !== toolId) {
-          const prevBindings = getDefaultBindings(prevTool);
-          setToolGroupToolActive(prevTool, prevBindings);
+        // ★ 모든 조작 도구의 Primary 바인딩 해제 (기본 바인딩으로 복원)
+        // 이렇게 하면 좌클릭(Primary)은 어노테이션 도구만 사용하게 됨
+        // - WindowLevel: Secondary (우클릭)만
+        // - Pan: Auxiliary (중클릭)만
+        // - Zoom: Shift+Primary만 (Wheel은 정지 이미지에서만)
+        // - StackScroll: Wheel만 (동영상에서만)
+        for (const manipToolId of MANIPULATION_TOOL_IDS) {
+          const defaultBindings = getDefaultBindings(manipToolId);
+          setToolGroupToolActive(manipToolId, defaultBindings);
         }
       }
     } else {

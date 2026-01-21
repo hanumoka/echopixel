@@ -60,8 +60,15 @@ export function DragHandle({
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
+      // React SyntheticEvent 전파 중지
       e.stopPropagation();
       e.preventDefault();
+
+      // ★ Native DOM 이벤트 전파도 중지
+      // ToolGroup 등 native addEventListener로 등록된 리스너가
+      // 이 이벤트를 처리하지 않도록 함
+      e.nativeEvent.stopImmediatePropagation();
+
       onDragStart?.(e);
     },
     [onDragStart]
