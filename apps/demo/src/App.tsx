@@ -28,11 +28,16 @@ import {
 } from '@echopixel/core';
 // DicomViewport는 더 이상 Single 모드에서 사용하지 않음 - SingleDicomViewer로 대체
 // import { DicomViewport } from './components/DicomViewport';
-import { MultiCanvasGrid } from './components/MultiCanvasGrid';
+// MultiCanvasGrid는 SingleDicomViewerGroup으로 대체됨 (Phase 3g 리팩토링)
+// import { MultiCanvasGrid } from './components/MultiCanvasGrid';
 import { HardwareInfoPanel, type TextureMemoryInfo } from './components/HardwareInfoPanel';
 import {
   SingleDicomViewer,
+  SingleDicomViewerGroup,
   HybridMultiViewport as ReactHybridMultiViewport,
+  type SingleDicomViewerGroupHandle,
+  type ViewerData,
+  type ViewerGroupLayout,
   type HybridMultiViewportHandle,
   type HybridSeriesData as ReactHybridSeriesData,
   type HybridViewportStats,
@@ -114,10 +119,10 @@ export default function App() {
   const [selectedUids, setSelectedUids] = useState<Set<string>>(new Set());
   const [scanningStatus, setScanningStatus] = useState<string>('');
 
-  // Multi Canvas 모드 상태
-  const [multiCanvasLoaded, setMultiCanvasLoaded] = useState(false);
-  const [multiCanvasUids, setMultiCanvasUids] = useState<string[]>([]);
-  const [multiCanvasCount, setMultiCanvasCount] = useState<number>(1); // 1~4개
+  // Multi Canvas 모드 상태 (SingleDicomViewerGroup 사용)
+  const [multiCanvasViewers, setMultiCanvasViewers] = useState<ViewerData[]>([]);
+  const [multiCanvasLoading, setMultiCanvasLoading] = useState(false);
+  const multiCanvasGroupRef = useRef<SingleDicomViewerGroupHandle>(null);
 
 
   // Multi 모드 (리팩토링) - @echopixel/react HybridMultiViewport 사용
@@ -284,6 +289,8 @@ export default function App() {
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
   // 어노테이션 표시 여부 (Phase 3g: 보이기/숨김 토글)
   const [showAnnotations, setShowAnnotations] = useState(true);
+  // Single Viewport 확대 보기 (더블클릭 시)
+  const [singleExpandedView, setSingleExpandedView] = useState(false);
 
   // Multi Viewport용 어노테이션 상태 (Phase 3g: 어노테이션 생성 기능)
   const [multiAnnotations, setMultiAnnotations] = useState<Map<string, Annotation[]>>(new Map());
@@ -306,21 +313,26 @@ export default function App() {
     return convertedMap;
   }, [multiAnnotations, seriesKeyToViewportIdMap]);
 
-  // ESC 키로 확대 뷰 닫기
+  // ESC 키로 확대 뷰 닫기 (Single/Multi 모드 모두)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && expandedViewportId) {
-        setExpandedViewportId(null);
+      if (e.key === 'Escape') {
+        if (expandedViewportId) {
+          setExpandedViewportId(null);
+        }
+        if (singleExpandedView) {
+          setSingleExpandedView(false);
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [expandedViewportId]);
+  }, [expandedViewportId, singleExpandedView]);
 
   // 확대 뷰 열릴 때 body 스크롤 비활성화
   useEffect(() => {
-    if (expandedViewportId) {
+    if (expandedViewportId || singleExpandedView) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
@@ -328,7 +340,7 @@ export default function App() {
     return () => {
       document.body.style.overflow = '';
     };
-  }, [expandedViewportId]);
+  }, [expandedViewportId, singleExpandedView]);
 
   // viewportData가 변경되면 초기 테스트 어노테이션 설정
   useEffect(() => {
@@ -498,17 +510,6 @@ export default function App() {
     // 삭제된 어노테이션이 선택된 상태였으면 선택 해제
     setMultiSelectedAnnotationId(prev => prev === annotationId ? null : prev);
   }, [viewportIdToSeriesKeyMap]);
-
-  // Multi Canvas용 DataSource (안정적인 참조 유지)
-  const multiCanvasDataSource = useMemo(() => {
-    if (!multiCanvasLoaded) return null;
-    return new WadoRsDataSource({
-      baseUrl: wadoBaseUrl,
-      timeout: 60000,
-      maxRetries: 3,
-    });
-  // wadoBaseUrl이 변경되거나 multiCanvasLoaded가 true가 될 때만 재생성
-  }, [wadoBaseUrl, multiCanvasLoaded]);
 
   // 멀티 뷰포트 refs
   const glRef = useRef<WebGL2RenderingContext | null>(null);
@@ -727,9 +728,6 @@ export default function App() {
     setIsPlaying(false);
     setViewports([]);  // 뷰포트 목록 초기화
     setSelectedUids(new Set());  // 선택된 Instance 초기화
-    // Multi Canvas 상태 초기화
-    setMultiCanvasLoaded(false);
-    setMultiCanvasUids([]);
   };
 
   // === 멀티 뷰포트 관련 함수 ===
@@ -808,12 +806,8 @@ export default function App() {
     }
   };
 
-  // 최대 선택 개수 계산 (viewMode에 따라 다름)
+  // 최대 선택 개수 계산 (layout 기반, 모든 multi 모드 공통)
   const getMaxSelect = () => {
-    if (viewMode === 'multi-canvas') {
-      return multiCanvasCount;
-    }
-    // multi 또는 single 모드: layout 기반
     const gridSizeMap: Record<string, number> = {
       'grid-1x1': 1,
       'grid-2x2': 2,
@@ -955,22 +949,62 @@ export default function App() {
           sopInstanceUid: instanceUidToLoad,
         });
 
+        // calibration 폴백: WADO-RS 메타데이터에 없으면 전체 DICOM 인스턴스에서 추출
+        let finalImageInfo = metadata.imageInfo;
+
+        if (!finalImageInfo.pixelSpacing && !finalImageInfo.ultrasoundCalibration) {
+          console.log(`[MultiViewport] No calibration in metadata for viewport ${i + 1}, fetching from full instance...`);
+          try {
+            // 전체 DICOM 인스턴스 로드 (Part 10 파일)
+            const instanceUrl = `${wadoBaseUrl}/studies/${studyUid}/series/${seriesUid}/instances/${instanceUidToLoad}`;
+            const instanceResponse = await fetch(instanceUrl, {
+              headers: {
+                'Accept': 'application/dicom',
+              },
+            });
+
+            if (instanceResponse.ok) {
+              const instanceBuffer = await instanceResponse.arrayBuffer();
+              // Ultrasound Calibration 추출
+              const ultrasoundCalibration = getUltrasoundCalibration(instanceBuffer);
+              if (ultrasoundCalibration) {
+                console.log(`[MultiViewport] ✅ Extracted ultrasoundCalibration for viewport ${i + 1}:`, ultrasoundCalibration);
+                finalImageInfo = {
+                  ...finalImageInfo,
+                  ultrasoundCalibration,
+                };
+              } else {
+                console.log(`[MultiViewport] ❌ No ultrasoundCalibration found in full instance for viewport ${i + 1}`);
+              }
+            }
+          } catch (calibrationError) {
+            console.warn(`[MultiViewport] Failed to fetch calibration from full instance for viewport ${i + 1}:`, calibrationError);
+          }
+        }
+
         // 시리즈 맵에 추가
         newSeriesMap.set(viewportId, {
           info: {
             seriesId: instanceUidToLoad,
             frameCount: metadata.frameCount,
-            imageWidth: metadata.imageInfo.columns,
-            imageHeight: metadata.imageInfo.rows,
+            imageWidth: finalImageInfo.columns,
+            imageHeight: finalImageInfo.rows,
             isEncapsulated: metadata.isEncapsulated,
-            bitsStored: metadata.imageInfo.bitsStored,
+            bitsStored: finalImageInfo.bitsStored,
           },
           frames,
-          imageInfo: metadata.imageInfo,
+          imageInfo: finalImageInfo,
           isEncapsulated: metadata.isEncapsulated,
         });
 
-        console.log(`[MultiViewport] Loaded ${frames.length} frames for viewport ${i + 1}`);
+        // 디버그: 캘리브레이션 정보 확인
+        console.log(`[MultiViewport] Loaded viewport ${i + 1}:`, {
+          frames: frames.length,
+          hasPixelSpacing: !!finalImageInfo.pixelSpacing,
+          pixelSpacing: finalImageInfo.pixelSpacing,
+          hasUltrasoundCalibration: !!finalImageInfo.ultrasoundCalibration,
+          ultrasoundCalibration: finalImageInfo.ultrasoundCalibration,
+        });
       } catch (err) {
         console.error(`[MultiViewport] Failed to load ${instanceUidToLoad}:`, err);
       }
@@ -980,6 +1014,77 @@ export default function App() {
     setMultiLoadingStatus('');
     setMultiViewportReady(true);
     // ID 매핑은 onViewportIdsReady 콜백에서 처리됨
+  };
+
+  // Multi Canvas 모드용 데이터 로딩 (SingleDicomViewerGroup 사용)
+  const loadMultiCanvasViewers = async () => {
+    setMultiCanvasLoading(true);
+    setError(null);
+    setMultiCanvasViewers([]);
+
+    // 레이아웃에 따른 최대 뷰포트 수 계산
+    const getViewportCount = (l: LayoutType): number => {
+      switch (l) {
+        case 'grid-1x1': return 1;
+        case 'grid-2x2': return 4;
+        case 'grid-3x3': return 9;
+        case 'grid-4x4': return 16;
+        case 'grid-5x5': return 25;
+        case 'grid-6x6': return 36;
+        case 'grid-7x7': return 49;
+        case 'grid-8x8': return 64;
+        default: return 4;
+      }
+    };
+    const maxViewports = getViewportCount(layout);
+
+    // 선택된 Instance UID 사용
+    const instanceUidsToLoad = Array.from(selectedUids).slice(0, maxViewports);
+
+    if (instanceUidsToLoad.length === 0) {
+      setError('먼저 "Instance 스캔"을 실행하고 로드할 Instance를 선택하세요');
+      setMultiCanvasLoading(false);
+      return;
+    }
+
+    // DataSource 생성
+    const dataSource = new WadoRsDataSource({
+      baseUrl: wadoBaseUrl,
+      timeout: 60000,
+      maxRetries: 3,
+    });
+
+    const viewers: ViewerData[] = [];
+
+    for (let i = 0; i < instanceUidsToLoad.length; i++) {
+      const instanceUidToLoad = instanceUidsToLoad[i];
+
+      try {
+        // DICOM 데이터 로드
+        const { metadata, frames } = await dataSource.loadAllFrames({
+          studyInstanceUid: studyUid,
+          seriesInstanceUid: seriesUid,
+          sopInstanceUid: instanceUidToLoad,
+        });
+
+        // ViewerData 형식으로 변환
+        viewers.push({
+          id: `viewer-${i}`,
+          frames,
+          imageInfo: metadata.imageInfo,
+          isEncapsulated: metadata.isEncapsulated,
+          label: `#${i + 1} (${metadata.frameCount}f)`,
+        });
+
+        console.log(`[MultiCanvas] Loaded ${frames.length} frames for viewer ${i + 1}`);
+      } catch (err) {
+        console.error(`[MultiCanvas] Failed to load ${instanceUidToLoad}:`, err);
+        // 에러 발생해도 계속 진행 (빈 슬롯으로 표시됨)
+      }
+    }
+
+    setMultiCanvasViewers(viewers);
+    setMultiCanvasLoading(false);
   };
 
   // HybridMultiViewport에서 내부 뷰포트 ID가 준비되면 호출되는 콜백
@@ -1422,26 +1527,113 @@ export default function App() {
 
           {/* DICOM 뷰포트 (Local / WADO-RS 모두 viewportData 사용) */}
           {viewportData && (
-            <SingleDicomViewer
-              frames={viewportData.frames}
-              imageInfo={viewportData.imageInfo}
-              isEncapsulated={viewportData.isEncapsulated}
-              width={singleViewportWidth}
-              height={singleViewportHeight}
-              showToolbar={true}
-              showContextLossTest={true}
-              // Phase 3e: SVG 어노테이션 표시
-              annotations={singleAnnotations}
-              // Phase 3f: 어노테이션 생성 콜백
-              onAnnotationUpdate={handleSingleAnnotationUpdate}
-              // Phase 3g-2: 어노테이션 선택/편집
-              selectedAnnotationId={selectedAnnotationId}
-              onAnnotationSelect={handleAnnotationSelect}
-              onAnnotationDelete={handleAnnotationDelete}
-              // Phase 3g: 어노테이션 보이기/숨김
-              showAnnotations={showAnnotations}
-              onAnnotationsVisibilityChange={setShowAnnotations}
-            />
+            <div
+              onDoubleClick={() => setSingleExpandedView(true)}
+              style={{ cursor: 'pointer' }}
+              title="더블클릭하여 확대 보기"
+            >
+              <SingleDicomViewer
+                frames={viewportData.frames}
+                imageInfo={viewportData.imageInfo}
+                isEncapsulated={viewportData.isEncapsulated}
+                width={singleViewportWidth}
+                height={singleViewportHeight}
+                showToolbar={true}
+                showContextLossTest={true}
+                // Phase 3e: SVG 어노테이션 표시
+                annotations={singleAnnotations}
+                // Phase 3f: 어노테이션 생성 콜백
+                onAnnotationUpdate={handleSingleAnnotationUpdate}
+                // Phase 3g-2: 어노테이션 선택/편집
+                selectedAnnotationId={selectedAnnotationId}
+                onAnnotationSelect={handleAnnotationSelect}
+                onAnnotationDelete={handleAnnotationDelete}
+                // Phase 3g: 어노테이션 보이기/숨김
+                showAnnotations={showAnnotations}
+                onAnnotationsVisibilityChange={setShowAnnotations}
+              />
+            </div>
+          )}
+
+          {/* Single Viewport 확대 보기 오버레이 */}
+          {singleExpandedView && viewportData && (
+            <div
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(0, 0, 0, 0.98)',
+                zIndex: 1000,
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+              }}
+            >
+              {/* 헤더 */}
+              <div
+                style={{
+                  flexShrink: 0,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '12px 20px',
+                  background: '#1a1a2e',
+                  borderBottom: '1px solid #333',
+                  color: '#fff',
+                }}
+              >
+                <h2 style={{ margin: 0, fontSize: '16px' }}>
+                  🔍 확대 보기: {fileName || 'DICOM Image'}
+                </h2>
+                <button
+                  onClick={() => setSingleExpandedView(false)}
+                  style={{
+                    padding: '8px 16px',
+                    fontSize: '13px',
+                    background: '#c44',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ✕ 닫기 (ESC)
+                </button>
+              </div>
+
+              {/* 확대된 SingleDicomViewer */}
+              <div
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'flex-start',
+                  padding: '20px',
+                  paddingTop: '10px',
+                  overflow: 'auto',
+                  minHeight: 0,
+                }}
+              >
+                <SingleDicomViewer
+                  frames={viewportData.frames}
+                  imageInfo={viewportData.imageInfo}
+                  isEncapsulated={viewportData.isEncapsulated}
+                  width={Math.min(window.innerWidth - 80, 1200)}
+                  height={Math.min(window.innerHeight - 150, 800)}
+                  initialFps={30}
+                  showAnnotations={showAnnotations}
+                  showToolbar={true}
+                  showControls={true}
+                  annotations={singleAnnotations}
+                  selectedAnnotationId={selectedAnnotationId}
+                  onAnnotationSelect={handleAnnotationSelect}
+                  onAnnotationUpdate={handleSingleAnnotationUpdate}
+                  onAnnotationDelete={handleAnnotationDelete}
+                />
+              </div>
+            </div>
           )}
 
           {/* 파일 선택 - 로컬 모드만 */}
@@ -1949,8 +2141,8 @@ export default function App() {
               key={performanceKey}
               ref={multiViewportRef}
               layout={layout}
-              width={1024}
-              height={768}
+              width={1320}
+              height={900}
               seriesMap={multiSeriesMap}
               syncMode="frame-ratio"
               initialFps={fps}
@@ -2401,29 +2593,29 @@ export default function App() {
               </div>
               <div>
                 <label style={{ display: 'block', color: '#8cf', marginBottom: '5px', fontSize: '13px' }}>
-                  뷰포트 개수
+                  Layout
                 </label>
-                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(count => (
-                    <button
-                      key={count}
-                      onClick={() => setMultiCanvasCount(count)}
-                      style={{
-                        padding: '6px 12px',
-                        fontSize: '13px',
-                        background: multiCanvasCount === count ? '#47a' : '#2a2a3a',
-                        color: '#fff',
-                        border: multiCanvasCount === count ? '2px solid #8cf' : '1px solid #555',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontWeight: multiCanvasCount === count ? 'bold' : 'normal',
-                        minWidth: '40px',
-                      }}
-                    >
-                      {count}
-                    </button>
-                  ))}
-                </div>
+                <select
+                  value={layout}
+                  onChange={(e) => setLayout(e.target.value as LayoutType)}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    fontSize: '13px',
+                    background: '#2a2a3a',
+                    border: '1px solid #555',
+                    borderRadius: '4px',
+                    color: '#fff',
+                  }}
+                >
+                  <option value="grid-2x2">2x2 (4 viewports)</option>
+                  <option value="grid-3x3">3x3 (9 viewports)</option>
+                  <option value="grid-4x4">4x4 (16 viewports)</option>
+                  <option value="grid-5x5">5x5 (25 viewports)</option>
+                  <option value="grid-6x6">6x6 (36 viewports)</option>
+                  <option value="grid-7x7">7x7 (49 viewports)</option>
+                  <option value="grid-8x8">8x8 (64 viewports)</option>
+                </select>
               </div>
             </div>
 
@@ -2446,29 +2638,20 @@ export default function App() {
               </button>
 
               <button
-                onClick={() => {
-                  const uidsToLoad = Array.from(selectedUids).slice(0, multiCanvasCount);
-                  if (uidsToLoad.length === 0) {
-                    setError('로드할 Instance를 선택하세요');
-                    return;
-                  }
-                  setMultiCanvasUids(uidsToLoad);
-                  setMultiCanvasLoaded(true);
-                  setError(null);
-                }}
-                disabled={selectedUids.size === 0 || !!scanningStatus}
+                onClick={loadMultiCanvasViewers}
+                disabled={selectedUids.size === 0 || !!scanningStatus || multiCanvasLoading}
                 style={{
                   padding: '10px 20px',
-                  background: selectedUids.size === 0 ? '#555' : '#4a7',
+                  background: selectedUids.size === 0 || multiCanvasLoading ? '#555' : '#4a7',
                   color: '#fff',
                   border: 'none',
                   borderRadius: '4px',
-                  cursor: selectedUids.size === 0 ? 'not-allowed' : 'pointer',
+                  cursor: selectedUids.size === 0 || multiCanvasLoading ? 'not-allowed' : 'pointer',
                   fontSize: '14px',
                   fontWeight: 'bold',
                 }}
               >
-                로드 ({Math.min(selectedUids.size, multiCanvasCount)}개)
+                {multiCanvasLoading ? '로딩 중...' : `로드 (${Math.min(selectedUids.size, getMaxSelect())}개)`}
               </button>
             </div>
 
@@ -2482,7 +2665,7 @@ export default function App() {
                   marginBottom: '10px',
                 }}>
                   <span style={{ color: '#8cf', fontSize: '13px' }}>
-                    Instance 선택 ({selectedUids.size} / {multiCanvasCount}개)
+                    Instance 선택 ({selectedUids.size} / {getMaxSelect()}개)
                   </span>
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <button
@@ -2571,18 +2754,115 @@ export default function App() {
             )}
           </div>
 
-          {/* MultiCanvasGrid 렌더링 */}
-          {multiCanvasLoaded && multiCanvasUids.length > 0 && multiCanvasDataSource && (
-            <MultiCanvasGrid
-              key={multiCanvasUids.join('-')}
-              layout={layout}
-              dataSource={multiCanvasDataSource}
-              studyUid={studyUid}
-              seriesUid={seriesUid}
-              instanceUids={multiCanvasUids}
-              viewportSize={layout === 'grid-2x2' ? 380 : layout === 'grid-3x3' ? 250 : 180}
-              gap={4}
-            />
+          {/* SingleDicomViewerGroup 렌더링 */}
+          {multiCanvasViewers.length > 0 && (
+            <div style={{ marginTop: '15px' }}>
+              {/* 그룹 컨트롤 패널 */}
+              <div style={{
+                padding: '12px',
+                marginBottom: '10px',
+                background: '#1a2a1a',
+                border: '1px solid #4a7',
+                borderRadius: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px',
+                flexWrap: 'wrap',
+              }}>
+                <button
+                  onClick={() => multiCanvasGroupRef.current?.togglePlayAll()}
+                  style={{
+                    padding: '8px 20px',
+                    fontSize: '14px',
+                    background: '#4c4',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    minWidth: '120px',
+                    fontWeight: 'bold',
+                  }}
+                >
+                  ▶/⏸ 전체 재생/정지
+                </button>
+                <button
+                  onClick={() => multiCanvasGroupRef.current?.resetFrameAll()}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '12px',
+                    background: '#444',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ⏮ 처음으로
+                </button>
+                <button
+                  onClick={() => multiCanvasGroupRef.current?.resetViewportAll()}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '12px',
+                    background: '#444',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  🔄 뷰포트 리셋
+                </button>
+                <span style={{ color: '#8f8', fontSize: '13px' }}>
+                  {multiCanvasViewers.length}개 뷰어 로드됨
+                </span>
+              </div>
+
+              {/* SingleDicomViewerGroup */}
+              <SingleDicomViewerGroup
+                ref={multiCanvasGroupRef}
+                viewers={multiCanvasViewers}
+                layout={(() => {
+                  // LayoutType → ViewerGroupLayout 변환
+                  const layoutMap: Record<LayoutType, ViewerGroupLayout> = {
+                    'grid-1x1': '1x1',
+                    'grid-2x2': '2x2',
+                    'grid-3x3': '3x3',
+                    'grid-4x4': '4x4',
+                    'grid-5x5': '4x4', // 4x4로 fallback (ViewerGroupLayout에 5x5 없음)
+                    'grid-6x6': '4x4',
+                    'grid-7x7': '4x4',
+                    'grid-8x8': '4x4',
+                  };
+                  return layoutMap[layout] ?? '2x2';
+                })()}
+                width={1320}
+                height={900}
+                gap={8}
+                fps={30}
+                selectable={true}
+                viewerOptions={{
+                  showToolbar: true,
+                  showStatusBar: true,
+                  showControls: true,
+                  toolbarCompact: true,
+                }}
+              />
+            </div>
+          )}
+
+          {/* 로딩 상태 표시 */}
+          {multiCanvasLoading && (
+            <div style={{
+              padding: '40px',
+              background: '#1a1a2a',
+              borderRadius: '4px',
+              textAlign: 'center',
+              color: '#8cf',
+            }}>
+              <div style={{ fontSize: '20px', marginBottom: '10px' }}>⏳</div>
+              DICOM 데이터를 로딩 중입니다...
+            </div>
           )}
 
           {/* 스캔 전 안내 */}

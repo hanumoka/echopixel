@@ -5,7 +5,7 @@
 | 항목 | 상태 |
 |------|------|
 | **현재 Phase** | Phase 3 (Annotations) ✅ 핵심 완료 |
-| **마지막 업데이트** | 2026-01-21 (IP 접속 지원 + sado_be CORS 수정) |
+| **마지막 업데이트** | 2026-01-21 (Multi ViewPort 캘리브레이션 버그 수정) |
 | **다음 마일스톤** | Phase 3g-2 (어노테이션 선택/편집 UI) 또는 Phase 4 |
 
 ---
@@ -80,6 +80,7 @@
 | Single Viewport 사이즈 조정 | ✅ | 반응형 레이아웃 + 크기 조정 UI |
 | 플립 기능 (가로/세로) | ✅ | CSS transform scaleX/Y 기반 |
 | 데모 중복 Hybrid 모드 제거 | ✅ | 로컬 HybridViewport 폴더 삭제 |
+| **데모 Multi Canvas 모드 리팩토링** | ✅ | MultiCanvasGrid → SingleDicomViewerGroup |
 
 ### Phase 2.7: Multi Viewport Rotation/Flip ✅ 완료
 
@@ -183,7 +184,7 @@
 | 어노테이션 표시 토글 | ✅ | showAnnotations prop + 데모 UI |
 | 도구바 영역 항상 예약 | ✅ | DICOM 영역 크기 변화 방지 (선택/해제 시) |
 | 종횡비 보정 (Aspect Ratio) | ✅ | Cornerstone 방식 fit-to-viewport, 이미지 비율 유지 |
-| 더블클릭 확대 뷰 | ✅ | Multi ViewPort에서 DICOM 더블클릭 → Single 뷰 확대 |
+| 더블클릭 확대 뷰 | ✅ | Single/Multi ViewPort에서 DICOM 더블클릭 → 오버레이 확대 |
 | onViewportIdsReady 콜백 | ✅ | setTimeout 대신 안정적인 ID 매핑 콜백 |
 | IP 접속 지원 | ✅ | Vite host 0.0.0.0, 동적 WADO URL, sado_be CORS |
 | 측정 도구 (Ellipse, VTI) | ⏳ | 확장 도구 (선택적) |
@@ -200,7 +201,7 @@
 **Calibration 구현 상세**:
 - Local File: `getImageInfo()` → `getPixelSpacing()` / `getUltrasoundCalibration()`
 - WADO-RS: `parseDicomJson()` → Pixel Spacing, Ultrasound Calibration 파싱
-- WADO-RS fallback: 메타데이터에 없으면 전체 DICOM 인스턴스에서 추출
+- WADO-RS fallback: 메타데이터에 없으면 전체 DICOM 인스턴스에서 추출 (Single + Multi 모두 적용)
 - 단위: mm(Pixel Spacing) → cm 변환, Ultrasound는 이미 cm/pixel
 
 **설계 원칙**:
@@ -313,6 +314,7 @@
 | 조작 도구/어노테이션 도구 간섭 | 🟢 해결 | MANIPULATION_TOOL_IDS + 바인딩 복원 |
 | DragHandle 드래그 시 W/L 동작 | 🟢 해결 | nativeEvent.stopImmediatePropagation |
 | 이미지 경계 밖 어노테이션 생성 | 🟢 해결 | isWithinImageBounds() 검증 |
+| Multi ViewPort 거리 측정 "px" 표시 | 🟢 해결 | WADO-RS 캘리브레이션 폴백 로직 추가 |
 
 ---
 

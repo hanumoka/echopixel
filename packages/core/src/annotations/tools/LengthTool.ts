@@ -87,9 +87,18 @@ export class LengthTool extends MeasurementTool {
     const [p1, p2] = points;
     const { calibration, mode, transformContext } = context;
 
+    console.log('[LengthTool] calculateMeasurement called:', {
+      hasCalibration: !!calibration,
+      calibration,
+      mode,
+      hasTransformContext: !!transformContext,
+      transformContextCalibration: transformContext?.calibration,
+    });
+
     // 캘리브레이션 없으면 픽셀 거리만 반환
     if (!calibration) {
       const pixelDistance = this.calculateDistance(p1, p2);
+      console.log('[LengthTool] ❌ No calibration, returning pixel distance:', pixelDistance);
       return {
         value: pixelDistance,
         unit: 'px',

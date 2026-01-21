@@ -6,6 +6,150 @@
 
 ---
 
+## 2026-01-21 세션 #30 (Multi ViewPort 캘리브레이션 버그 수정)
+
+### 작업 내용
+
+**Multi ViewPort 거리 어노테이션 "px" 표시 버그 수정** ⭐
+
+사용자 이슈: "Multi ViewPort (Single canvas 기반)"에서 거리 측정 시 mm/cm 대신 "px" 표시
+
+**근본 원인 분석**:
+1. 디버그 로깅으로 문제 추적
+2. `[HybridMultiViewport] imageInfo for viewport: { hasUltrasoundCalibration: false }` 확인
+3. `[WadoRsDataSource] ✅ Parsed ultrasoundCalibration:` 로그가 전혀 없음 발견
+4. **원인**: WADO-RS 서버가 Ultrasound Calibration 태그(00186011)를 메타데이터에 포함하지 않음
+5. Single ViewPort에는 폴백 로직이 있었으나, Multi ViewPort에는 없었음
+
+**수정 사항**:
+- [x] `handleMultiViewportLoad`에 캘리브레이션 폴백 로직 추가
+  - WADO-RS 메타데이터에 pixelSpacing/ultrasoundCalibration 없으면
+  - 전체 DICOM 인스턴스(`application/dicom`) 로드하여 캘리브레이션 추출
+- [x] `setMultiCanvasLoaded is not defined` 에러 수정
+  - 이전 리팩토링에서 상태 제거 후 참조 남아있던 버그
+
+**Single ViewPort 더블클릭 확대 기능 추가**:
+- [x] `singleExpandedView` 상태 추가
+- [x] ESC 키로 확대 뷰 닫기 (Single + Multi 모두)
+- [x] body 스크롤 비활성화 (확대 뷰 열릴 때)
+
+**디버그 로깅 추가** (문제 진단용):
+- [x] `WadoRsDataSource.parseUltrasoundCalibration`: 태그 존재 여부, 시퀀스 내용 로깅
+- [x] `WadoRsDataSource.parseDicomJson`: 캘리브레이션 파싱 결과 로깅
+- [x] `App.tsx handleMultiViewportLoad`: 뷰포트별 캘리브레이션 정보 로깅
+
+### 파일 변경
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `apps/demo/src/App.tsx` | 캘리브레이션 폴백 로직, setMultiCanvasLoaded 에러 수정, Single 확대 뷰, 디버그 로깅 |
+| `packages/core/src/datasource/WadoRsDataSource.ts` | 상세 디버그 로깅 추가 |
+
+### 핵심 코드
+
+**캘리브레이션 폴백 로직 (App.tsx)**
+```typescript
+// calibration 폴백: WADO-RS 메타데이터에 없으면 전체 DICOM 인스턴스에서 추출
+if (!finalImageInfo.pixelSpacing && !finalImageInfo.ultrasoundCalibration) {
+  const instanceUrl = `${wadoBaseUrl}/studies/${studyUid}/series/${seriesUid}/instances/${instanceUidToLoad}`;
+  const instanceResponse = await fetch(instanceUrl, {
+    headers: { 'Accept': 'application/dicom' },
+  });
+
+  if (instanceResponse.ok) {
+    const instanceBuffer = await instanceResponse.arrayBuffer();
+    const ultrasoundCalibration = getUltrasoundCalibration(instanceBuffer);
+    if (ultrasoundCalibration) {
+      finalImageInfo = { ...finalImageInfo, ultrasoundCalibration };
+    }
+  }
+}
+```
+
+### 학습 포인트
+
+- **WADO-RS vs DICOM Part 10**: WADO-RS 메타데이터(`application/dicom+json`)는 서버 설정에 따라 일부 태그가 누락될 수 있음. 전체 DICOM 인스턴스(`application/dicom`)를 로드하면 모든 태그 접근 가능.
+- **캘리브레이션 폴백 전략**: 메타데이터에 없으면 전체 인스턴스에서 추출 (네트워크 비용 증가, 정확도 보장)
+- **코드 일관성**: 동일한 기능(캘리브레이션 추출)은 모든 뷰포트 타입에 동일하게 적용해야 함
+
+### 다음 세션 할 일
+
+- [ ] 어노테이션 선택/편집 UI (DragHandle 통합)
+- [ ] 포인트 드래그 편집
+- [ ] 라벨 위치 이동
+
+---
+
+## 2026-01-21 세션 #29 (Multi Canvas 모드 리팩토링)
+
+### 작업 내용
+
+**Multi Canvas 모드 리팩토링 - SingleDicomViewerGroup 적용** ⭐
+
+"Multi ViewPort (Single viewPort 기반)" 탭이 실제로는 레거시 `DicomViewport` 컴포넌트를 사용하고 있어 Single ViewPort의 풍부한 UI (툴바, 상태바, 어노테이션 도구)가 없었음. 이를 `SingleDicomViewerGroup`으로 교체하여 일관된 UI 제공.
+
+- [x] `MultiCanvasGrid` → `SingleDicomViewerGroup` 교체
+- [x] 데이터 로딩 함수 `loadMultiCanvasViewers()` 추가
+  - WADO-RS를 통해 DICOM 데이터 로드
+  - `ViewerData[]` 형식으로 변환
+- [x] 그룹 컨트롤 패널 추가
+  - 전체 재생/정지 토글
+  - 처음으로 이동
+  - 뷰포트 리셋
+- [x] 상태 변수 정리
+  - `multiCanvasLoaded`, `multiCanvasUids` → `multiCanvasViewers` (ViewerData[])
+  - `multiCanvasDataSource` useMemo 제거
+  - `multiCanvasGroupRef` (SingleDicomViewerGroupHandle) 추가
+
+### 설계 결정
+
+| 옵션 | 설명 | 선택 |
+|------|------|------|
+| A. SingleDicomViewerGroup 사용 | @echopixel/react의 기존 컴포넌트 활용 | ✅ 선택 |
+| B. MultiCanvasGrid 리팩토링 | DicomViewport → SingleDicomViewer 직접 교체 | - |
+| C. 현상 유지 + UI 개선 | DicomViewport에 기능 추가 | - |
+
+**선택 이유**: "안전하고 유연한 설계" - 이미 검증된 SingleDicomViewerGroup을 사용하여 코드 중복 방지 및 일관성 유지
+
+### 파일 변경
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `apps/demo/src/App.tsx` | SingleDicomViewerGroup import, 상태/로딩 함수 추가, 렌더링 교체 |
+
+### 핵심 코드
+
+**ViewerData 변환 (loadMultiCanvasViewers)**
+```typescript
+viewers.push({
+  id: `viewer-${i}`,
+  frames,
+  imageInfo: metadata.imageInfo,
+  isEncapsulated: metadata.isEncapsulated,
+  label: `#${i + 1} (${metadata.frameCount}f)`,
+});
+```
+
+**레이아웃 변환 (LayoutType → ViewerGroupLayout)**
+```typescript
+const layoutMap: Record<LayoutType, ViewerGroupLayout> = {
+  'grid-1x1': '1x1',
+  'grid-2x2': '2x2',
+  'grid-3x3': '3x3',
+  'grid-4x4': '4x4',
+  'grid-5x5': '4x4', // fallback
+  // ...
+};
+```
+
+### 학습 포인트
+
+- **컴포넌트 재사용**: 라이브러리에 이미 존재하는 `SingleDicomViewerGroup`을 활용하면 중복 구현 없이 일관된 UI 제공 가능
+- **데이터 변환 레이어**: 기존 WADO-RS 로딩 로직을 `ViewerData[]` 형식으로 변환하여 컴포넌트에 전달
+- **레거시 코드 정리**: 사용하지 않는 상태/함수 제거로 코드 복잡도 감소
+
+---
+
 ## 2026-01-21 세션 #28 (더블클릭 확대 뷰 & IP 접속 지원)
 
 ### 작업 내용

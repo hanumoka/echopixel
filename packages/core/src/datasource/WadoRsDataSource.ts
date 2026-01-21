@@ -468,6 +468,13 @@ export class WadoRsDataSource implements DataSource {
     // Ultrasound Region Calibration 파싱 (0018,6011)
     const ultrasoundCalibration = this.parseUltrasoundCalibration(json);
 
+    console.log('[WadoRsDataSource] parseDicomJson calibration result:', {
+      hasPixelSpacing: !!pixelSpacing,
+      pixelSpacing,
+      hasUltrasoundCalibration: !!ultrasoundCalibration,
+      ultrasoundCalibration,
+    });
+
     const imageInfo: DicomImageInfo = {
       rows,
       columns,
@@ -553,8 +560,21 @@ export class WadoRsDataSource implements DataSource {
    * }
    */
   private parseUltrasoundCalibration(json: Record<string, unknown>): UltrasoundCalibration | undefined {
+    // Debug: 전체 JSON에서 00186011 태그 존재 여부 확인
+    const hasTag = '00186011' in json;
+    console.log('[WadoRsDataSource] parseUltrasoundCalibration called, has 00186011 tag:', hasTag);
+
+    if (!hasTag) {
+      // 사용 가능한 캘리브레이션 관련 태그 확인
+      const calibrationTags = Object.keys(json).filter(key => key.startsWith('0018'));
+      console.log('[WadoRsDataSource] Available 0018xxxx tags:', calibrationTags.slice(0, 10));
+    }
+
     const sequenceElement = json['00186011'] as { Value?: Record<string, unknown>[] } | undefined;
+    console.log('[WadoRsDataSource] sequenceElement:', sequenceElement);
+
     if (!sequenceElement?.Value || sequenceElement.Value.length === 0) {
+      console.log('[WadoRsDataSource] ❌ No ultrasound calibration sequence found');
       return undefined;
     }
 
@@ -587,18 +607,21 @@ export class WadoRsDataSource implements DataSource {
     // 값 유효성 검증
     if (!Number.isFinite(physicalDeltaX) || !Number.isFinite(physicalDeltaY) ||
         physicalDeltaX === 0 || physicalDeltaY === 0) {
+      console.log('[WadoRsDataSource] ultrasoundCalibration invalid values:', { physicalDeltaX, physicalDeltaY });
       return undefined;
     }
 
     // cm 단위 (3)가 아닌 경우 스킵 (선택적 - 다른 단위도 지원 가능)
     // 현재는 모든 단위를 허용하고 SingleDicomViewer에서 변환 처리
 
-    return {
+    const result = {
       physicalDeltaX,
       physicalDeltaY,
       physicalUnitsX,
       physicalUnitsY,
     };
+    console.log('[WadoRsDataSource] ✅ Parsed ultrasoundCalibration:', result);
+    return result;
   }
 
   /**
