@@ -67,6 +67,7 @@ import {
   LengthTool,
   AngleTool,
   PointTool,
+  calculateAspectScale,
   type LayoutType,
   type Viewport,
   type ViewportSeriesInfo,
@@ -730,6 +731,30 @@ export const HybridMultiViewport = forwardRef<
   }, [activeViewportId, activeMeasurementToolId, viewports, getActiveViewportTransformContext,
       handleAnnotationCreated, handleTempUpdate]);
 
+  // 도구바 표시/숨김 시 WebGL bounds 재동기화
+  // activeViewportId 변경 → DOM 업데이트(도구바 표시/숨김) → bounds 재계산
+  // 하단 도구바는 항상 선택된 뷰포트에 표시되므로 activeViewportId 변경 시 항상 재동기화 필요
+  useEffect(() => {
+    if (!hybridManagerRef.current) return;
+
+    // DOM 업데이트 후 다음 프레임에서 동기화 (requestAnimationFrame 2회로 확실하게)
+    let rafId1: number;
+    let rafId2: number;
+
+    rafId1 = requestAnimationFrame(() => {
+      rafId2 = requestAnimationFrame(() => {
+        hybridManagerRef.current?.markNeedsSync();
+        hybridManagerRef.current?.syncAllSlots();
+        renderSchedulerRef.current?.renderSingleFrame();
+      });
+    });
+
+    return () => {
+      cancelAnimationFrame(rafId1);
+      cancelAnimationFrame(rafId2);
+    };
+  }, [activeViewportId, showAnnotationTools]);
+
   // ResizeObserver로 컨테이너 크기 자동 감지
   useEffect(() => {
     if (width !== undefined && height !== undefined) return;
@@ -837,8 +862,18 @@ export const HybridMultiViewport = forwardRef<
         };
       }
 
+      // 종횡비 보정 스케일 계산 (fit-to-viewport with aspect ratio preservation)
+      const aspectScale = viewport.series
+        ? calculateAspectScale(
+            viewport.series.imageWidth,
+            viewport.series.imageHeight,
+            bounds.width,
+            bounds.height
+          )
+        : undefined;
+
       textureManager.bindArrayTexture(viewport.textureUnit);
-      arrayRenderer.renderFrame(viewport.textureUnit, frameIndex, wl, transform);
+      arrayRenderer.renderFrame(viewport.textureUnit, frameIndex, wl, transform, aspectScale);
     });
 
     renderScheduler.setFrameUpdateCallback((viewportId: string, frameIndex: number) => {
@@ -1435,6 +1470,244 @@ export const HybridMultiViewport = forwardRef<
             onDelete: (annotationId: string) => onAnnotationDelete?.(id, annotationId),
           };
 
+          // 도구바 영역은 항상 예약, 버튼은 선택된 뷰포트에서만 표시
+          const isThisViewportSelected = activeViewportId === id;
+          const toolbarHeight = 52;
+          const bottomToolbarHeight = 48;
+
+          // 상단 도구바 UI (영역은 항상 예약, 버튼은 선택 시에만)
+          const toolbarUI = showAnnotationTools ? (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: `${toolbarHeight}px`,
+                padding: '8px 12px',
+                background: isThisViewportSelected ? 'rgba(20, 25, 40, 0.95)' : 'rgba(10, 15, 25, 0.7)',
+                borderBottom: isThisViewportSelected ? '2px solid rgba(74, 158, 255, 0.5)' : '1px solid rgba(255, 255, 255, 0.1)',
+                gap: '8px',
+              }}
+            >
+              {/* 버튼은 선택된 뷰포트에서만 표시 */}
+              {isThisViewportSelected && (
+                <>
+              {/* 조작 도구 */}
+              <button
+                onClick={() => handleToolChange('WindowLevel')}
+                title="밝기/대비 조정 (W/L)"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: '32px', height: '32px',
+                  background: activeTool === 'WindowLevel' ? 'rgba(74, 158, 255, 0.6)' : 'rgba(0, 0, 0, 0.7)',
+                  color: activeTool === 'WindowLevel' ? '#fff' : '#ccc',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '4px', cursor: 'pointer', fontSize: '16px',
+                }}
+              >
+                ☀️
+              </button>
+              <button
+                onClick={() => handleToolChange('Pan')}
+                title="이미지 이동"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: '32px', height: '32px',
+                  background: activeTool === 'Pan' ? 'rgba(74, 158, 255, 0.6)' : 'rgba(0, 0, 0, 0.7)',
+                  color: activeTool === 'Pan' ? '#fff' : '#ccc',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '4px', cursor: 'pointer', fontSize: '16px',
+                }}
+              >
+                ✋
+              </button>
+              <button
+                onClick={() => handleToolChange('Zoom')}
+                title="확대/축소"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: '32px', height: '32px',
+                  background: activeTool === 'Zoom' ? 'rgba(74, 158, 255, 0.6)' : 'rgba(0, 0, 0, 0.7)',
+                  color: activeTool === 'Zoom' ? '#fff' : '#ccc',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '4px', cursor: 'pointer', fontSize: '16px',
+                }}
+              >
+                🔍
+              </button>
+
+              {/* 구분선 */}
+              <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.3)', margin: '0 4px' }} />
+
+              {/* 어노테이션 도구 */}
+              <button
+                onClick={() => handleToolChange('Length')}
+                title="거리 측정"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: '32px', height: '32px',
+                  background: activeTool === 'Length' ? 'rgba(74, 158, 255, 0.6)' : 'rgba(0, 0, 0, 0.7)',
+                  color: activeTool === 'Length' ? '#fff' : '#ccc',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '4px', cursor: 'pointer', fontSize: '16px',
+                }}
+              >
+                📏
+              </button>
+              <button
+                onClick={() => handleToolChange('Angle')}
+                title="각도 측정"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: '32px', height: '32px',
+                  background: activeTool === 'Angle' ? 'rgba(74, 158, 255, 0.6)' : 'rgba(0, 0, 0, 0.7)',
+                  color: activeTool === 'Angle' ? '#fff' : '#ccc',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '4px', cursor: 'pointer', fontSize: '16px',
+                }}
+              >
+                ∠
+              </button>
+              <button
+                onClick={() => handleToolChange('Point')}
+                title="점 마커"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: '32px', height: '32px',
+                  background: activeTool === 'Point' ? 'rgba(74, 158, 255, 0.6)' : 'rgba(0, 0, 0, 0.7)',
+                  color: activeTool === 'Point' ? '#fff' : '#ccc',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '4px', cursor: 'pointer', fontSize: '16px',
+                }}
+              >
+                ●
+              </button>
+              </>
+              )}
+            </div>
+          ) : null;
+
+          // 하단 도구바 UI (영역은 항상 예약, 버튼은 선택 시에만)
+          const bottomToolbarUI = (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: `${bottomToolbarHeight}px`,
+                padding: '6px 12px',
+                background: isThisViewportSelected ? 'rgba(20, 25, 40, 0.95)' : 'rgba(10, 15, 25, 0.7)',
+                borderTop: isThisViewportSelected ? '2px solid rgba(74, 158, 255, 0.5)' : '1px solid rgba(255, 255, 255, 0.1)',
+                gap: '8px',
+              }}
+            >
+              {/* 버튼은 선택된 뷰포트에서만 표시 */}
+              {isThisViewportSelected && (
+              <>
+              {/* 회전 버튼 */}
+              <button
+                onClick={() => handleRotateLeft(id)}
+                title="좌 90° 회전"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: '32px', height: '32px',
+                  background: 'rgba(0, 0, 0, 0.7)',
+                  color: '#ccc',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '4px', cursor: 'pointer', fontSize: '16px',
+                }}
+              >
+                ↺
+              </button>
+              <button
+                onClick={() => handleRotateRight(id)}
+                title="우 90° 회전"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: '32px', height: '32px',
+                  background: 'rgba(0, 0, 0, 0.7)',
+                  color: '#ccc',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '4px', cursor: 'pointer', fontSize: '16px',
+                }}
+              >
+                ↻
+              </button>
+
+              {/* 구분선 */}
+              <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.3)', margin: '0 4px' }} />
+
+              {/* 플립 버튼 */}
+              <button
+                onClick={() => handleFlipH(id)}
+                title="가로 플립 (좌우 반전)"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: '32px', height: '32px',
+                  background: viewport?.transform.flipH ? 'rgba(74, 158, 255, 0.6)' : 'rgba(0, 0, 0, 0.7)',
+                  color: viewport?.transform.flipH ? '#fff' : '#ccc',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '4px', cursor: 'pointer', fontSize: '16px',
+                }}
+              >
+                ⇆
+              </button>
+              <button
+                onClick={() => handleFlipV(id)}
+                title="세로 플립 (상하 반전)"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: '32px', height: '32px',
+                  background: viewport?.transform.flipV ? 'rgba(74, 158, 255, 0.6)' : 'rgba(0, 0, 0, 0.7)',
+                  color: viewport?.transform.flipV ? '#fff' : '#ccc',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '4px', cursor: 'pointer', fontSize: '16px',
+                }}
+              >
+                ⇅
+              </button>
+
+              {/* 구분선 */}
+              <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.3)', margin: '0 4px' }} />
+
+              {/* 리셋 버튼 */}
+              <button
+                onClick={() => handleResetViewport(id)}
+                title="리셋"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: '32px', height: '32px',
+                  background: 'rgba(0, 0, 0, 0.7)',
+                  color: '#f88',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '4px', cursor: 'pointer', fontSize: '16px',
+                }}
+              >
+                ⟲
+              </button>
+
+              {/* 현재 상태 표시 */}
+              {(viewport?.transform.rotation !== 0 || viewport?.transform.flipH || viewport?.transform.flipV) && (
+                <span
+                  style={{
+                    background: 'rgba(74, 158, 255, 0.5)',
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    color: '#fff',
+                    marginLeft: '4px',
+                  }}
+                >
+                  {viewport?.transform.rotation !== 0 && `${viewport?.transform.rotation}°`}
+                  {viewport?.transform.flipH && ' H'}
+                  {viewport?.transform.flipV && ' V'}
+                </span>
+              )}
+              </>
+              )}
+            </div>
+          );
+
           return (
             <HybridViewportSlot
               key={id}
@@ -1454,6 +1727,10 @@ export const HybridMultiViewport = forwardRef<
                   setViewportElementsVersion((v) => v + 1);
                 }
               }}
+              topToolbar={toolbarUI}
+              topToolbarHeight={showAnnotationTools ? toolbarHeight : 0}
+              bottomToolbar={bottomToolbarUI}
+              bottomToolbarHeight={bottomToolbarHeight}
             >
               {/* SVGOverlay - 어노테이션 표시 */}
               {/* showAnnotations: 저장된 어노테이션 표시 여부 */}
@@ -1482,7 +1759,7 @@ export const HybridMultiViewport = forwardRef<
                 )
               )}
 
-              {/* 기존 오버레이 렌더링 */}
+              {/* 기존 오버레이 렌더링 (도구바 제외 - 정보 표시만) */}
               {renderOverlay ? (
                 renderOverlay(viewport, index)
               ) : showDefaultOverlay ? (
@@ -1492,19 +1769,9 @@ export const HybridMultiViewport = forwardRef<
                   totalFrames={viewport?.series?.frameCount}
                   isPlaying={viewport?.playback.isPlaying}
                   isSelected={activeViewportId === id}
-                  showTools={true}
-                  rotation={viewport?.transform.rotation}
-                  flipH={viewport?.transform.flipH}
-                  flipV={viewport?.transform.flipV}
-                  onRotateLeft={() => handleRotateLeft(id)}
-                  onRotateRight={() => handleRotateRight(id)}
-                  onFlipH={() => handleFlipH(id)}
-                  onFlipV={() => handleFlipV(id)}
-                  onReset={() => handleResetViewport(id)}
-                  // Phase 3g: 어노테이션 도구
-                  showAnnotationTools={showAnnotationTools}
-                  activeTool={activeTool}
-                  onToolChange={handleToolChange}
+                  // 도구바는 topToolbar/bottomToolbar로 분리됨
+                  showTools={false}
+                  showAnnotationTools={false}
                 />
               ) : null}
             </HybridViewportSlot>

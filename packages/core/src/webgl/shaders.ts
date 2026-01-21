@@ -18,26 +18,31 @@ layout(location = 1) in vec2 a_texCoord;
 // u_rotation: 회전 각도 (라디안, 기본값 0.0)
 // u_flipH: 가로 플립 (0.0 = false, 1.0 = true)
 // u_flipV: 세로 플립 (0.0 = false, 1.0 = true)
+// u_aspectScale: 종횡비 보정 스케일 (기본값 1.0, 1.0)
 uniform vec2 u_pan;
 uniform float u_zoom;
 uniform float u_rotation;
 uniform float u_flipH;
 uniform float u_flipV;
+uniform vec2 u_aspectScale;
 
 // 출력: Fragment Shader로 전달할 텍스처 좌표
 out vec2 v_texCoord;
 
 void main() {
-  // Zoom 적용 (중앙 기준 스케일)
-  vec2 scaledPos = a_position * u_zoom;
+  // 1. 종횡비 보정 (이미지 비율 유지, fit-to-viewport)
+  vec2 aspectPos = a_position * u_aspectScale;
 
-  // Flip 적용 (Zoom 후, Rotation 전)
+  // 2. Zoom 적용 (중앙 기준 스케일)
+  vec2 scaledPos = aspectPos * u_zoom;
+
+  // 3. Flip 적용 (Zoom 후, Rotation 전)
   vec2 flippedPos = vec2(
     u_flipH > 0.5 ? -scaledPos.x : scaledPos.x,
     u_flipV > 0.5 ? -scaledPos.y : scaledPos.y
   );
 
-  // Rotation 적용 (중앙 기준 회전)
+  // 4. Rotation 적용 (중앙 기준 회전)
   float cosR = cos(u_rotation);
   float sinR = sin(u_rotation);
   vec2 rotatedPos = vec2(
@@ -45,7 +50,7 @@ void main() {
     flippedPos.x * sinR + flippedPos.y * cosR
   );
 
-  // Pan 적용 (NDC 좌표)
+  // 5. Pan 적용 (NDC 좌표)
   vec2 finalPos = rotatedPos + u_pan;
 
   // 정점 위치 설정 (NDC: -1 ~ 1)

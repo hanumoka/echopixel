@@ -53,6 +53,14 @@ export interface HybridViewportSlotProps {
   onElementRef?: (element: HTMLDivElement | null) => void;
   /** 자식 요소 (DicomMiniOverlay 등) */
   children?: ReactNode;
+  /** 상단 도구바 영역 (이미지 밖 별도 영역) */
+  topToolbar?: ReactNode;
+  /** 상단 도구바 높이 (기본 0, 도구바가 있을 때 설정) */
+  topToolbarHeight?: number;
+  /** 하단 도구바 영역 (이미지 밖 별도 영역) */
+  bottomToolbar?: ReactNode;
+  /** 하단 도구바 높이 (기본 0, 도구바가 있을 때 설정) */
+  bottomToolbarHeight?: number;
   /** 커스텀 스타일 */
   style?: CSSProperties;
   /** 커스텀 클래스명 */
@@ -76,10 +84,15 @@ export function HybridViewportSlot({
   onMouseLeave,
   onElementRef,
   children,
+  topToolbar,
+  topToolbarHeight = 0,
+  bottomToolbar,
+  bottomToolbarHeight = 0,
   style,
   className,
 }: HybridViewportSlotProps) {
-  const slotRef = useRef<HTMLDivElement>(null);
+  // 이미지 영역 ref (WebGL 렌더링 영역)
+  const contentRef = useRef<HTMLDivElement>(null);
 
   // manager를 ref로 저장하여 cleanup 시에도 최신 참조 사용
   const managerRef = useRef(manager);
@@ -89,14 +102,14 @@ export function HybridViewportSlot({
   const onElementRefRef = useRef(onElementRef);
   onElementRefRef.current = onElementRef;
 
-  // 마운트 시 슬롯 등록
+  // 마운트 시 이미지 영역만 슬롯으로 등록 (도구바 제외)
   useEffect(() => {
-    const element = slotRef.current;
+    const element = contentRef.current;
     if (!element) return;
 
     const currentManager = managerRef.current;
 
-    // HybridViewportManager에 슬롯 등록
+    // HybridViewportManager에 이미지 영역만 등록
     currentManager.registerSlot(viewportId, element);
 
     // 언마운트 시 해제
@@ -105,9 +118,9 @@ export function HybridViewportSlot({
     };
   }, [viewportId]);
 
-  // Tool System용 DOM 요소 참조 콜백
+  // Tool System용 DOM 요소 참조 콜백 (이미지 영역)
   useEffect(() => {
-    onElementRefRef.current?.(slotRef.current);
+    onElementRefRef.current?.(contentRef.current);
     return () => onElementRefRef.current?.(null);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -128,7 +141,6 @@ export function HybridViewportSlot({
 
   return (
     <div
-      ref={slotRef}
       data-viewport-id={viewportId}
       onClick={handleClick}
       onMouseEnter={handleMouseEnter}
@@ -151,10 +163,45 @@ export function HybridViewportSlot({
         pointerEvents: 'auto',
         display: 'flex',
         flexDirection: 'column',
+        overflow: 'hidden',
         ...style,
       }}
     >
-      {children}
+      {/* 상단 도구바 영역 (이미지 밖) */}
+      {topToolbar && (
+        <div
+          style={{
+            flexShrink: 0,
+            minHeight: topToolbarHeight > 0 ? `${topToolbarHeight}px` : 'auto',
+          }}
+        >
+          {topToolbar}
+        </div>
+      )}
+
+      {/* 이미지 영역 (WebGL 렌더링 대상) */}
+      <div
+        ref={contentRef}
+        style={{
+          flex: 1,
+          position: 'relative',
+          minHeight: 0, // flex child가 overflow되지 않도록
+        }}
+      >
+        {children}
+      </div>
+
+      {/* 하단 도구바 영역 (이미지 밖) */}
+      {bottomToolbar && (
+        <div
+          style={{
+            flexShrink: 0,
+            minHeight: bottomToolbarHeight > 0 ? `${bottomToolbarHeight}px` : 'auto',
+          }}
+        >
+          {bottomToolbar}
+        </div>
+      )}
     </div>
   );
 }

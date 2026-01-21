@@ -120,8 +120,8 @@ export type {
 } from './dicom';
 
 // WebGL
-export { TextureManager, QuadRenderer, ArrayTextureRenderer } from './webgl';
-export type { WindowLevelOptions, TransformOptions } from './webgl';
+export { TextureManager, QuadRenderer, ArrayTextureRenderer, calculateAspectScale } from './webgl';
+export type { WindowLevelOptions, TransformOptions, AspectScaleOptions } from './webgl';
 
 // Cache
 export { LRUCache, TextureLRUCache } from './cache';

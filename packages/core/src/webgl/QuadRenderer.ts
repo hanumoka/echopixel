@@ -36,6 +36,52 @@ export interface TransformOptions {
 }
 
 /**
+ * 종횡비 보정 옵션
+ *
+ * 이미지 종횡비를 유지하면서 뷰포트에 맞춤 (fit-to-viewport)
+ * Cornerstone 방식: scaleFactor = min(viewportW/imageW, viewportH/imageH)
+ */
+export interface AspectScaleOptions {
+  /** X축 스케일 (0.0 ~ 1.0, 1.0 = 뷰포트 전체 너비) */
+  scaleX: number;
+  /** Y축 스케일 (0.0 ~ 1.0, 1.0 = 뷰포트 전체 높이) */
+  scaleY: number;
+}
+
+/**
+ * 종횡비 스케일 계산 유틸리티
+ *
+ * @param imageWidth - 원본 이미지 너비
+ * @param imageHeight - 원본 이미지 높이
+ * @param viewportWidth - 뷰포트 너비
+ * @param viewportHeight - 뷰포트 높이
+ * @returns AspectScaleOptions - NDC 스케일 값 (0.0 ~ 1.0)
+ */
+export function calculateAspectScale(
+  imageWidth: number,
+  imageHeight: number,
+  viewportWidth: number,
+  viewportHeight: number
+): AspectScaleOptions {
+  // 종횡비 계산
+  const imageAspect = imageWidth / imageHeight;
+  const viewportAspect = viewportWidth / viewportHeight;
+
+  let scaleX = 1.0;
+  let scaleY = 1.0;
+
+  if (imageAspect > viewportAspect) {
+    // 이미지가 더 넓음 → 가로에 맞춤, 세로는 축소 (letterbox)
+    scaleY = viewportAspect / imageAspect;
+  } else {
+    // 이미지가 더 높음 → 세로에 맞춤, 가로는 축소 (pillarbox)
+    scaleX = imageAspect / viewportAspect;
+  }
+
+  return { scaleX, scaleY };
+}
+
+/**
  * 화면 전체를 덮는 사각형에 텍스처를 렌더링
  */
 export class QuadRenderer {
@@ -53,6 +99,8 @@ export class QuadRenderer {
   private rotationLocation: WebGLUniformLocation | null = null;
   private flipHLocation: WebGLUniformLocation | null = null;
   private flipVLocation: WebGLUniformLocation | null = null;
+  // Aspect ratio scale uniform location
+  private aspectScaleLocation: WebGLUniformLocation | null = null;
 
   constructor(gl: WebGL2RenderingContext) {
     this.gl = gl;
@@ -115,6 +163,8 @@ export class QuadRenderer {
     this.rotationLocation = gl.getUniformLocation(this.program, 'u_rotation');
     this.flipHLocation = gl.getUniformLocation(this.program, 'u_flipH');
     this.flipVLocation = gl.getUniformLocation(this.program, 'u_flipV');
+    // Aspect ratio scale uniform location
+    this.aspectScaleLocation = gl.getUniformLocation(this.program, 'u_aspectScale');
   }
 
   /**
@@ -169,8 +219,14 @@ export class QuadRenderer {
    * @param textureUnit - 텍스처가 바인딩된 유닛 번호
    * @param windowLevel - Window/Level 옵션 (선택적)
    * @param transform - Pan/Zoom 옵션 (선택적)
+   * @param aspectScale - 종횡비 보정 스케일 (선택적)
    */
-  render(textureUnit: number = 0, windowLevel?: WindowLevelOptions, transform?: TransformOptions): void {
+  render(
+    textureUnit: number = 0,
+    windowLevel?: WindowLevelOptions,
+    transform?: TransformOptions,
+    aspectScale?: AspectScaleOptions
+  ): void {
     const gl = this.gl;
 
     // 쉐이더 프로그램 활성화
@@ -204,6 +260,13 @@ export class QuadRenderer {
       gl.uniform1f(this.rotationLocation, 0.0);
       gl.uniform1f(this.flipHLocation, 0.0);
       gl.uniform1f(this.flipVLocation, 0.0);
+    }
+
+    // Aspect ratio scale uniform 설정
+    if (aspectScale) {
+      gl.uniform2f(this.aspectScaleLocation, aspectScale.scaleX, aspectScale.scaleY);
+    } else {
+      gl.uniform2f(this.aspectScaleLocation, 1.0, 1.0); // 기본값: 뷰포트 전체
     }
 
     // VAO 바인딩
@@ -277,6 +340,8 @@ export class ArrayTextureRenderer {
   private rotationLocation: WebGLUniformLocation | null = null;
   private flipHLocation: WebGLUniformLocation | null = null;
   private flipVLocation: WebGLUniformLocation | null = null;
+  // Aspect ratio scale uniform location
+  private aspectScaleLocation: WebGLUniformLocation | null = null;
 
   constructor(gl: WebGL2RenderingContext) {
     this.gl = gl;
@@ -340,6 +405,8 @@ export class ArrayTextureRenderer {
     this.rotationLocation = gl.getUniformLocation(this.program, 'u_rotation');
     this.flipHLocation = gl.getUniformLocation(this.program, 'u_flipH');
     this.flipVLocation = gl.getUniformLocation(this.program, 'u_flipV');
+    // Aspect ratio scale uniform location
+    this.aspectScaleLocation = gl.getUniformLocation(this.program, 'u_aspectScale');
   }
 
   /**
@@ -395,12 +462,14 @@ export class ArrayTextureRenderer {
    * @param frameIndex - 표시할 프레임 인덱스 (0부터 시작)
    * @param windowLevel - Window/Level 옵션 (선택적)
    * @param transform - Pan/Zoom 옵션 (선택적)
+   * @param aspectScale - 종횡비 보정 스케일 (선택적)
    */
   renderFrame(
     textureUnit: number = 0,
     frameIndex: number = 0,
     windowLevel?: WindowLevelOptions,
     transform?: TransformOptions,
+    aspectScale?: AspectScaleOptions,
   ): void {
     const gl = this.gl;
 
@@ -437,6 +506,13 @@ export class ArrayTextureRenderer {
       gl.uniform1f(this.rotationLocation, 0.0);
       gl.uniform1f(this.flipHLocation, 0.0);
       gl.uniform1f(this.flipVLocation, 0.0);
+    }
+
+    // Aspect ratio scale uniform 설정
+    if (aspectScale) {
+      gl.uniform2f(this.aspectScaleLocation, aspectScale.scaleX, aspectScale.scaleY);
+    } else {
+      gl.uniform2f(this.aspectScaleLocation, 1.0, 1.0); // 기본값: 뷰포트 전체
     }
 
     // VAO 바인딩

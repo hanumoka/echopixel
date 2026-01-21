@@ -73,6 +73,11 @@ export interface DicomMiniOverlayProps {
   /** 도구 선택 콜백 */
   onToolChange?: (toolId: string) => void;
 
+  /** 도구바 위치: 'overlay' (이미지 위), 'top' (이미지 위 별도 영역) */
+  toolbarPosition?: 'overlay' | 'top';
+  /** 도구바 높이 (toolbarPosition='top' 일 때 사용, 기본 40px) */
+  toolbarHeight?: number;
+
   /** 커스텀 스타일 */
   style?: CSSProperties;
   /** 커스텀 클래스명 */
@@ -115,9 +120,13 @@ export function DicomMiniOverlay({
   showAnnotationTools = false,
   activeTool,
   onToolChange,
+  toolbarPosition = 'top',
+  toolbarHeight = 40,
   style,
   className,
 }: DicomMiniOverlayProps) {
+  // 도구바가 상단 별도 영역에 표시되는지 여부
+  const showTopToolbar = toolbarPosition === 'top' && showAnnotationTools && isSelected;
   // 도구 버튼 스타일 (32x32px로 증가, 가시성 개선)
   const toolButtonStyle: CSSProperties = {
     display: 'flex',
@@ -141,6 +150,61 @@ export function DicomMiniOverlay({
     background: 'rgba(74, 158, 255, 0.6)',
     color: '#fff',
   };
+
+  // 도구바 렌더링 함수
+  const renderToolbar = () => (
+    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+      {/* 조작 도구 */}
+      <button
+        onClick={() => onToolChange?.('WindowLevel')}
+        title="밝기/대비 조정 (W/L)"
+        style={activeTool === 'WindowLevel' ? activeToolButtonStyle : toolButtonStyle}
+      >
+        ☀️
+      </button>
+      <button
+        onClick={() => onToolChange?.('Pan')}
+        title="이미지 이동"
+        style={activeTool === 'Pan' ? activeToolButtonStyle : toolButtonStyle}
+      >
+        ✋
+      </button>
+      <button
+        onClick={() => onToolChange?.('Zoom')}
+        title="확대/축소"
+        style={activeTool === 'Zoom' ? activeToolButtonStyle : toolButtonStyle}
+      >
+        🔍
+      </button>
+
+      {/* 구분선 */}
+      <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.3)', margin: '0 2px' }} />
+
+      {/* 어노테이션 도구 */}
+      <button
+        onClick={() => onToolChange?.('Length')}
+        title="거리 측정"
+        style={activeTool === 'Length' ? activeToolButtonStyle : toolButtonStyle}
+      >
+        📏
+      </button>
+      <button
+        onClick={() => onToolChange?.('Angle')}
+        title="각도 측정"
+        style={activeTool === 'Angle' ? activeToolButtonStyle : toolButtonStyle}
+      >
+        ∠
+      </button>
+      <button
+        onClick={() => onToolChange?.('Point')}
+        title="점 마커"
+        style={activeTool === 'Point' ? activeToolButtonStyle : toolButtonStyle}
+      >
+        ●
+      </button>
+    </div>
+  );
+
   return (
     <div
       className={className}
@@ -153,8 +217,6 @@ export function DicomMiniOverlay({
         pointerEvents: 'none',
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'space-between',
-        padding: '4px',
         color: '#fff',
         fontSize: '11px',
         fontFamily: 'monospace',
@@ -165,203 +227,183 @@ export function DicomMiniOverlay({
         ...style,
       }}
     >
-      {/* 상단 영역 */}
+      {/* 상단 도구바 영역 (이미지 밖) */}
+      {showTopToolbar && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: `${toolbarHeight}px`,
+            padding: '8px 12px',
+            background: 'rgba(20, 25, 40, 0.95)',
+            borderBottom: '2px solid rgba(74, 158, 255, 0.5)',
+            pointerEvents: 'auto',
+            flexShrink: 0,
+            gap: '8px',
+          }}
+        >
+          {renderToolbar()}
+        </div>
+      )}
+
+      {/* 메인 이미지 영역 오버레이 */}
       <div
         style={{
+          flex: 1,
           display: 'flex',
+          flexDirection: 'column',
           justifyContent: 'space-between',
-          alignItems: 'flex-start',
+          padding: '4px',
         }}
       >
-        {/* 좌상단: 인덱스 또는 라벨 */}
-        {(showIndex || label) && (
-          <span
-            style={{
-              background: isSelected
-                ? 'rgba(74, 158, 255, 0.7)'
-                : 'rgba(0, 0, 0, 0.5)',
-              padding: '2px 6px',
-              borderRadius: '3px',
-            }}
-          >
-            {label ?? `#${(index ?? 0) + 1}`}
-          </span>
-        )}
-
-        {/* 우상단: 도구 버튼 및 재생 상태 */}
-        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-          {/* 도구 버튼 (선택됨 상태에서만) */}
-          {showAnnotationTools && isSelected && (
-            <div style={{ display: 'flex', gap: '4px' }}>
-              {/* 조작 도구 */}
-              <button
-                onClick={() => onToolChange?.('WindowLevel')}
-                title="밝기/대비 조정 (W/L)"
-                style={activeTool === 'WindowLevel' ? activeToolButtonStyle : toolButtonStyle}
-              >
-                ☀️
-              </button>
-              <button
-                onClick={() => onToolChange?.('Pan')}
-                title="이미지 이동"
-                style={activeTool === 'Pan' ? activeToolButtonStyle : toolButtonStyle}
-              >
-                ✋
-              </button>
-              <button
-                onClick={() => onToolChange?.('Zoom')}
-                title="확대/축소"
-                style={activeTool === 'Zoom' ? activeToolButtonStyle : toolButtonStyle}
-              >
-                🔍
-              </button>
-
-              {/* 구분선 */}
-              <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.3)', margin: '0 2px' }} />
-
-              {/* 어노테이션 도구 */}
-              <button
-                onClick={() => onToolChange?.('Length')}
-                title="거리 측정"
-                style={activeTool === 'Length' ? activeToolButtonStyle : toolButtonStyle}
-              >
-                📏
-              </button>
-              <button
-                onClick={() => onToolChange?.('Angle')}
-                title="각도 측정"
-                style={activeTool === 'Angle' ? activeToolButtonStyle : toolButtonStyle}
-              >
-                ∠
-              </button>
-              <button
-                onClick={() => onToolChange?.('Point')}
-                title="점 마커"
-                style={activeTool === 'Point' ? activeToolButtonStyle : toolButtonStyle}
-              >
-                ●
-              </button>
-            </div>
-          )}
-
-          {/* 재생 상태 */}
-          {showPlayState && isPlaying && (
+        {/* 상단 정보 영역 */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+          }}
+        >
+          {/* 좌상단: 인덱스 또는 라벨 */}
+          {(showIndex || label) && (
             <span
               style={{
-                background: 'rgba(76, 175, 80, 0.7)',
+                background: isSelected
+                  ? 'rgba(74, 158, 255, 0.7)'
+                  : 'rgba(0, 0, 0, 0.5)',
                 padding: '2px 6px',
                 borderRadius: '3px',
               }}
             >
-              ▶
+              {label ?? `#${(index ?? 0) + 1}`}
             </span>
           )}
+
+          {/* 우상단: 도구 버튼 (overlay 모드) 및 재생 상태 */}
+          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+            {/* 도구 버튼 (overlay 모드, 선택됨 상태에서만) */}
+            {toolbarPosition === 'overlay' && showAnnotationTools && isSelected && renderToolbar()}
+
+            {/* 재생 상태 */}
+            {showPlayState && isPlaying && (
+              <span
+                style={{
+                  background: 'rgba(76, 175, 80, 0.7)',
+                  padding: '2px 6px',
+                  borderRadius: '3px',
+                }}
+              >
+                ▶
+              </span>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* 하단 영역 */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-end',
-        }}
-      >
-        {/* 좌하단: 프레임 카운터 */}
-        {showFrameInfo && totalFrames > 0 && (
-          <span
-            style={{
-              background: 'rgba(0, 0, 0, 0.5)',
-              padding: '2px 6px',
-              borderRadius: '3px',
-            }}
-          >
-            {currentFrame + 1} / {totalFrames}
-          </span>
-        )}
-
-        {/* 우하단: W/L 값 또는 도구 버튼 */}
-        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-          {showWindowLevel && windowLevel && (
+        {/* 하단 정보 영역 */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-end',
+          }}
+        >
+          {/* 좌하단: 프레임 카운터 */}
+          {showFrameInfo && totalFrames > 0 && (
             <span
               style={{
                 background: 'rgba(0, 0, 0, 0.5)',
                 padding: '2px 6px',
                 borderRadius: '3px',
-                fontSize: '10px',
-                color: '#8cf',
               }}
             >
-              W:{Math.round(windowLevel.width)} L:{Math.round(windowLevel.center)}
+              {currentFrame + 1} / {totalFrames}
             </span>
           )}
 
-          {/* 도구 버튼 (선택됨 상태에서만 표시) */}
-          {showTools && isSelected && (
-            <div style={{ display: 'flex', gap: '4px', marginLeft: '4px' }}>
-              {/* 회전 버튼 */}
-              <button
-                onClick={onRotateLeft}
-                title="좌 90° 회전"
-                style={toolButtonStyle}
-              >
-                ↺
-              </button>
-              <button
-                onClick={onRotateRight}
-                title="우 90° 회전"
-                style={toolButtonStyle}
-              >
-                ↻
-              </button>
-
-              {/* 플립 버튼 */}
-              <button
-                onClick={onFlipH}
-                title="가로 플립 (좌우 반전)"
-                style={flipH ? activeToolButtonStyle : toolButtonStyle}
-              >
-                ⇆
-              </button>
-              <button
-                onClick={onFlipV}
-                title="세로 플립 (상하 반전)"
-                style={flipV ? activeToolButtonStyle : toolButtonStyle}
-              >
-                ⇅
-              </button>
-
-              {/* 리셋 버튼 */}
-              <button
-                onClick={onReset}
-                title="리셋"
+          {/* 우하단: W/L 값 또는 도구 버튼 */}
+          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+            {showWindowLevel && windowLevel && (
+              <span
                 style={{
-                  ...toolButtonStyle,
-                  color: '#f88',
+                  background: 'rgba(0, 0, 0, 0.5)',
+                  padding: '2px 6px',
+                  borderRadius: '3px',
+                  fontSize: '10px',
+                  color: '#8cf',
                 }}
               >
-                ⟲
-              </button>
+                W:{Math.round(windowLevel.width)} L:{Math.round(windowLevel.center)}
+              </span>
+            )}
 
-              {/* 현재 상태 표시 */}
-              {(rotation !== 0 || flipH || flipV) && (
-                <span
+            {/* 도구 버튼 (선택됨 상태에서만 표시) */}
+            {showTools && isSelected && (
+              <div style={{ display: 'flex', gap: '4px', marginLeft: '4px' }}>
+                {/* 회전 버튼 */}
+                <button
+                  onClick={onRotateLeft}
+                  title="좌 90° 회전"
+                  style={toolButtonStyle}
+                >
+                  ↺
+                </button>
+                <button
+                  onClick={onRotateRight}
+                  title="우 90° 회전"
+                  style={toolButtonStyle}
+                >
+                  ↻
+                </button>
+
+                {/* 플립 버튼 */}
+                <button
+                  onClick={onFlipH}
+                  title="가로 플립 (좌우 반전)"
+                  style={flipH ? activeToolButtonStyle : toolButtonStyle}
+                >
+                  ⇆
+                </button>
+                <button
+                  onClick={onFlipV}
+                  title="세로 플립 (상하 반전)"
+                  style={flipV ? activeToolButtonStyle : toolButtonStyle}
+                >
+                  ⇅
+                </button>
+
+                {/* 리셋 버튼 */}
+                <button
+                  onClick={onReset}
+                  title="리셋"
                   style={{
-                    background: 'rgba(74, 158, 255, 0.5)',
-                    padding: '4px 6px',
-                    borderRadius: '4px',
-                    fontSize: '11px',
-                    color: '#fff',
-                    marginLeft: '4px',
+                    ...toolButtonStyle,
+                    color: '#f88',
                   }}
                 >
-                  {rotation !== 0 && `${rotation}°`}
-                  {flipH && ' H'}
-                  {flipV && ' V'}
-                </span>
-              )}
-            </div>
-          )}
+                  ⟲
+                </button>
+
+                {/* 현재 상태 표시 */}
+                {(rotation !== 0 || flipH || flipV) && (
+                  <span
+                    style={{
+                      background: 'rgba(74, 158, 255, 0.5)',
+                      padding: '4px 6px',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      color: '#fff',
+                      marginLeft: '4px',
+                    }}
+                  >
+                    {rotation !== 0 && `${rotation}°`}
+                    {flipH && ' H'}
+                    {flipV && ' V'}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

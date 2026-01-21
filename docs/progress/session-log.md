@@ -6,6 +6,103 @@
 
 ---
 
+## 2026-01-21 세션 #26 (종횡비 보정 & 도구바 영역 예약)
+
+### 작업 내용
+
+**도구바 영역 항상 예약** ⭐
+- [x] **문제**: 뷰포트 선택/해제 시 도구바가 나타나거나 사라지면서 DICOM 영역 크기 변동
+- [x] **해결**: 도구바 영역을 항상 예약하고, 버튼만 선택된 뷰포트에서 표시
+- [x] HybridViewportSlot: topToolbar, bottomToolbar props (영역 항상 유지)
+- [x] 선택된 뷰포트: 밝은 배경 + 버튼 표시
+- [x] 선택 안 된 뷰포트: 어두운 배경 + 버튼 숨김
+
+**도구바가 WebGL Canvas 영역과 겹치는 문제 해결** ⭐
+- [x] **근본 원인**: `getBoundingClientRect()`가 도구바 영역 포함한 전체 슬롯 크기 반환
+- [x] **해결**: HybridViewportSlot DOM 구조 변경
+  - 외부 컨테이너: topToolbar + contentArea + bottomToolbar (flex column)
+  - contentRef: 이미지 영역만 (도구바 제외)
+  - HybridViewportManager에 contentRef만 등록 → WebGL 렌더링 영역 정확
+- [x] 뷰포트 선택 변경 시 bounds 재동기화 (double requestAnimationFrame)
+
+**종횡비 보정 (Aspect Ratio Preservation)** ⭐
+- [x] **문제**: DICOM 이미지가 뷰포트에 꽉 채워지면서 가로로 눌림 (찌그러짐)
+- [x] **Cornerstone 방식 분석**: `getImageFitScale()` 함수 조사
+  - `scaleFactor = min(viewportH/imageH, viewportW/imageW)`
+  - 이미지 종횡비 유지, 남는 공간은 검은색 (letterbox/pillarbox)
+- [x] **구현**:
+  - `shaders.ts`: `u_aspectScale` uniform 추가 (vec2)
+  - `QuadRenderer.ts`: `AspectScaleOptions` 인터페이스, `calculateAspectScale()` 함수
+  - Vertex Shader: 다른 변환 전에 aspectScale 적용
+  - `HybridMultiViewport.tsx`: 렌더 콜백에서 이미지/뷰포트 크기로 스케일 계산
+
+### 핵심 코드
+
+**종횡비 계산 공식 (QuadRenderer.ts)**
+```typescript
+export function calculateAspectScale(
+  imageWidth: number,
+  imageHeight: number,
+  viewportWidth: number,
+  viewportHeight: number
+): AspectScaleOptions {
+  const imageAspect = imageWidth / imageHeight;
+  const viewportAspect = viewportWidth / viewportHeight;
+
+  let scaleX = 1.0, scaleY = 1.0;
+
+  if (imageAspect > viewportAspect) {
+    // 이미지가 더 넓음 → 가로 맞춤, 세로 축소 (letterbox)
+    scaleY = viewportAspect / imageAspect;
+  } else {
+    // 이미지가 더 높음 → 세로 맞춤, 가로 축소 (pillarbox)
+    scaleX = imageAspect / viewportAspect;
+  }
+
+  return { scaleX, scaleY };
+}
+```
+
+**Vertex Shader 변환 순서 (shaders.ts)**
+```glsl
+void main() {
+  // 1. 종횡비 보정 (이미지 비율 유지)
+  vec2 aspectPos = a_position * u_aspectScale;
+  // 2. Zoom
+  vec2 scaledPos = aspectPos * u_zoom;
+  // 3. Flip
+  // 4. Rotation
+  // 5. Pan
+  gl_Position = vec4(finalPos, 0.0, 1.0);
+}
+```
+
+### 파일 변경
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `packages/core/src/webgl/shaders.ts` | u_aspectScale uniform 추가, 변환 순서 주석 |
+| `packages/core/src/webgl/QuadRenderer.ts` | AspectScaleOptions, calculateAspectScale(), 렌더러 파라미터 추가 |
+| `packages/core/src/webgl/index.ts` | export 추가 |
+| `packages/core/src/index.ts` | export 추가 |
+| `packages/react/.../HybridMultiViewport.tsx` | calculateAspectScale import, 렌더 콜백에서 스케일 계산 |
+| `packages/react/.../HybridViewportSlot.tsx` | topToolbar, bottomToolbar props, DOM 구조 변경 |
+
+### 학습 포인트
+
+- **fit-to-viewport vs stretch**: 의료 영상에서 종횡비 유지가 진단 정확도에 중요
+- **Cornerstone 접근법**: `min(scaleH, scaleW)` 공식으로 이미지가 뷰포트 안에 완전히 들어감
+- **변환 순서**: aspectScale → zoom → flip → rotation → pan (역변환은 역순)
+- **DOM 구조 분리**: WebGL 렌더링 영역과 UI 영역 명확히 분리하여 bounds 계산 정확도 보장
+
+### 다음 세션 할 일
+
+- [ ] 어노테이션 선택/편집 UI (DragHandle 통합)
+- [ ] 포인트 드래그 편집
+- [ ] 라벨 위치 이동
+
+---
+
 ## 2026-01-21 세션 #25 (HybridMultiViewport 어노테이션 생성 & 조작 도구 통합)
 
 ### 작업 내용

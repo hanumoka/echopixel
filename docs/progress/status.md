@@ -5,7 +5,7 @@
 | 항목 | 상태 |
 |------|------|
 | **현재 Phase** | Phase 3 (Annotations) ✅ 핵심 완료 |
-| **마지막 업데이트** | 2026-01-21 |
+| **마지막 업데이트** | 2026-01-21 (종횡비 보정 구현) |
 | **다음 마일스톤** | Phase 3g-2 (어노테이션 선택/편집 UI) 또는 Phase 4 |
 
 ---
@@ -181,6 +181,8 @@
 | HybridMultiViewport 어노테이션 생성 | ✅ | MeasurementTool 통합, 도구 버튼, Delete 키 삭제 |
 | HybridMultiViewport 조작 도구 통합 | ✅ | W/L, Pan, Zoom, StackScroll (ViewportManagerLike 어댑터) |
 | 어노테이션 표시 토글 | ✅ | showAnnotations prop + 데모 UI |
+| 도구바 영역 항상 예약 | ✅ | DICOM 영역 크기 변화 방지 (선택/해제 시) |
+| 종횡비 보정 (Aspect Ratio) | ✅ | Cornerstone 방식 fit-to-viewport, 이미지 비율 유지 |
 | 측정 도구 (Ellipse, VTI) | ⏳ | 확장 도구 (선택적) |
 | 플러그인 시스템 | ⏳ | 도구/계산기/렌더러 확장 (선택적) |
 
