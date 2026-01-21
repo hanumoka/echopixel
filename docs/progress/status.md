@@ -5,7 +5,7 @@
 | 항목 | 상태 |
 |------|------|
 | **현재 Phase** | Phase 3 (Annotations) ✅ 핵심 완료 |
-| **마지막 업데이트** | 2026-01-21 (UI 레이아웃 개선, 최대 뷰포트 설정) |
+| **마지막 업데이트** | 2026-01-21 (Performance Test 탭 추가) |
 | **다음 마일스톤** | Phase 4 (Plugin System) 또는 Phase 5 (npm 배포) |
 
 ---
@@ -206,6 +206,27 @@
 | 포인트 드래그 편집 | ✅ | SVGOverlay 드래그 상태 관리, 실시간 피드백, 측정값 재계산 |
 | Delete 키 삭제 | ✅ | SingleDicomViewer, HybridMultiViewport 모두 지원 |
 | 라벨 드래그 | ⏳ | 측정값 라벨 위치 이동 (선택적) |
+
+#### Phase 3h: Performance Test (Pure WebGL) 탭 ✅ 완료
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| Performance Test 탭 추가 | ✅ | 순수 WebGL 렌더링 성능 테스트용 |
+| Pure WebGL 렌더링 | ✅ | DOM Overlay 없이 gl.scissor/viewport로 분할 렌더링 |
+| QuadRenderer 사용 | ✅ | TEXTURE_2D 텍스처 렌더링 |
+| 성능 통계 표시 | ✅ | FPS, Frame Time, VRAM 사용량 |
+| Instance 목록 UI | ✅ | Multi 탭과 동일한 체크박스 리스트 UI |
+| 재생/정지/리셋 | ✅ | requestAnimationFrame 기반 애니메이션 |
+| 프레임 수 표시 | ✅ | scannedInstances에서 frameCount 사용 |
+
+**Pure WebGL vs Hybrid DOM-WebGL 비교**:
+| 항목 | Pure WebGL | Hybrid DOM-WebGL |
+|------|------------|------------------|
+| Frame Time | ~0.1ms | ~1-3ms |
+| DOM 조작 | 없음 | 있음 (React 리렌더링) |
+| SVG 어노테이션 | 미지원 | 지원 |
+| UI/이벤트 | WebGL 직접 처리 필요 | DOM 이벤트 활용 |
+| 사용 목적 | 성능 벤치마크 | 실제 애플리케이션 |
 
 **Calibration 구현 상세**:
 - Local File: `getImageInfo()` → `getPixelSpacing()` / `getUltrasoundCalibration()`

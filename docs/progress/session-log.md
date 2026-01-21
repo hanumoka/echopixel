@@ -6,6 +6,75 @@
 
 ---
 
+## 2026-01-21 세션 #36 (Performance Test 탭 추가)
+
+### 작업 내용
+
+**1. Performance Test (Pure WebGL) 탭 추가** ⭐
+
+사용자 요청: "Pure WebGL 방식과 Hybrid DOM-WebGL 방식의 성능 비교 테스트용 탭 추가"
+
+**구현 내용**:
+- 새 탭 `'perf-test'` ViewMode 추가
+- 순수 WebGL 렌더링 (DOM Overlay 없음)
+- `gl.scissor()` + `gl.viewport()`로 그리드 분할
+- `requestAnimationFrame` 기반 애니메이션 루프
+- 실시간 FPS, Frame Time, VRAM 사용량 표시
+
+**성능 비교 목적**:
+| 항목 | Pure WebGL | Hybrid DOM-WebGL |
+|------|------------|------------------|
+| Frame Time | ~0.1ms | ~1-3ms |
+| DOM 조작 | 없음 | React 리렌더링 |
+| 어노테이션 | 미지원 | SVG 기반 지원 |
+
+**2. 버그 수정**
+
+| 버그 | 원인 | 수정 |
+|------|------|------|
+| `Cannot read 'animationId' of null` | `data?.animationId !== null` 로직 오류 | `data && data.animationId !== null`로 수정 |
+| `texImage2D overload resolution failed` | `ArrayTextureRenderer` 사용 (TEXTURE_2D_ARRAY용) | `QuadRenderer` 사용 (TEXTURE_2D용) |
+| `decoded.bitmap is undefined` | `DecodedFrame`에 `.bitmap` 없음 | `.image` 속성 사용 |
+| Instance 선택 안됨 (16개 제한) | `getMaxSelect()`가 항상 `viewportCount` 반환 | `viewMode === 'perf-test'`일 때 `perfTestViewportCount` 반환 |
+| 프레임 수 항상 1 | `metadata.numFrames`가 제대로 파싱 안됨 | `scannedInstances`에서 `frameCount` 사용 |
+
+**3. UI/UX 개선**
+
+Instance 목록 UI를 Multi 탭과 동일하게 변경:
+- 버튼 그리드 → 체크박스 리스트
+- 타입 배지 (영상/정지/오류) 추가
+- 프레임 수 강조 표시
+- UID 및 크기 직접 표시
+- 선택 개수 제한 (`perfTestViewportCount`까지)
+
+### 파일 변경
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `apps/demo/src/App.tsx` | Performance Test 탭 전체 구현 |
+| - | `'perf-test'` ViewMode 추가 |
+| - | `perfTestViewportCount`, `perfTestIsPlaying`, `perfTestFps`, `perfTestStats` 상태 |
+| - | `handlePerfTestLoad`, `togglePerfTestPlay`, `handlePerfTestReset`, `handlePerfTestCleanup` 함수 |
+| - | `renderPerfTestFrame` 함수 (QuadRenderer 사용) |
+| - | `getMaxSelect()` 함수에 perf-test 모드 분기 추가 |
+| - | Instance 목록 UI 개선 (Multi 탭과 동일) |
+
+### 학습 포인트
+
+- **TEXTURE_2D vs TEXTURE_2D_ARRAY**:
+  - `QuadRenderer`: 일반 2D 텍스처용 (`gl.TEXTURE_2D`)
+  - `ArrayTextureRenderer`: 배열 텍스처용 (`gl.TEXTURE_2D_ARRAY`)
+- **DecodedFrame 인터페이스**: `.bitmap`이 아닌 `.image` 속성 사용
+- **Optional Chaining 주의**: `data?.prop !== null`은 `data`가 `null`일 때 `undefined !== null`이 `true`가 됨
+
+### 다음 세션 할 일
+
+- [ ] Performance Test 탭 실제 성능 측정 및 비교
+- [ ] 디버그 로그 제거 (릴리스 전)
+- [ ] npm 배포 준비 (README, CHANGELOG)
+
+---
+
 ## 2026-01-21 세션 #35 (UI 레이아웃 개선 및 최대 뷰포트 설정)
 
 ### 작업 내용

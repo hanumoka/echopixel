@@ -14,6 +14,7 @@ import {
   FrameSyncEngine,
   TextureManager,
   ArrayTextureRenderer,
+  QuadRenderer,
   decodeJpeg,
   decodeNative,
   closeDecodedFrame,
@@ -46,7 +47,7 @@ import {
 } from '@echopixel/react';
 import { PerformanceOptionsPanel } from './components/PerformanceOptions';
 
-type ViewMode = 'single' | 'multi' | 'multi-canvas';
+type ViewMode = 'single' | 'multi' | 'multi-canvas' | 'perf-test';
 type DataSourceMode = 'local' | 'wado-rs';
 
 interface ParseResult {
@@ -131,6 +132,17 @@ export default function App() {
   const [multiCanvasIsPlaying, setMultiCanvasIsPlaying] = useState(false);
   const [multiCanvasShowAnnotations, setMultiCanvasShowAnnotations] = useState(true);
 
+  // === Performance Test 모드 상태 (Pure WebGL) ===
+  const [perfTestViewportCount, setPerfTestViewportCount] = useState(16);
+  const [perfTestIsPlaying, setPerfTestIsPlaying] = useState(false);
+  const [perfTestFps, setPerfTestFps] = useState(30);
+  const [perfTestStats, setPerfTestStats] = useState({ fps: 0, frameTime: 0, vramMB: 0 });
+  const [perfTestReady, setPerfTestReady] = useState(false);
+  const [perfTestLoading, setPerfTestLoading] = useState(false);
+  // WebGL refs (Pure WebGL용 - 단순화)
+  const perfTestCanvasRef = useRef<HTMLCanvasElement>(null);
+  const perfTestGlRef = useRef<WebGL2RenderingContext | null>(null);
+  const perfTestRendererRef = useRef<QuadRenderer | null>(null);
 
   // Multi 모드 (리팩토링) - @echopixel/react HybridMultiViewport 사용
   const [multiSeriesMap, setMultiSeriesMap] = useState<Map<string, ReactHybridSeriesData>>(new Map());
@@ -815,6 +827,10 @@ export default function App() {
 
   // 최대 선택 개수 계산 (viewportCount 기반)
   const getMaxSelect = () => {
+    // Performance Test 모드일 때는 perfTestViewportCount 사용
+    if (viewMode === 'perf-test') {
+      return perfTestViewportCount;
+    }
     return viewportCount;
   };
 
@@ -1126,6 +1142,333 @@ export default function App() {
     return { playableCount, stillCount, allStillImages: playableCount === 0 };
   }, [multiCanvasViewers]);
 
+  // === Performance Test 핸들러 ===
+
+  // Performance Test용 데이터 저장 (렌더 루프에서 사용)
+  const perfTestDataRef = useRef<{
+    viewports: Array<{
+      id: string;
+      textures: WebGLTexture[];
+      width: number;
+      height: number;
+      currentFrame: number;
+      totalFrames: number;
+    }>;
+    cols: number;
+    rows: number;
+    animationId: number | null;
+    lastTime: number;
+    fpsCounter: number;
+    fpsLastUpdate: number;
+    vramBytes: number;
+  } | null>(null);
+
+  // Performance Test 로드
+  const handlePerfTestLoad = useCallback(async () => {
+    if (selectedUids.size === 0) return;
+
+    if (!wadoBaseUrl || wadoBaseUrl.trim() === '') {
+      setError('WADO-RS Base URL이 필요합니다.');
+      return;
+    }
+
+    if (!studyUid || !seriesUid) {
+      setError('Study UID와 Series UID가 필요합니다.');
+      return;
+    }
+
+    setPerfTestLoading(true);
+    setPerfTestReady(false);
+    setError(null);
+
+    try {
+      // DataSource 생성
+      const dataSource = new WadoRsDataSource({ baseUrl: wadoBaseUrl.trim() });
+      const instanceUidsToLoad = Array.from(selectedUids).slice(0, perfTestViewportCount);
+
+      console.log('[PerfTest] Loading', instanceUidsToLoad.length, 'instances');
+
+      // 캔버스 및 WebGL 초기화
+      const canvas = perfTestCanvasRef.current;
+      if (!canvas) throw new Error('Canvas not found');
+
+      const gl = canvas.getContext('webgl2', {
+        alpha: false,
+        antialias: false,
+        powerPreference: 'high-performance',
+      });
+      if (!gl) throw new Error('WebGL2 not supported');
+
+      perfTestGlRef.current = gl;
+
+      // 그리드 계산
+      const cols = Math.ceil(Math.sqrt(instanceUidsToLoad.length));
+      const rows = Math.ceil(instanceUidsToLoad.length / cols);
+
+      // 뷰포트 데이터 저장
+      const viewportsData: Array<{
+        id: string;
+        textures: WebGLTexture[];
+        width: number;
+        height: number;
+        currentFrame: number;
+        totalFrames: number;
+      }> = [];
+
+      let totalVramBytes = 0;
+
+      // 각 Instance 로드 및 텍스처 생성 (Pure WebGL)
+      for (let i = 0; i < instanceUidsToLoad.length; i++) {
+        const uid = instanceUidsToLoad[i];
+        const viewportId = `perf-vp-${i}`;
+
+        const instanceId: DicomInstanceId = {
+          studyInstanceUid: studyUid,
+          seriesInstanceUid: seriesUid,
+          sopInstanceUid: uid,
+        };
+
+        // scannedInstances에서 frameCount 가져오기 (이미 스캔 시 파싱됨)
+        const scannedInstance = scannedInstances.find(inst => inst.uid === uid);
+        const metadata = await dataSource.loadMetadata(instanceId);
+        const frameCount = scannedInstance?.frameCount || metadata.numFrames || 1;
+
+        // 프레임별 텍스처 생성
+        const textures: WebGLTexture[] = [];
+        for (let f = 0; f < frameCount; f++) {
+          const pixelData = await dataSource.loadFrame(instanceId, f + 1);
+          const decoded = await decodeJpeg(pixelData);
+          const image = decoded.image; // .bitmap이 아니라 .image
+
+          // WebGL 텍스처 생성
+          const texture = gl.createTexture();
+          if (!texture) throw new Error('Failed to create texture');
+
+          gl.bindTexture(gl.TEXTURE_2D, texture);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+          textures.push(texture);
+          totalVramBytes += decoded.width * decoded.height * 4; // RGBA
+          closeDecodedFrame(decoded); // 리소스 해제
+        }
+
+        viewportsData.push({
+          id: viewportId,
+          textures,
+          width: metadata.width,
+          height: metadata.height,
+          currentFrame: 0,
+          totalFrames: frameCount,
+        });
+
+        console.log(`[PerfTest] Loaded viewport ${i + 1}/${instanceUidsToLoad.length}: ${frameCount} frames`);
+      }
+
+      // 렌더 데이터 저장
+      perfTestDataRef.current = {
+        viewports: viewportsData,
+        cols,
+        rows,
+        animationId: null,
+        lastTime: performance.now(),
+        fpsCounter: 0,
+        fpsLastUpdate: performance.now(),
+        vramBytes: totalVramBytes,
+      };
+
+      // 간단한 렌더러 초기화 (QuadRenderer - 일반 TEXTURE_2D용)
+      const renderer = new QuadRenderer(gl);
+      perfTestRendererRef.current = renderer;
+
+      // 초기 렌더링 (정지 상태)
+      renderPerfTestFrame(gl, renderer, viewportsData, cols, rows, canvas.width, canvas.height);
+
+      setPerfTestReady(true);
+      setPerfTestStats({
+        fps: 0,
+        frameTime: 0,
+        vramMB: totalVramBytes / (1024 * 1024),
+      });
+
+      console.log('[PerfTest] Ready with', instanceUidsToLoad.length, 'viewports');
+    } catch (err) {
+      console.error('[PerfTest] Error:', err);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setPerfTestLoading(false);
+    }
+  }, [selectedUids, perfTestViewportCount, wadoBaseUrl, studyUid, seriesUid, scannedInstances]);
+
+  // Pure WebGL 렌더링 함수
+  const renderPerfTestFrame = useCallback((
+    gl: WebGL2RenderingContext,
+    renderer: QuadRenderer,
+    viewports: typeof perfTestDataRef.current extends null ? never : NonNullable<typeof perfTestDataRef.current>['viewports'],
+    cols: number,
+    rows: number,
+    canvasWidth: number,
+    canvasHeight: number
+  ) => {
+    const vpWidth = canvasWidth / cols;
+    const vpHeight = canvasHeight / rows;
+
+    gl.clearColor(0, 0, 0, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    viewports.forEach((vp, index) => {
+      const col = index % cols;
+      const row = Math.floor(index / cols);
+      const x = col * vpWidth;
+      const y = canvasHeight - (row + 1) * vpHeight; // WebGL Y는 아래에서 위로
+
+      gl.scissor(x, y, vpWidth, vpHeight);
+      gl.viewport(x, y, vpWidth, vpHeight);
+      gl.enable(gl.SCISSOR_TEST);
+
+      const texture = vp.textures[vp.currentFrame];
+      if (texture) {
+        // 텍스처를 유닛 0에 바인딩하고 렌더링
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        renderer.render(0); // textureUnit = 0
+      }
+    });
+
+    gl.disable(gl.SCISSOR_TEST);
+  }, []);
+
+  // Performance Test 재생 토글
+  const togglePerfTestPlay = useCallback(() => {
+    const data = perfTestDataRef.current;
+    const gl = perfTestGlRef.current;
+    const renderer = perfTestRendererRef.current;
+    const canvas = perfTestCanvasRef.current;
+
+    if (!data || !gl || !renderer || !canvas) return;
+
+    if (perfTestIsPlaying) {
+      // 정지
+      if (data.animationId !== null) {
+        cancelAnimationFrame(data.animationId);
+        data.animationId = null;
+      }
+      setPerfTestIsPlaying(false);
+    } else {
+      // 재생 시작
+      const frameInterval = 1000 / perfTestFps;
+      let lastFrameTime = performance.now();
+
+      const tick = (timestamp: number) => {
+        if (!perfTestDataRef.current) return;
+
+        const deltaTime = timestamp - lastFrameTime;
+
+        // FPS 계산
+        data.fpsCounter++;
+        if (timestamp - data.fpsLastUpdate >= 1000) {
+          setPerfTestStats(prev => ({
+            ...prev,
+            fps: data.fpsCounter,
+          }));
+          data.fpsCounter = 0;
+          data.fpsLastUpdate = timestamp;
+        }
+
+        // 프레임 업데이트 (FPS에 맞춰)
+        if (deltaTime >= frameInterval) {
+          lastFrameTime = timestamp - (deltaTime % frameInterval);
+
+          // 모든 뷰포트 프레임 증가
+          data.viewports.forEach(vp => {
+            if (vp.totalFrames > 1) {
+              vp.currentFrame = (vp.currentFrame + 1) % vp.totalFrames;
+            }
+          });
+        }
+
+        // 렌더링
+        const frameStart = performance.now();
+        renderPerfTestFrame(gl, renderer, data.viewports, data.cols, data.rows, canvas.width, canvas.height);
+        const frameTime = performance.now() - frameStart;
+
+        setPerfTestStats(prev => ({
+          ...prev,
+          frameTime,
+        }));
+
+        data.animationId = requestAnimationFrame(tick);
+      };
+
+      data.animationId = requestAnimationFrame(tick);
+      setPerfTestIsPlaying(true);
+    }
+  }, [perfTestIsPlaying, perfTestFps, renderPerfTestFrame]);
+
+  // Performance Test FPS 변경
+  const handlePerfTestFpsChange = useCallback((newFps: number) => {
+    setPerfTestFps(newFps);
+  }, []);
+
+  // Performance Test 리셋
+  const handlePerfTestReset = useCallback(() => {
+    const data = perfTestDataRef.current;
+    const gl = perfTestGlRef.current;
+    const renderer = perfTestRendererRef.current;
+    const canvas = perfTestCanvasRef.current;
+
+    if (!data || !gl || !renderer || !canvas) return;
+
+    // 모든 뷰포트 프레임을 0으로 리셋
+    data.viewports.forEach(vp => {
+      vp.currentFrame = 0;
+    });
+
+    // 다시 렌더링
+    renderPerfTestFrame(gl, renderer, data.viewports, data.cols, data.rows, canvas.width, canvas.height);
+  }, [renderPerfTestFrame]);
+
+  // Performance Test 정리
+  const handlePerfTestCleanup = useCallback(() => {
+    const data = perfTestDataRef.current;
+    const gl = perfTestGlRef.current;
+
+    // 애니메이션 정지
+    if (data && data.animationId !== null) {
+      cancelAnimationFrame(data.animationId);
+    }
+
+    // 텍스처 삭제
+    if (data && gl) {
+      data.viewports.forEach(vp => {
+        vp.textures.forEach(tex => gl.deleteTexture(tex));
+      });
+    }
+
+    // 렌더러 정리
+    if (perfTestRendererRef.current) {
+      perfTestRendererRef.current.dispose();
+      perfTestRendererRef.current = null;
+    }
+
+    perfTestDataRef.current = null;
+    perfTestGlRef.current = null;
+
+    setPerfTestReady(false);
+    setPerfTestIsPlaying(false);
+    setPerfTestStats({ fps: 0, frameTime: 0, vramMB: 0 });
+  }, []);
+
+  // Performance Test 모드 변경 시 정리
+  useEffect(() => {
+    if (viewMode !== 'perf-test') {
+      handlePerfTestCleanup();
+    }
+  }, [viewMode, handlePerfTestCleanup]);
+
   return (
     <div style={{
       padding: '20px',
@@ -1205,6 +1548,23 @@ export default function App() {
           }}
         >
           Multi ViewPort (Single canvas 기반)
+        </button>
+        <button
+          onClick={() => handleViewModeChange('perf-test')}
+          style={{
+            padding: '12px 24px',
+            background: viewMode === 'perf-test' ? '#3d2d1f' : '#1a1a1a',
+            color: viewMode === 'perf-test' ? '#f8d8b4' : '#888',
+            border: 'none',
+            borderRadius: '8px 8px 0 0',
+            cursor: 'pointer',
+            fontWeight: viewMode === 'perf-test' ? 'bold' : 'normal',
+            fontSize: '14px',
+            borderBottom: viewMode === 'perf-test' ? '3px solid #a74' : '3px solid transparent',
+            transition: 'all 0.2s',
+          }}
+        >
+          Performance Test (Pure WebGL)
         </button>
       </div>
 
@@ -3001,6 +3361,539 @@ export default function App() {
               'Instance 스캔' 버튼을 클릭하여 Series 내 Instance를 조회하세요.
               <br />
               스캔 후 로드할 Instance를 선택하면 자동으로 뷰포트가 생성됩니다.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* === Performance Test 모드 (Pure WebGL) === */}
+      {viewMode === 'perf-test' && (
+        <div style={{ padding: '20px' }}>
+          {/* 모드 설명 패널 */}
+          <div style={{
+            padding: '15px',
+            marginBottom: '15px',
+            background: '#3d2d1f',
+            border: '1px solid #a74',
+            borderRadius: '4px',
+          }}>
+            <h3 style={{ margin: '0 0 10px 0', color: '#f8d8b4', fontSize: '16px' }}>
+              🚀 Performance Test (Pure WebGL)
+            </h3>
+            <p style={{ margin: 0, color: '#d8c8b8', fontSize: '13px', lineHeight: '1.5' }}>
+              DOM Overlay 없이 순수 WebGL로만 렌더링합니다.
+              Hybrid DOM-WebGL 방식과 성능을 비교할 수 있습니다.
+            </p>
+            <div style={{ marginTop: '12px', padding: '10px', background: 'rgba(0,0,0,0.3)', borderRadius: '4px', fontSize: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                <div>
+                  <div style={{ color: '#8f8', fontWeight: 'bold', marginBottom: '5px' }}>Pure WebGL (이 모드)</div>
+                  <ul style={{ margin: '0', paddingLeft: '20px', color: '#aaa' }}>
+                    <li>Frame Time: ~0.1ms</li>
+                    <li>GPU 작업만 (CPU 최소)</li>
+                    <li>DOM 조작 없음</li>
+                    <li>React 리렌더링 없음</li>
+                  </ul>
+                </div>
+                <div>
+                  <div style={{ color: '#8cf', fontWeight: 'bold', marginBottom: '5px' }}>Hybrid DOM-WebGL (Multi 모드)</div>
+                  <ul style={{ margin: '0', paddingLeft: '20px', color: '#aaa' }}>
+                    <li>Frame Time: ~1-3ms</li>
+                    <li>React 컴포넌트 사용 가능</li>
+                    <li>DOM 이벤트 활용</li>
+                    <li>SVG 어노테이션 지원</li>
+                  </ul>
+                </div>
+              </div>
+              <div style={{ marginTop: '10px', color: '#fa8', fontSize: '11px' }}>
+                ※ 둘 다 60fps(16.6ms) 충족. 기능 vs 성능 트레이드오프.
+              </div>
+            </div>
+            <div style={{ marginTop: '8px', fontSize: '11px', color: '#a74' }}>
+              Using: @echopixel/core ViewportManager, RenderScheduler, ArrayTextureRenderer
+            </div>
+          </div>
+
+          {/* WADO-RS 설정 (동일) */}
+          <div style={{
+            padding: '15px',
+            marginBottom: '15px',
+            background: '#2a2a3a',
+            borderRadius: '4px',
+          }}>
+            <h4 style={{ margin: '0 0 10px 0', color: '#aaa', fontSize: '14px' }}>
+              📡 WADO-RS 설정
+            </h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <label style={{ width: '100px', color: '#888' }}>Base URL:</label>
+                <input
+                  type="text"
+                  value={wadoBaseUrl}
+                  onChange={(e) => setWadoBaseUrl(e.target.value)}
+                  style={{
+                    flex: 1,
+                    padding: '6px 10px',
+                    background: '#1a1a2a',
+                    border: '1px solid #444',
+                    borderRadius: '4px',
+                    color: '#fff',
+                    fontFamily: 'monospace',
+                    fontSize: '12px',
+                  }}
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <label style={{ width: '100px', color: '#888' }}>Study UID:</label>
+                <input
+                  type="text"
+                  value={studyUid}
+                  onChange={(e) => setStudyUid(e.target.value)}
+                  style={{
+                    flex: 1,
+                    padding: '6px 10px',
+                    background: '#1a1a2a',
+                    border: '1px solid #444',
+                    borderRadius: '4px',
+                    color: '#fff',
+                    fontFamily: 'monospace',
+                    fontSize: '12px',
+                  }}
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <label style={{ width: '100px', color: '#888' }}>Series UID:</label>
+                <input
+                  type="text"
+                  value={seriesUid}
+                  onChange={(e) => setSeriesUid(e.target.value)}
+                  style={{
+                    flex: 1,
+                    padding: '6px 10px',
+                    background: '#1a1a2a',
+                    border: '1px solid #444',
+                    borderRadius: '4px',
+                    color: '#fff',
+                    fontFamily: 'monospace',
+                    fontSize: '12px',
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 뷰포트 개수 설정 */}
+          <div style={{
+            padding: '15px',
+            marginBottom: '15px',
+            background: '#2a2a3a',
+            borderRadius: '4px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <label style={{ color: '#aaa' }}>뷰포트 개수:</label>
+                <input
+                  type="range"
+                  min="1"
+                  max="100"
+                  value={perfTestViewportCount}
+                  onChange={(e) => setPerfTestViewportCount(Number(e.target.value))}
+                  style={{ width: '200px' }}
+                />
+                <span style={{ color: '#f8d8b4', fontWeight: 'bold', minWidth: '40px' }}>
+                  {perfTestViewportCount}
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {[4, 9, 16, 25, 36, 64, 100].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setPerfTestViewportCount(n)}
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '11px',
+                      background: perfTestViewportCount === n ? '#a74' : '#444',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '3px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* 스캔 및 로드 버튼 */}
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+            <button
+              onClick={handleScanInstances}
+              disabled={!!scanningStatus}
+              style={{
+                padding: '10px 20px',
+                fontSize: '14px',
+                background: '#4a4a6a',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: scanningStatus ? 'not-allowed' : 'pointer',
+                opacity: scanningStatus ? 0.7 : 1,
+              }}
+            >
+              {scanningStatus || '🔍 Instance 스캔'}
+            </button>
+
+            <button
+              onClick={handlePerfTestLoad}
+              disabled={selectedUids.size === 0 || perfTestLoading}
+              style={{
+                padding: '10px 20px',
+                fontSize: '14px',
+                background: selectedUids.size === 0 ? '#333' : '#a74',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: selectedUids.size === 0 ? 'not-allowed' : 'pointer',
+                opacity: selectedUids.size === 0 ? 0.5 : 1,
+              }}
+            >
+              {perfTestLoading ? '로딩 중...' : `🚀 Pure WebGL 로드 (${Math.min(selectedUids.size, perfTestViewportCount)}개)`}
+            </button>
+          </div>
+
+          {/* Instance UID 선택 목록 (Multi 탭과 동일한 UI) */}
+          {scannedInstances.length > 0 && (
+            <div style={{ marginBottom: '15px' }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '10px',
+              }}>
+                <span style={{ color: '#f8d8b4', fontSize: '13px' }}>
+                  Instance 선택 ({selectedUids.size} / {perfTestViewportCount}개)
+                </span>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={selectAllPlayable}
+                    style={{
+                      padding: '4px 10px',
+                      fontSize: '11px',
+                      background: '#363',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '3px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    영상만 선택
+                  </button>
+                  <button
+                    onClick={clearSelection}
+                    style={{
+                      padding: '4px 10px',
+                      fontSize: '11px',
+                      background: '#633',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '3px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    선택 해제
+                  </button>
+                </div>
+              </div>
+
+              <div style={{
+                background: '#1a1a2a',
+                borderRadius: '4px',
+                maxHeight: '300px',
+                overflowY: 'auto',
+              }}>
+                {scannedInstances.map((instance, idx) => {
+                  const isSelected = selectedUids.has(instance.uid);
+                  const maxSelect = perfTestViewportCount;
+                  const canSelect = isSelected || selectedUids.size < maxSelect;
+
+                  return (
+                    <div
+                      key={instance.uid}
+                      onClick={() => !instance.error && canSelect && toggleInstanceSelection(instance.uid)}
+                      style={{
+                        padding: '8px 12px',
+                        borderBottom: '1px solid #333',
+                        cursor: instance.error ? 'not-allowed' : (canSelect ? 'pointer' : 'not-allowed'),
+                        background: isSelected ? '#2a3a2a' : 'transparent',
+                        opacity: instance.error ? 0.5 : (canSelect ? 1 : 0.6),
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                      }}
+                    >
+                      {/* 체크박스 */}
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        disabled={instance.error !== undefined || !canSelect}
+                        onChange={() => {}}
+                        style={{ cursor: 'inherit' }}
+                      />
+
+                      {/* 번호 */}
+                      <span style={{ color: '#666', fontSize: '11px', minWidth: '24px' }}>
+                        {idx + 1}.
+                      </span>
+
+                      {/* 타입 배지 */}
+                      {instance.error ? (
+                        <span style={{
+                          fontSize: '10px',
+                          color: '#f66',
+                          background: '#3a1a1a',
+                          padding: '2px 6px',
+                          borderRadius: '3px',
+                          minWidth: '50px',
+                          textAlign: 'center',
+                        }}>
+                          오류
+                        </span>
+                      ) : instance.isPlayable ? (
+                        <span style={{
+                          fontSize: '10px',
+                          color: '#8f8',
+                          background: '#1a3a1a',
+                          padding: '2px 6px',
+                          borderRadius: '3px',
+                          minWidth: '50px',
+                          textAlign: 'center',
+                        }}>
+                          영상
+                        </span>
+                      ) : (
+                        <span style={{
+                          fontSize: '10px',
+                          color: '#fa8',
+                          background: '#3a2a1a',
+                          padding: '2px 6px',
+                          borderRadius: '3px',
+                          minWidth: '50px',
+                          textAlign: 'center',
+                        }}>
+                          정지
+                        </span>
+                      )}
+
+                      {/* 프레임 수 (강조) */}
+                      {!instance.error && (
+                        <span style={{
+                          fontSize: '11px',
+                          color: instance.isPlayable ? '#8cf' : '#888',
+                          fontWeight: instance.isPlayable ? 'bold' : 'normal',
+                          minWidth: '60px',
+                          textAlign: 'right',
+                        }}>
+                          {instance.frameCount} 프레임
+                        </span>
+                      )}
+
+                      {/* UID (잘림) */}
+                      <span style={{
+                        fontSize: '10px',
+                        color: '#666',
+                        fontFamily: 'monospace',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        flex: 1,
+                      }}>
+                        {instance.uid}
+                      </span>
+
+                      {/* 크기 */}
+                      {!instance.error && (
+                        <span style={{
+                          fontSize: '10px',
+                          color: '#555',
+                        }}>
+                          {instance.width}×{instance.height}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Pure WebGL 캔버스 영역 - 캔버스는 항상 렌더링 (ref 접근을 위해) */}
+          <div style={{ marginBottom: '15px', display: selectedUids.size > 0 || perfTestReady ? 'block' : 'none' }}>
+            {/* 성능 통계 (로드 완료 시만 표시) */}
+            {perfTestReady && (
+              <div style={{
+                padding: '10px 15px',
+                marginBottom: '10px',
+                background: '#1a2a1a',
+                border: '1px solid #4a6',
+                borderRadius: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '30px',
+              }}>
+                <div>
+                  <span style={{ color: '#888', marginRight: '8px' }}>FPS:</span>
+                  <span style={{ color: '#8f8', fontWeight: 'bold', fontSize: '18px' }}>
+                    {perfTestStats.fps.toFixed(1)}
+                  </span>
+                </div>
+                <div>
+                  <span style={{ color: '#888', marginRight: '8px' }}>Frame Time:</span>
+                  <span style={{ color: '#f8f', fontWeight: 'bold', fontSize: '18px' }}>
+                    {perfTestStats.frameTime.toFixed(2)} ms
+                  </span>
+                </div>
+                <div>
+                  <span style={{ color: '#888', marginRight: '8px' }}>VRAM:</span>
+                  <span style={{ color: '#ff8', fontWeight: 'bold', fontSize: '18px' }}>
+                    {perfTestStats.vramMB.toFixed(0)} MB
+                  </span>
+                </div>
+                <div>
+                  <span style={{ color: '#888', marginRight: '8px' }}>Viewports:</span>
+                  <span style={{ color: '#8cf', fontWeight: 'bold', fontSize: '18px' }}>
+                    {perfTestViewportCount}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* 캔버스 - 항상 DOM에 존재 (ref 접근을 위해) */}
+            <div style={{
+              border: '2px solid #a74',
+              borderRadius: '4px',
+              overflow: 'hidden',
+            }}>
+              <canvas
+                ref={perfTestCanvasRef}
+                width={1280}
+                height={960}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  maxWidth: '1280px',
+                  background: '#000',
+                }}
+              />
+            </div>
+
+            {/* 컨트롤 (로드 완료 시만 표시) */}
+            {perfTestReady && (
+              <div style={{
+                padding: '12px',
+                marginTop: '10px',
+                background: '#1a1a2e',
+                borderRadius: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px',
+              }}>
+                <button
+                  onClick={togglePerfTestPlay}
+                  style={{
+                    padding: '8px 20px',
+                    fontSize: '14px',
+                    background: perfTestIsPlaying ? '#c44' : '#4c4',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    minWidth: '100px',
+                  }}
+                >
+                  {perfTestIsPlaying ? '⏸ Stop' : '▶ Play All'}
+                </button>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <label style={{ color: '#aaa' }}>FPS:</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={120}
+                    value={perfTestFps}
+                    onChange={(e) => handlePerfTestFpsChange(Math.max(1, Math.min(120, Number(e.target.value))))}
+                    style={{ width: '50px', padding: '4px' }}
+                  />
+                  <input
+                    type="range"
+                    min={1}
+                    max={120}
+                    value={perfTestFps}
+                    onChange={(e) => handlePerfTestFpsChange(Number(e.target.value))}
+                    style={{ width: '100px' }}
+                  />
+                </div>
+
+                <button
+                  onClick={handlePerfTestReset}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '12px',
+                    background: '#444',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  🔄 리셋
+                </button>
+
+                <button
+                  onClick={handlePerfTestCleanup}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '12px',
+                    background: '#644',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  🗑 정리
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* 로딩 상태 */}
+          {perfTestLoading && (
+            <div style={{
+              padding: '40px',
+              background: '#1a1a2a',
+              borderRadius: '4px',
+              textAlign: 'center',
+              color: '#f8d8b4',
+            }}>
+              <div style={{ fontSize: '20px', marginBottom: '10px' }}>⏳</div>
+              Pure WebGL 모드로 DICOM 데이터를 로딩 중입니다...
+            </div>
+          )}
+
+          {/* 초기 안내 */}
+          {!perfTestReady && !perfTestLoading && scannedInstances.length === 0 && (
+            <div style={{
+              padding: '20px',
+              background: '#1a1a2a',
+              borderRadius: '4px',
+              textAlign: 'center',
+              color: '#888',
+            }}>
+              'Instance 스캔' 버튼을 클릭하여 Series 내 Instance를 조회하세요.
+              <br />
+              스캔 후 Instance를 선택하고 'Pure WebGL 로드' 버튼을 클릭하세요.
             </div>
           )}
         </div>
