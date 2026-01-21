@@ -104,6 +104,12 @@ export interface DicomToolbarProps {
   flipH?: boolean;
   /** 현재 세로 플립 상태 */
   flipV?: boolean;
+  /** 어노테이션 토글 버튼 표시 여부 */
+  showAnnotationToggle?: boolean;
+  /** 어노테이션 표시 상태 */
+  annotationsVisible?: boolean;
+  /** 어노테이션 표시 토글 콜백 */
+  onAnnotationsVisibilityChange?: (visible: boolean) => void;
   /** 툴바 방향 */
   orientation?: 'horizontal' | 'vertical';
   /** 컴팩트 모드 (아이콘만 표시) */
@@ -164,6 +170,9 @@ export function DicomToolbar({
   onFlipVertical,
   flipH = false,
   flipV = false,
+  showAnnotationToggle = false,
+  annotationsVisible = true,
+  onAnnotationsVisibilityChange,
   orientation = 'horizontal',
   compact = false,
   style,
@@ -220,8 +229,8 @@ export function DicomToolbar({
         );
       })}
 
-      {/* 구분선 (회전, 플립, 또는 리셋 버튼이 있을 때) */}
-      {(showRotateButtons || showFlipButtons || showResetButton) && (
+      {/* 구분선 (회전, 플립, 어노테이션 토글, 또는 리셋 버튼이 있을 때) */}
+      {(showRotateButtons || showFlipButtons || showAnnotationToggle || showResetButton) && (
         <div
           style={{
             width: isHorizontal ? '1px' : '80%',
@@ -330,6 +339,32 @@ export function DicomToolbar({
             {!compact && <span>세로</span>}
           </button>
         </>
+      )}
+
+      {/* 어노테이션 토글 버튼 */}
+      {showAnnotationToggle && (
+        <button
+          onClick={() => onAnnotationsVisibilityChange?.(!annotationsVisible)}
+          title={annotationsVisible ? '어노테이션 숨기기' : '어노테이션 표시'}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '4px',
+            padding: compact ? '8px' : '8px 12px',
+            minWidth: compact ? '36px' : '70px',
+            background: annotationsVisible ? '#2a4a4a' : '#3a3a3a',
+            color: annotationsVisible ? '#8ff' : '#888',
+            border: annotationsVisible ? '2px solid #5aa' : '2px solid transparent',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: compact ? '16px' : '13px',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <span>{annotationsVisible ? '👁' : '👁‍🗨'}</span>
+          {!compact && <span>{annotationsVisible ? '표시' : '숨김'}</span>}
+        </button>
       )}
 
       {/* 리셋 버튼 */}

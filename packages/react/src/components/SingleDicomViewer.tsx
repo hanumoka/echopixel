@@ -138,6 +138,10 @@ export interface SingleDicomViewerProps {
   annotationConfig?: Partial<SVGRenderConfig>;
   /** 읽기 전용 모드 (드래그 비활성화) */
   readOnlyAnnotations?: boolean;
+  /** 어노테이션 표시 여부 (전역 토글) */
+  showAnnotations?: boolean;
+  /** 어노테이션 표시 토글 핸들러 */
+  onAnnotationsVisibilityChange?: (visible: boolean) => void;
 }
 
 /**
@@ -191,6 +195,8 @@ export const SingleDicomViewer = forwardRef<
     onAnnotationDelete,
     annotationConfig,
     readOnlyAnnotations = false,
+    showAnnotations = true,
+    onAnnotationsVisibilityChange,
   },
   ref
 ) {
@@ -965,6 +971,9 @@ export const SingleDicomViewer = forwardRef<
           onFlipVertical={toggleFlipV}
           flipH={flipH}
           flipV={flipV}
+          showAnnotationToggle={annotations.length > 0 || !!onAnnotationsVisibilityChange}
+          annotationsVisible={showAnnotations}
+          onAnnotationsVisibilityChange={onAnnotationsVisibilityChange}
           orientation={toolbarOrientation}
           compact={toolbarCompact}
           style={{ marginBottom: '10px' }}
@@ -1006,7 +1015,7 @@ export const SingleDicomViewer = forwardRef<
         />
 
         {/* SVG Annotation Overlay (Phase 3e + 3f) */}
-        {(annotations.length > 0 || tempAnnotation) && transformContext && (
+        {showAnnotations && (annotations.length > 0 || tempAnnotation) && transformContext && (
           <SVGOverlay
             annotations={annotations}
             currentFrame={currentFrame}

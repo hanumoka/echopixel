@@ -265,6 +265,8 @@ export default function App() {
   const [singleAnnotations, setSingleAnnotations] = useState<Annotation[]>([]);
   // 선택된 어노테이션 ID (Phase 3g-2: 선택/편집 UI)
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
+  // 어노테이션 표시 여부 (Phase 3g: 보이기/숨김 토글)
+  const [showAnnotations, setShowAnnotations] = useState(true);
 
   // viewportData가 변경되면 초기 테스트 어노테이션 설정
   useEffect(() => {
@@ -1310,6 +1312,9 @@ export default function App() {
               selectedAnnotationId={selectedAnnotationId}
               onAnnotationSelect={handleAnnotationSelect}
               onAnnotationDelete={handleAnnotationDelete}
+              // Phase 3g: 어노테이션 보이기/숨김
+              showAnnotations={showAnnotations}
+              onAnnotationsVisibilityChange={setShowAnnotations}
             />
           )}
 
