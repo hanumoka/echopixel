@@ -145,20 +145,32 @@ export const DicomCanvas = forwardRef<DicomCanvasHandle, DicomCanvasProps>(
       windowWidthRef.current = windowWidth;
     }, [windowCenter, windowWidth]);
 
-    // DPR 변경 감지
+    // DPR 변경 감지 (브라우저 줌 변경 대응)
+    // MDN 권장 패턴: 매번 새로운 devicePixelRatio 값으로 미디어 쿼리 재생성
+    // https://developer.mozilla.org/en-US/docs/Web/API/Window/devicePixelRatio
     useEffect(() => {
-      const updateDpr = () => {
+      let removeListener: (() => void) | null = null;
+
+      const updatePixelRatio = () => {
+        // 이전 리스너 제거
+        removeListener?.();
+
         const newDpr = Math.min(window.devicePixelRatio || 1, 2);
         setDpr(newDpr);
+
+        // 새 devicePixelRatio 값으로 미디어 쿼리 생성
+        const mqString = `(resolution: ${window.devicePixelRatio}dppx)`;
+        const media = window.matchMedia(mqString);
+        media.addEventListener('change', updatePixelRatio);
+        removeListener = () => {
+          media.removeEventListener('change', updatePixelRatio);
+        };
       };
 
-      const mediaQuery = window.matchMedia(
-        `(resolution: ${window.devicePixelRatio}dppx)`
-      );
-      mediaQuery.addEventListener('change', updateDpr);
+      updatePixelRatio();
 
       return () => {
-        mediaQuery.removeEventListener('change', updateDpr);
+        removeListener?.();
       };
     }, []);
 

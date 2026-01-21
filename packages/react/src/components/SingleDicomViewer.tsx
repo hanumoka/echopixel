@@ -279,19 +279,32 @@ export const SingleDicomViewer = forwardRef<
     windowWidthRef.current = windowWidth;
   }, [windowCenter, windowWidth]);
 
-  // DPR 변경 감지
+  // DPR 변경 감지 (브라우저 줌 변경 대응)
+  // MDN 권장 패턴: 매번 새로운 devicePixelRatio 값으로 미디어 쿼리 재생성
+  // https://developer.mozilla.org/en-US/docs/Web/API/Window/devicePixelRatio
   useEffect(() => {
-    const updateDpr = () => {
-      setDpr(Math.min(window.devicePixelRatio || 1, 2));
+    let removeListener: (() => void) | null = null;
+
+    const updatePixelRatio = () => {
+      // 이전 리스너 제거
+      removeListener?.();
+
+      const newDpr = Math.min(window.devicePixelRatio || 1, 2);
+      setDpr(newDpr);
+
+      // 새 devicePixelRatio 값으로 미디어 쿼리 생성
+      const mqString = `(resolution: ${window.devicePixelRatio}dppx)`;
+      const media = window.matchMedia(mqString);
+      media.addEventListener('change', updatePixelRatio);
+      removeListener = () => {
+        media.removeEventListener('change', updatePixelRatio);
+      };
     };
 
-    const mediaQuery = window.matchMedia(
-      `(resolution: ${window.devicePixelRatio}dppx)`
-    );
-    mediaQuery.addEventListener('change', updateDpr);
+    updatePixelRatio();
 
     return () => {
-      mediaQuery.removeEventListener('change', updateDpr);
+      removeListener?.();
     };
   }, []);
 
@@ -473,6 +486,14 @@ export const SingleDicomViewer = forwardRef<
     };
 
     const handleMouseDown = (evt: MouseEvent) => {
+      // 어노테이션 Shape 또는 DragHandle 내부 클릭이면 무시
+      // (SVGOverlay에서 선택/드래그 처리)
+      // .annotation-shape: 모든 어노테이션 도형의 공통 클래스 (확장성)
+      const target = evt.target as Element;
+      if (target.closest('.annotation-shape, .drag-handle')) {
+        return;
+      }
+
       // 좌클릭만 처리 (우클릭은 취소)
       if (evt.button === 0) {
         evt.preventDefault(); // 텍스트 선택 방지
@@ -529,14 +550,18 @@ export const SingleDicomViewer = forwardRef<
     }
   }, [isStaticImage]);
 
-  // 어노테이션 생성 완료 콜백 (Phase 3f)
+  // 어노테이션 생성 완료 콜백 (Phase 3f + 3g-2 Figma 방식)
   const handleAnnotationCreated = useCallback((annotation: Annotation) => {
-    // 외부 핸들러 호출
+    // 외부 핸들러 호출 (어노테이션 저장)
     onAnnotationUpdate?.(annotation);
+
+    // Figma 방식: 생성 후 자동으로 해당 어노테이션 선택
+    // → DragHandle이 바로 표시되어 미세 조정 가능
+    onAnnotationSelect?.(annotation.id);
 
     // 도구 상태 초기화 (계속 그릴 수 있도록 ready 상태 유지)
     setTempAnnotation(null);
-  }, [onAnnotationUpdate]);
+  }, [onAnnotationUpdate, onAnnotationSelect]);
 
   // 임시 어노테이션 업데이트 콜백 (미리보기)
   const handleTempUpdate = useCallback((temp: TempAnnotation | null) => {
@@ -637,12 +662,12 @@ export const SingleDicomViewer = forwardRef<
     }
   }, [viewportId, viewportElements, webglReady]);
 
-  // W/L, 프레임, 또는 캔버스 크기 변경 시 재렌더링
+  // W/L, 프레임, 캔버스 크기, 또는 DPR 변경 시 재렌더링
   useEffect(() => {
     if (webglReady && frames.length > 0) {
       canvasRef.current?.renderFrame(currentFrame);
     }
-  }, [windowCenter, windowWidth, currentFrame, webglReady, frames.length, width, height]);
+  }, [windowCenter, windowWidth, currentFrame, webglReady, frames.length, width, height, dpr]);
 
   // 파생 상태 (UI용)
   const windowLevel: WindowLevelInfo | null =
@@ -807,9 +832,17 @@ export const SingleDicomViewer = forwardRef<
           e.preventDefault();
           resetViewport();
           break;
+        case 'Delete':
+        case 'Backspace':
+          // 선택된 어노테이션 삭제
+          if (selectedAnnotationId && onAnnotationDelete) {
+            e.preventDefault();
+            onAnnotationDelete(selectedAnnotationId);
+          }
+          break;
       }
     },
-    [togglePlay, prevFrame, nextFrame, resetViewport]
+    [togglePlay, prevFrame, nextFrame, resetViewport, selectedAnnotationId, onAnnotationDelete]
   );
 
   // Context Loss 테스트

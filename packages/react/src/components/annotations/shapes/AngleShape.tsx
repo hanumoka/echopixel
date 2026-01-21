@@ -8,11 +8,13 @@
  * - 꼭짓점(P2)에 각도 아크
  * - 세 점에 작은 원
  * - 측정값 라벨
+ * - 선택 시 드래그 핸들 표시
  */
 
 import { useCallback, useMemo } from 'react';
 import type { ShapeProps, Point } from '@echopixel/core';
 import { MeasurementLabel } from '../MeasurementLabel';
+import { DragHandle } from '../DragHandle';
 
 /**
  * 각도 아크 경로 생성
@@ -73,6 +75,8 @@ export function AngleShape({
   config,
   onSelect,
   onHover,
+  showHandles = false,
+  onPointDragStart,
 }: ShapeProps) {
   const { id, points, labelPosition, displayValue, color, isSelected, isHovered } = data;
 
@@ -107,6 +111,14 @@ export function AngleShape({
     [id, onSelect]
   );
 
+  // mousedown에서도 전파 중단 (MeasurementTool이 새 어노테이션 생성하는 것 방지)
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+    },
+    []
+  );
+
   const handleMouseEnter = useCallback(() => {
     onHover?.(id);
   }, [id, onHover]);
@@ -117,8 +129,9 @@ export function AngleShape({
 
   return (
     <g
-      className="angle-shape"
+      className="annotation-shape angle-shape"
       onClick={handleClick}
+      onMouseDown={handleMouseDown}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       style={{ cursor: 'pointer' }}
@@ -220,6 +233,30 @@ export function AngleShape({
         fontSize={config.labelFontSize}
         isSelected={isSelected}
       />
+
+      {/* 드래그 핸들 (선택 시만 표시) */}
+      {showHandles && (
+        <>
+          <DragHandle
+            position={p1}
+            radius={config.handleRadius}
+            isActive={true}
+            onDragStart={(e) => onPointDragStart?.(0, e)}
+          />
+          <DragHandle
+            position={p2}
+            radius={config.handleRadius}
+            isActive={true}
+            onDragStart={(e) => onPointDragStart?.(1, e)}
+          />
+          <DragHandle
+            position={p3}
+            radius={config.handleRadius}
+            isActive={true}
+            onDragStart={(e) => onPointDragStart?.(2, e)}
+          />
+        </>
+      )}
     </g>
   );
 }

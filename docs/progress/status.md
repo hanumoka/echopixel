@@ -289,6 +289,7 @@
 | vite-plugin-dts 설정 | 🟢 해결 | core 패키지 .d.ts 생성 활성화 |
 | 데모 중복 Hybrid 모드 | 🟢 해결 | 로컬 HybridViewport 폴더 삭제 완료 |
 | HardwareInfoPanel GPU 정보 (Multi) | 🟡 미표시 | glRef가 null (내부 관리) |
+| 브라우저 줌 변경 시 검은 화면 | 🟢 해결 | MDN matchMedia 패턴 + DPR 재렌더링 |
 
 ---
 

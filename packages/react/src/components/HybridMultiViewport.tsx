@@ -414,11 +414,35 @@ export const HybridMultiViewport = forwardRef<
     };
   }, [width, height]);
 
-  // 컨테이너 크기 변경 시 동기화
+  // 컨테이너 크기 변경 시 동기화 및 재렌더링
+  // 브라우저 줌 변경, 창 리사이즈 등에서 정지 상태일 때도 화면 갱신 필요
   useEffect(() => {
+    console.log('[DEBUG] containerSize changed:', {
+      width: containerSize.width,
+      height: containerSize.height,
+      dpr: window.devicePixelRatio,
+      isPlaying: isPlayingState,
+      hasHybridManager: !!hybridManagerRef.current,
+      hasRenderScheduler: !!renderSchedulerRef.current,
+    });
+
     if (hybridManagerRef.current) {
       hybridManagerRef.current.markNeedsSync();
+      console.log('[DEBUG] markNeedsSync() called');
     }
+    // requestAnimationFrame으로 브라우저 layout 완료 후 렌더링
+    // 즉시 호출하면 getBoundingClientRect()가 이전 값을 반환할 수 있음
+    const rafId = requestAnimationFrame(() => {
+      console.log('[DEBUG] requestAnimationFrame callback executing');
+      if (renderSchedulerRef.current) {
+        console.log('[DEBUG] calling renderSingleFrame()');
+        renderSchedulerRef.current.renderSingleFrame();
+        console.log('[DEBUG] renderSingleFrame() completed');
+      } else {
+        console.log('[DEBUG] renderSchedulerRef.current is null!');
+      }
+    });
+    return () => cancelAnimationFrame(rafId);
   }, [containerSize.width, containerSize.height]);
 
   // 렌더링 콜백 설정 헬퍼

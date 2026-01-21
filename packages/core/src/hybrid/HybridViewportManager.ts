@@ -193,14 +193,23 @@ export class HybridViewportManager {
    * needsSync 플래그 체크로 불필요한 재계산 방지
    */
   syncAllSlots(): void {
+    console.log('[DEBUG] syncAllSlots() - needsSync:', this.needsSync);
     if (!this.needsSync) return;
 
     // 좌표 컨텍스트 업데이트
+    const oldDpr = this.coordinateContext.dpr;
     this.coordinateContext = updateCoordinateContext(this.coordinateContext);
+    console.log('[DEBUG] coordinateContext updated:', {
+      oldDpr,
+      newDpr: this.coordinateContext.dpr,
+      canvasRect: this.coordinateContext.canvasRect,
+    });
 
     // 모든 슬롯 동기화
     for (const viewportId of this.slots.keys()) {
       this.syncSlot(viewportId);
+      const bounds = this.slots.get(viewportId)?.webglBounds;
+      console.log('[DEBUG] slot synced:', viewportId, bounds);
     }
 
     this.needsSync = false;

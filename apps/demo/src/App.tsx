@@ -263,6 +263,8 @@ export default function App() {
 
   // Single Viewport용 어노테이션 상태 (Phase 3f: 생성 기능 테스트)
   const [singleAnnotations, setSingleAnnotations] = useState<Annotation[]>([]);
+  // 선택된 어노테이션 ID (Phase 3g-2: 선택/편집 UI)
+  const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
 
   // viewportData가 변경되면 초기 테스트 어노테이션 설정
   useEffect(() => {
@@ -348,10 +350,36 @@ export default function App() {
     ]);
   }, [viewportData]);
 
-  // Single Viewport 어노테이션 업데이트 핸들러 (새 어노테이션 추가)
+  // Single Viewport 어노테이션 업데이트 핸들러 (새 어노테이션 추가 또는 기존 수정)
   const handleSingleAnnotationUpdate = useCallback((annotation: Annotation) => {
-    console.log('[Phase 3f] Annotation created:', annotation);
-    setSingleAnnotations(prev => [...prev, annotation]);
+    setSingleAnnotations(prev => {
+      const existingIndex = prev.findIndex(a => a.id === annotation.id);
+      if (existingIndex >= 0) {
+        // 기존 어노테이션 업데이트 (드래그로 이동된 경우)
+        console.log('[Phase 3g-2] Annotation updated:', annotation.id);
+        const newList = [...prev];
+        newList[existingIndex] = annotation;
+        return newList;
+      } else {
+        // 새 어노테이션 추가
+        console.log('[Phase 3f] Annotation created:', annotation.id);
+        return [...prev, annotation];
+      }
+    });
+  }, []);
+
+  // 어노테이션 선택 핸들러 (Phase 3g-2)
+  const handleAnnotationSelect = useCallback((annotationId: string | null) => {
+    console.log('[Phase 3g-2] Annotation selected:', annotationId);
+    setSelectedAnnotationId(annotationId);
+  }, []);
+
+  // 어노테이션 삭제 핸들러 (Phase 3g-2)
+  const handleAnnotationDelete = useCallback((annotationId: string) => {
+    console.log('[Phase 3g-2] Annotation deleted:', annotationId);
+    setSingleAnnotations(prev => prev.filter(a => a.id !== annotationId));
+    // 삭제된 어노테이션이 선택된 상태였으면 선택 해제
+    setSelectedAnnotationId(prev => prev === annotationId ? null : prev);
   }, []);
 
   // Multi Canvas용 DataSource (안정적인 참조 유지)
@@ -1278,6 +1306,10 @@ export default function App() {
               annotations={singleAnnotations}
               // Phase 3f: 어노테이션 생성 콜백
               onAnnotationUpdate={handleSingleAnnotationUpdate}
+              // Phase 3g-2: 어노테이션 선택/편집
+              selectedAnnotationId={selectedAnnotationId}
+              onAnnotationSelect={handleAnnotationSelect}
+              onAnnotationDelete={handleAnnotationDelete}
             />
           )}
 

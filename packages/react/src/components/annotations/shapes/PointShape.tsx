@@ -6,11 +6,13 @@
  * 렌더링:
  * - 점 위치에 십자선 또는 마커
  * - 측정값 라벨
+ * - 선택 시 드래그 핸들 표시
  */
 
 import { useCallback } from 'react';
 import type { ShapeProps } from '@echopixel/core';
 import { MeasurementLabel } from '../MeasurementLabel';
+import { DragHandle } from '../DragHandle';
 
 /**
  * PointShape
@@ -20,6 +22,8 @@ export function PointShape({
   config,
   onSelect,
   onHover,
+  showHandles = false,
+  onPointDragStart,
 }: ShapeProps) {
   const { id, points, labelPosition, displayValue, color, isSelected, isHovered } = data;
 
@@ -51,6 +55,14 @@ export function PointShape({
     [id, onSelect]
   );
 
+  // mousedown에서도 전파 중단 (MeasurementTool이 새 어노테이션 생성하는 것 방지)
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+    },
+    []
+  );
+
   const handleMouseEnter = useCallback(() => {
     onHover?.(id);
   }, [id, onHover]);
@@ -61,8 +73,9 @@ export function PointShape({
 
   return (
     <g
-      className="point-shape"
+      className="annotation-shape point-shape"
       onClick={handleClick}
+      onMouseDown={handleMouseDown}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       style={{ cursor: 'pointer' }}
@@ -120,6 +133,16 @@ export function PointShape({
         fontSize={config.labelFontSize}
         isSelected={isSelected}
       />
+
+      {/* 드래그 핸들 (선택 시만 표시) */}
+      {showHandles && (
+        <DragHandle
+          position={point}
+          radius={config.handleRadius}
+          isActive={true}
+          onDragStart={(e) => onPointDragStart?.(0, e)}
+        />
+      )}
     </g>
   );
 }

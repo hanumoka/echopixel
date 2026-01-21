@@ -320,11 +320,21 @@ export class HybridRenderScheduler {
    * 단일 프레임 렌더링 (루프 없이)
    */
   renderSingleFrame(): void {
+    console.log('[DEBUG] renderSingleFrame() - start', {
+      isRunning: this.isRunning,
+      canvasWidth: this.gl.canvas.width,
+      canvasHeight: this.gl.canvas.height,
+      drawingBufferWidth: this.gl.drawingBufferWidth,
+      drawingBufferHeight: this.gl.drawingBufferHeight,
+    });
+
     // 동기화 수행
     this.hybridManager.syncAllSlots();
 
     const timestamp = performance.now();
     this.updateAndRenderViewports(timestamp);
+
+    console.log('[DEBUG] renderSingleFrame() - end');
   }
 
   /**

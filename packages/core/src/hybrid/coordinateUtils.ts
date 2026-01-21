@@ -149,12 +149,16 @@ export function createCoordinateContext(
 /**
  * 좌표 컨텍스트 업데이트 (리사이즈 시)
  *
+ * 브라우저 줌 변경 시 devicePixelRatio도 변경되므로 dpr도 업데이트
+ *
  * @param context - 기존 컨텍스트
  * @returns 업데이트된 컨텍스트
  */
 export function updateCoordinateContext(context: CoordinateContext): CoordinateContext {
   return {
     ...context,
+    // 브라우저 줌 변경 시 devicePixelRatio 반영 (최대 2로 제한)
+    dpr: Math.min(window.devicePixelRatio || 1, 2),
     canvasRect: context.canvas.getBoundingClientRect(),
   };
 }

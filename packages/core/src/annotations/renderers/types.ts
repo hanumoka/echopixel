@@ -230,8 +230,12 @@ export interface ShapeProps {
   onSelect?: (id: string) => void;
   /** 호버 핸들러 */
   onHover?: (id: string | null) => void;
-  /** 드래그 시작 핸들러 */
-  onDragStart?: (id: string, part: DragState['part'], pointIndex?: number) => void;
+  /** 드래그 핸들 표시 여부 (선택된 상태) */
+  showHandles?: boolean;
+  /** 포인트 드래그 시작 핸들러 */
+  onPointDragStart?: (pointIndex: number, e: React.MouseEvent) => void;
+  /** 라벨 드래그 시작 핸들러 */
+  onLabelDragStart?: (e: React.MouseEvent) => void;
 }
 
 /**

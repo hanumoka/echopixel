@@ -6,6 +6,83 @@
 
 ---
 
+## 2026-01-21 세션 #24 (어노테이션 드래그 및 브라우저 줌 버그 수정)
+
+### 작업 내용
+
+**어노테이션 선택/편집 UI 개선**
+- [x] Shape 컴포넌트에 `annotation-shape` 공통 클래스 추가
+- [x] SingleDicomViewer: 어노테이션 클릭 시 MeasurementTool 이벤트 전파 차단
+- [x] SVGOverlay: 임시 어노테이션 `pointerEvents: 'none'` 적용 (클릭 간섭 방지)
+- [x] SVGOverlay: document-level 드래그 이벤트 처리 (SVG 영역 밖 드래그 지원)
+
+**브라우저 줌 변경 시 검은 화면 버그 수정** ⭐
+- [x] **근본 원인**: matchMedia 패턴 오류 + DPR 변경 시 재렌더링 미트리거
+- [x] DicomCanvas.tsx: MDN 권장 matchMedia 패턴 적용 (매번 새 미디어 쿼리 생성)
+- [x] SingleDicomViewer.tsx: 동일한 MDN matchMedia 패턴 적용
+- [x] SingleDicomViewer.tsx: useEffect 의존성에 `dpr` 추가 (DPR 변경 시 재렌더링)
+- [x] coordinateUtils.ts: `updateCoordinateContext()`에서 dpr 업데이트 추가
+
+### 버그 상세: 브라우저 줌 검은 화면
+
+**증상**: DICOM 정지 상태에서 브라우저 줌(Ctrl+휠) 변경 시 화면이 검은색으로 변함. 재생 시 정상.
+
+**근본 원인 분석**:
+1. 기존 matchMedia 코드: `window.matchMedia(\`(resolution: ${window.devicePixelRatio}dppx)\`)`
+   - 문제: 초기 DPR 값으로 고정된 미디어 쿼리 → 첫 번째 변경만 감지
+2. MDN 권장 패턴: 매번 새 devicePixelRatio 값으로 미디어 쿼리 재생성
+3. DPR 변경 시 `setDpr()` 호출되지만 useEffect 의존성에 없어 재렌더링 미발생
+
+**수정 사항**:
+```typescript
+// MDN 권장 패턴 (DicomCanvas.tsx, SingleDicomViewer.tsx)
+useEffect(() => {
+  let removeListener: (() => void) | null = null;
+  const updatePixelRatio = () => {
+    removeListener?.();
+    const newDpr = Math.min(window.devicePixelRatio || 1, 2);
+    setDpr(newDpr);
+    const mqString = `(resolution: ${window.devicePixelRatio}dppx)`;
+    const media = window.matchMedia(mqString);
+    media.addEventListener('change', updatePixelRatio);
+    removeListener = () => media.removeEventListener('change', updatePixelRatio);
+  };
+  updatePixelRatio();
+  return () => removeListener?.();
+}, []);
+
+// DPR 변경 시 재렌더링 (SingleDicomViewer.tsx)
+useEffect(() => {
+  if (webglReady && frames.length > 0) {
+    canvasRef.current?.renderFrame(currentFrame);
+  }
+}, [...dependencies, dpr]); // dpr 추가
+```
+
+### 파일 변경
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `packages/react/.../DicomCanvas.tsx` | MDN matchMedia 패턴 |
+| `packages/react/.../SingleDicomViewer.tsx` | MDN matchMedia 패턴 + dpr 의존성 |
+| `packages/core/.../coordinateUtils.ts` | updateCoordinateContext dpr 업데이트 |
+| `packages/react/.../SVGOverlay.tsx` | document 드래그, pointerEvents |
+| `packages/react/.../shapes/*.tsx` | annotation-shape 클래스 |
+
+### 학습 포인트
+
+- **MDN matchMedia DPR 감지**: https://developer.mozilla.org/en-US/docs/Web/API/Window/devicePixelRatio
+- 미디어 쿼리는 변경될 때마다 새 DPR 값으로 재생성해야 연속 감지 가능
+- React useEffect 의존성: 상태 변경이 렌더링에 영향을 주려면 의존성 배열에 포함 필수
+
+### 다음 세션 할 일
+
+- [ ] 어노테이션 드래그 편집 완성 (DragHandle 통합)
+- [ ] Delete 키 삭제 기능
+- [ ] HybridMultiViewport 어노테이션 생성 기능
+
+---
+
 ## 2026-01-20 세션 #23 (Phase 3g: Calibration 지원)
 
 ### 작업 내용
