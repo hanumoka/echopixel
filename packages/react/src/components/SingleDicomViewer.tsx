@@ -467,8 +467,17 @@ export const SingleDicomViewer = forwardRef<
     const tool = measurementToolsRef.current[activeMeasurementToolId];
     if (!tool) return;
 
+    // 이미지 경계 (DICOM 좌표 기준)
+    const imageWidth = imageInfo.columns;
+    const imageHeight = imageInfo.rows;
+
+    // DICOM 좌표가 이미지 영역 내인지 검증
+    const isWithinImageBounds = (dicomX: number, dicomY: number): boolean => {
+      return dicomX >= 0 && dicomX <= imageWidth && dicomY >= 0 && dicomY <= imageHeight;
+    };
+
     // 마우스 이벤트 → ToolMouseEvent 변환
-    const createToolEvent = (evt: MouseEvent): ToolMouseEvent => {
+    const createToolEvent = (evt: MouseEvent): ToolMouseEvent | null => {
       const rect = element.getBoundingClientRect();
       const canvasX = evt.clientX - rect.left;
       const canvasY = evt.clientY - rect.top;
@@ -478,6 +487,11 @@ export const SingleDicomViewer = forwardRef<
         { x: canvasX, y: canvasY },
         transformContext
       );
+
+      // ★ 이미지 영역 밖이면 null 반환 (이벤트 차단)
+      if (!isWithinImageBounds(dicomPoint.x, dicomPoint.y)) {
+        return null;
+      }
 
       return {
         canvasX,
@@ -502,8 +516,12 @@ export const SingleDicomViewer = forwardRef<
 
       // 좌클릭만 처리 (우클릭은 취소)
       if (evt.button === 0) {
+        const toolEvent = createToolEvent(evt);
+        // ★ 이미지 영역 밖이면 무시
+        if (!toolEvent) return;
+
         evt.preventDefault(); // 텍스트 선택 방지
-        tool.handleMouseDown(createToolEvent(evt));
+        tool.handleMouseDown(toolEvent);
       } else if (evt.button === 2) {
         // 우클릭: 드로잉 취소
         tool.cancelDrawing();
@@ -512,7 +530,11 @@ export const SingleDicomViewer = forwardRef<
     };
 
     const handleMouseMove = (evt: MouseEvent) => {
-      tool.handleMouseMove(createToolEvent(evt));
+      const toolEvent = createToolEvent(evt);
+      // ★ 이미지 영역 밖이면 무시 (미리보기도 차단)
+      if (!toolEvent) return;
+
+      tool.handleMouseMove(toolEvent);
     };
 
     element.addEventListener('mousedown', handleMouseDown);

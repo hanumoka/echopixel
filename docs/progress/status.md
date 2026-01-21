@@ -5,7 +5,7 @@
 | 항목 | 상태 |
 |------|------|
 | **현재 Phase** | Phase 3 (Annotations) ✅ 핵심 완료 |
-| **마지막 업데이트** | 2026-01-20 |
+| **마지막 업데이트** | 2026-01-21 |
 | **다음 마일스톤** | Phase 3g (확장 도구 및 Calibration) 또는 Phase 4 |
 
 ---
@@ -169,11 +169,15 @@
 | CoordinateTransformer rotation/flip | ✅ | 회전/플립 시 어노테이션 좌표 변환 |
 | 컴포넌트 unmount cleanup | ✅ | MeasurementTool 메모리 누수 방지 |
 
-#### Phase 3g: 확장 & 플러그인 🚧 진행 중
+#### Phase 3g: 확장 & 버그 수정 🚧 진행 중
 
 | 항목 | 상태 | 비고 |
 |------|------|------|
 | Calibration 지원 | ✅ | Pixel Spacing + Ultrasound Region (Local File, WADO-RS) |
+| 브라우저 줌 검은 화면 수정 | ✅ | MDN matchMedia 패턴 + DPR 재렌더링 |
+| 조작 도구/어노테이션 도구 격리 | ✅ | MANIPULATION_TOOL_IDS + 바인딩 관리 |
+| DragHandle 이벤트 전파 수정 | ✅ | nativeEvent.stopImmediatePropagation |
+| 이미지 경계 밖 어노테이션 차단 | ✅ | isWithinImageBounds() 검증 |
 | 측정 도구 (Ellipse, VTI) | ⏳ | 확장 도구 |
 | 플러그인 시스템 | ⏳ | 도구/계산기/렌더러 확장 |
 
@@ -290,6 +294,9 @@
 | 데모 중복 Hybrid 모드 | 🟢 해결 | 로컬 HybridViewport 폴더 삭제 완료 |
 | HardwareInfoPanel GPU 정보 (Multi) | 🟡 미표시 | glRef가 null (내부 관리) |
 | 브라우저 줌 변경 시 검은 화면 | 🟢 해결 | MDN matchMedia 패턴 + DPR 재렌더링 |
+| 조작 도구/어노테이션 도구 간섭 | 🟢 해결 | MANIPULATION_TOOL_IDS + 바인딩 복원 |
+| DragHandle 드래그 시 W/L 동작 | 🟢 해결 | nativeEvent.stopImmediatePropagation |
+| 이미지 경계 밖 어노테이션 생성 | 🟢 해결 | isWithinImageBounds() 검증 |
 
 ---
 

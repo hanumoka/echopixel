@@ -6,7 +6,7 @@
 
 ---
 
-## 2026-01-21 세션 #24 (어노테이션 드래그 및 브라우저 줌 버그 수정)
+## 2026-01-21 세션 #24 (도구 격리, 이미지 경계, 브라우저 줌 수정)
 
 ### 작업 내용
 
@@ -16,7 +16,24 @@
 - [x] SVGOverlay: 임시 어노테이션 `pointerEvents: 'none'` 적용 (클릭 간섭 방지)
 - [x] SVGOverlay: document-level 드래그 이벤트 처리 (SVG 영역 밖 드래그 지원)
 
-**브라우저 줌 변경 시 검은 화면 버그 수정** ⭐
+**조작 도구/어노테이션 도구 격리** ⭐
+- [x] **문제**: W/L 선택 후 어노테이션 도구 선택 시 드래그하면 W/L도 동작
+- [x] **원인**: 이전 도구의 바인딩만 복원, 모든 조작 도구 바인딩 미처리
+- [x] `MANIPULATION_TOOL_IDS` 상수 추가 (WindowLevel, Pan, Zoom, StackScroll)
+- [x] `handleToolbarToolChange`: 어노테이션 도구 선택 시 모든 조작 도구를 기본 바인딩으로 복원
+
+**DragHandle 이벤트 전파 수정** ⭐
+- [x] **문제**: W/L 선택 상태에서 기존 어노테이션 DragHandle 드래그 시 W/L 동작
+- [x] **원인**: React `stopPropagation()`은 native addEventListener에 영향 없음
+- [x] DragHandle.tsx: `e.nativeEvent.stopImmediatePropagation()` 추가
+- [x] ToolGroup.ts: `onMouseDown`에서 `.drag-handle, .annotation-shape` 요소 클릭 시 무시
+
+**이미지 경계 밖 어노테이션 차단** ⭐
+- [x] **문제**: DICOM 이미지 영역 밖에서 어노테이션 포인트 생성 가능
+- [x] `isWithinImageBounds()` 함수 추가 (DICOM 좌표 경계 검증)
+- [x] `createToolEvent()`: 경계 밖 좌표 시 null 반환 → 이벤트 무시
+
+**브라우저 줌 변경 시 검은 화면 버그 수정**
 - [x] **근본 원인**: matchMedia 패턴 오류 + DPR 변경 시 재렌더링 미트리거
 - [x] DicomCanvas.tsx: MDN 권장 matchMedia 패턴 적용 (매번 새 미디어 쿼리 생성)
 - [x] SingleDicomViewer.tsx: 동일한 MDN matchMedia 패턴 적용
@@ -59,21 +76,75 @@ useEffect(() => {
 }, [...dependencies, dpr]); // dpr 추가
 ```
 
+### 버그 상세: 도구 격리 문제
+
+**증상**: W/L 선택 → Length 도구 선택 → 마우스 드래그 시 W/L과 어노테이션이 동시에 동작
+
+**원인 분석**:
+1. 두 이벤트 시스템이 동일 DOM에서 동작 (ToolGroup native + MeasurementTool React)
+2. `handleToolbarToolChange`에서 이전 도구 바인딩만 복원 → 다른 조작 도구 Primary 바인딩 유지
+
+**수정 사항**:
+```typescript
+// SingleDicomViewer.tsx
+const MANIPULATION_TOOL_IDS = ['WindowLevel', 'Pan', 'Zoom', 'StackScroll'] as const;
+
+// 어노테이션 도구 선택 시 모든 조작 도구를 기본 바인딩으로 복원
+for (const manipToolId of MANIPULATION_TOOL_IDS) {
+  const defaultBindings = getDefaultBindings(manipToolId);
+  setToolGroupToolActive(manipToolId, defaultBindings);
+}
+```
+
+### 버그 상세: DragHandle 이벤트 전파
+
+**증상**: W/L 선택 상태에서 기존 어노테이션 DragHandle 드래그 시 W/L 동작
+
+**원인 분석**:
+- React SyntheticEvent의 `stopPropagation()`은 React 이벤트 시스템 내부에서만 동작
+- ToolGroup은 native `addEventListener`로 등록됨 → React 전파 중지가 영향 없음
+
+**수정 사항**:
+```typescript
+// DragHandle.tsx
+const handleMouseDown = useCallback((e: React.MouseEvent) => {
+  e.stopPropagation();
+  e.preventDefault();
+  // ★ Native DOM 이벤트 전파도 중지
+  e.nativeEvent.stopImmediatePropagation();
+  onDragStart?.(e);
+}, [onDragStart]);
+
+// ToolGroup.ts - 방어적 체크 추가
+private onMouseDown(evt: MouseEvent, viewportId: string, element: HTMLElement): void {
+  const target = evt.target as Element;
+  if (target.closest('.drag-handle, .annotation-shape')) {
+    return; // 어노테이션 관련 요소 클릭 무시
+  }
+  // ... 기존 로직
+}
+```
+
 ### 파일 변경
 
 | 파일 | 변경 내용 |
 |------|-----------|
 | `packages/react/.../DicomCanvas.tsx` | MDN matchMedia 패턴 |
-| `packages/react/.../SingleDicomViewer.tsx` | MDN matchMedia 패턴 + dpr 의존성 |
+| `packages/react/.../SingleDicomViewer.tsx` | MDN matchMedia 패턴, dpr 의존성, MANIPULATION_TOOL_IDS, 이미지 경계 검증 |
 | `packages/core/.../coordinateUtils.ts` | updateCoordinateContext dpr 업데이트 |
+| `packages/core/.../tools/ToolGroup.ts` | onMouseDown에서 어노테이션 요소 클릭 무시 |
 | `packages/react/.../SVGOverlay.tsx` | document 드래그, pointerEvents |
 | `packages/react/.../shapes/*.tsx` | annotation-shape 클래스 |
+| `packages/react/.../annotations/DragHandle.tsx` | nativeEvent.stopImmediatePropagation() |
 
 ### 학습 포인트
 
-- **MDN matchMedia DPR 감지**: https://developer.mozilla.org/en-US/docs/Web/API/Window/devicePixelRatio
-- 미디어 쿼리는 변경될 때마다 새 DPR 값으로 재생성해야 연속 감지 가능
-- React useEffect 의존성: 상태 변경이 렌더링에 영향을 주려면 의존성 배열에 포함 필수
+- **MDN matchMedia DPR 감지**: 미디어 쿼리는 매번 새 DPR 값으로 재생성해야 연속 감지 가능
+- **React vs Native 이벤트**: `stopPropagation()` vs `nativeEvent.stopImmediatePropagation()`
+  - React stopPropagation: React 이벤트 시스템 내부에서만 전파 중지
+  - nativeEvent.stopImmediatePropagation: native addEventListener도 중지
+- **도구 바인딩 관리**: 도구 전환 시 모든 관련 도구의 바인딩 상태 고려 필요
+- **좌표 경계 검증**: 사용자 입력 좌표는 유효 범위 내인지 항상 검증
 
 ### 다음 세션 할 일
 
