@@ -6,7 +6,7 @@
 |------|------|
 | **현재 Phase** | Phase 3 (Annotations) ✅ 핵심 완료 |
 | **마지막 업데이트** | 2026-01-21 |
-| **다음 마일스톤** | Phase 3g (확장 도구 및 Calibration) 또는 Phase 4 |
+| **다음 마일스톤** | Phase 3g-2 (어노테이션 선택/편집 UI) 또는 Phase 4 |
 
 ---
 
@@ -169,7 +169,7 @@
 | CoordinateTransformer rotation/flip | ✅ | 회전/플립 시 어노테이션 좌표 변환 |
 | 컴포넌트 unmount cleanup | ✅ | MeasurementTool 메모리 누수 방지 |
 
-#### Phase 3g: 확장 & 버그 수정 🚧 진행 중
+#### Phase 3g: 확장 & 버그 수정 ✅ 완료
 
 | 항목 | 상태 | 비고 |
 |------|------|------|
@@ -178,8 +178,19 @@
 | 조작 도구/어노테이션 도구 격리 | ✅ | MANIPULATION_TOOL_IDS + 바인딩 관리 |
 | DragHandle 이벤트 전파 수정 | ✅ | nativeEvent.stopImmediatePropagation |
 | 이미지 경계 밖 어노테이션 차단 | ✅ | isWithinImageBounds() 검증 |
-| 측정 도구 (Ellipse, VTI) | ⏳ | 확장 도구 |
-| 플러그인 시스템 | ⏳ | 도구/계산기/렌더러 확장 |
+| HybridMultiViewport 어노테이션 생성 | ✅ | MeasurementTool 통합, 도구 버튼, Delete 키 삭제 |
+| HybridMultiViewport 조작 도구 통합 | ✅ | W/L, Pan, Zoom, StackScroll (ViewportManagerLike 어댑터) |
+| 어노테이션 표시 토글 | ✅ | showAnnotations prop + 데모 UI |
+| 측정 도구 (Ellipse, VTI) | ⏳ | 확장 도구 (선택적) |
+| 플러그인 시스템 | ⏳ | 도구/계산기/렌더러 확장 (선택적) |
+
+#### Phase 3g-2: 어노테이션 선택/편집 UI 🚧 계획됨
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| DragHandle 통합 | ⏳ | Shape 컴포넌트에 핸들 표시 |
+| 포인트 드래그 편집 | ⏳ | 어노테이션 포인트 위치 수정 |
+| 라벨 드래그 | ⏳ | 측정값 라벨 위치 이동 |
 
 **Calibration 구현 상세**:
 - Local File: `getImageInfo()` → `getPixelSpacing()` / `getUltrasoundCalibration()`
@@ -362,13 +373,18 @@
    - [x] Canvas 이벤트 처리 (클릭→포인트 추가, 우클릭→취소)
    - [x] 임시 어노테이션 렌더링 (점선 미리보기)
    - [x] CoordinateTransformer rotation/flip 좌표 변환
-20. **Phase 3g 구현** (진행 중): ⬅️ 다음 마일스톤
+20. ~~**Phase 3g 구현**~~ ✅ 완료
    - [x] Calibration 지원 (Pixel Spacing + Ultrasound Region Calibration → mm/cm)
-   - [ ] 측정 도구 확장 (Ellipse, VTI)
-   - [ ] 플러그인 시스템
-   - [ ] 어노테이션 선택/편집 UI
-   - [ ] HybridMultiViewport 어노테이션 생성 기능
-21. **npm 배포 준비**: README, CHANGELOG (Phase 5)
+   - [x] HybridMultiViewport 어노테이션 생성 기능
+   - [x] HybridMultiViewport 조작 도구 통합 (W/L, Pan, Zoom, StackScroll)
+   - [x] 어노테이션 표시 토글 기능
+   - [ ] 측정 도구 확장 (Ellipse, VTI) - 선택적
+   - [ ] 플러그인 시스템 - 선택적
+21. **Phase 3g-2 구현** (계획됨): ⬅️ 다음 마일스톤
+   - [ ] 어노테이션 선택/편집 UI (DragHandle 통합)
+   - [ ] 포인트 드래그 편집
+   - [ ] 라벨 위치 이동
+22. **npm 배포 준비**: README, CHANGELOG (Phase 5)
 
 ---
 

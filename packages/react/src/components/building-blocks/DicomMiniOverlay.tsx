@@ -61,6 +61,18 @@ export interface DicomMiniOverlayProps {
   onFlipV?: () => void;
   /** 리셋 콜백 */
   onReset?: () => void;
+
+  // =========================================================================
+  // Annotation Tool Props (Phase 3g)
+  // =========================================================================
+
+  /** 어노테이션 도구 버튼 표시 여부 */
+  showAnnotationTools?: boolean;
+  /** 현재 활성 도구 ID */
+  activeTool?: string;
+  /** 도구 선택 콜백 */
+  onToolChange?: (toolId: string) => void;
+
   /** 커스텀 스타일 */
   style?: CSSProperties;
   /** 커스텀 클래스명 */
@@ -99,22 +111,26 @@ export function DicomMiniOverlay({
   onFlipH,
   onFlipV,
   onReset,
+  // Annotation Tool props (Phase 3g)
+  showAnnotationTools = false,
+  activeTool,
+  onToolChange,
   style,
   className,
 }: DicomMiniOverlayProps) {
-  // 도구 버튼 스타일
+  // 도구 버튼 스타일 (32x32px로 증가, 가시성 개선)
   const toolButtonStyle: CSSProperties = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    width: '24px',
-    height: '24px',
-    background: 'rgba(0, 0, 0, 0.6)',
-    color: '#aaa',
-    border: 'none',
-    borderRadius: '3px',
+    width: '32px',
+    height: '32px',
+    background: 'rgba(0, 0, 0, 0.7)',
+    color: '#ccc',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    borderRadius: '4px',
     cursor: 'pointer',
-    fontSize: '12px',
+    fontSize: '16px',
     padding: 0,
     transition: 'all 0.15s ease',
     pointerEvents: 'auto', // 버튼만 클릭 가능
@@ -172,18 +188,75 @@ export function DicomMiniOverlay({
           </span>
         )}
 
-        {/* 우상단: 재생 상태 */}
-        {showPlayState && isPlaying && (
-          <span
-            style={{
-              background: 'rgba(76, 175, 80, 0.7)',
-              padding: '2px 6px',
-              borderRadius: '3px',
-            }}
-          >
-            ▶
-          </span>
-        )}
+        {/* 우상단: 도구 버튼 및 재생 상태 */}
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+          {/* 도구 버튼 (선택됨 상태에서만) */}
+          {showAnnotationTools && isSelected && (
+            <div style={{ display: 'flex', gap: '4px' }}>
+              {/* 조작 도구 */}
+              <button
+                onClick={() => onToolChange?.('WindowLevel')}
+                title="밝기/대비 조정 (W/L)"
+                style={activeTool === 'WindowLevel' ? activeToolButtonStyle : toolButtonStyle}
+              >
+                ☀️
+              </button>
+              <button
+                onClick={() => onToolChange?.('Pan')}
+                title="이미지 이동"
+                style={activeTool === 'Pan' ? activeToolButtonStyle : toolButtonStyle}
+              >
+                ✋
+              </button>
+              <button
+                onClick={() => onToolChange?.('Zoom')}
+                title="확대/축소"
+                style={activeTool === 'Zoom' ? activeToolButtonStyle : toolButtonStyle}
+              >
+                🔍
+              </button>
+
+              {/* 구분선 */}
+              <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.3)', margin: '0 2px' }} />
+
+              {/* 어노테이션 도구 */}
+              <button
+                onClick={() => onToolChange?.('Length')}
+                title="거리 측정"
+                style={activeTool === 'Length' ? activeToolButtonStyle : toolButtonStyle}
+              >
+                📏
+              </button>
+              <button
+                onClick={() => onToolChange?.('Angle')}
+                title="각도 측정"
+                style={activeTool === 'Angle' ? activeToolButtonStyle : toolButtonStyle}
+              >
+                ∠
+              </button>
+              <button
+                onClick={() => onToolChange?.('Point')}
+                title="점 마커"
+                style={activeTool === 'Point' ? activeToolButtonStyle : toolButtonStyle}
+              >
+                ●
+              </button>
+            </div>
+          )}
+
+          {/* 재생 상태 */}
+          {showPlayState && isPlaying && (
+            <span
+              style={{
+                background: 'rgba(76, 175, 80, 0.7)',
+                padding: '2px 6px',
+                borderRadius: '3px',
+              }}
+            >
+              ▶
+            </span>
+          )}
+        </div>
       </div>
 
       {/* 하단 영역 */}
@@ -225,7 +298,7 @@ export function DicomMiniOverlay({
 
           {/* 도구 버튼 (선택됨 상태에서만 표시) */}
           {showTools && isSelected && (
-            <div style={{ display: 'flex', gap: '2px', marginLeft: '4px' }}>
+            <div style={{ display: 'flex', gap: '4px', marginLeft: '4px' }}>
               {/* 회전 버튼 */}
               <button
                 onClick={onRotateLeft}
@@ -275,11 +348,11 @@ export function DicomMiniOverlay({
                 <span
                   style={{
                     background: 'rgba(74, 158, 255, 0.5)',
-                    padding: '2px 4px',
-                    borderRadius: '3px',
-                    fontSize: '9px',
+                    padding: '4px 6px',
+                    borderRadius: '4px',
+                    fontSize: '11px',
                     color: '#fff',
-                    marginLeft: '2px',
+                    marginLeft: '4px',
                   }}
                 >
                   {rotation !== 0 && `${rotation}°`}

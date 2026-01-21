@@ -46,6 +46,7 @@ import {
   useRef,
   useState,
   useCallback,
+  useMemo,
   useImperativeHandle,
   forwardRef,
   type ReactNode,
@@ -62,6 +63,10 @@ import {
   decodeNative,
   closeDecodedFrame,
   useToolGroup,
+  coordinateTransformer,
+  LengthTool,
+  AngleTool,
+  PointTool,
   type LayoutType,
   type Viewport,
   type ViewportSeriesInfo,
@@ -73,6 +78,15 @@ import {
   type Annotation,
   type SVGRenderConfig,
   type TransformContext,
+  type MeasurementTool,
+  type ToolContext,
+  type TempAnnotation,
+  type ToolMouseEvent,
+  type CalibrationData,
+  type ToolBinding,
+  type ViewportManagerLike,
+  MouseBindings,
+  KeyboardModifiers,
 } from '@echopixel/core';
 
 import { HybridViewportGrid } from './building-blocks/HybridViewportGrid';
@@ -216,6 +230,23 @@ export interface HybridMultiViewportProps {
   /** 읽기 전용 어노테이션 (편집 불가) */
   readOnlyAnnotations?: boolean;
 
+  // =========================================================================
+  // Annotation Tool Props (Phase 3g: 어노테이션 생성 기능)
+  // =========================================================================
+
+  /** 활성 도구 ID (예: 'WindowLevel', 'Pan', 'Length', 'Angle', 'Point') */
+  activeTool?: string;
+  /** 도구 변경 콜백 */
+  onToolChange?: (toolId: string) => void;
+  /** 어노테이션 생성 콜백 (기존 onAnnotationUpdate와 별도로 신규 생성용) */
+  onAnnotationCreate?: (viewportId: string, annotation: Annotation) => void;
+  /** 어노테이션 도구 표시 여부 (기본 false) */
+  showAnnotationTools?: boolean;
+  /** 어노테이션 표시 여부 (전역 토글) */
+  showAnnotations?: boolean;
+  /** 어노테이션 표시 토글 핸들러 */
+  onAnnotationsVisibilityChange?: (visible: boolean) => void;
+
   /** 커스텀 스타일 */
   style?: CSSProperties;
   /** 커스텀 클래스명 */
@@ -298,6 +329,13 @@ export const HybridMultiViewport = forwardRef<
     onAnnotationDelete,
     annotationConfig,
     readOnlyAnnotations = false,
+    // Annotation Tool props (Phase 3g)
+    activeTool: propActiveTool,
+    onToolChange,
+    onAnnotationCreate,
+    showAnnotationTools = false,
+    showAnnotations = true,
+    onAnnotationsVisibilityChange,
     style,
     className,
   },
@@ -360,6 +398,34 @@ export const HybridMultiViewport = forwardRef<
   const [viewportElements] = useState(() => new Map<string, HTMLElement>());
   const [viewportElementsVersion, setViewportElementsVersion] = useState(0);
 
+  // =========================================================================
+  // MeasurementTool 상태 (Phase 3g: 어노테이션 생성)
+  // =========================================================================
+
+  // 활성 도구 상태 (외부 제어 또는 내부 상태)
+  const [internalActiveTool, setInternalActiveTool] = useState('WindowLevel');
+  const activeTool = propActiveTool ?? internalActiveTool;
+
+  // 활성 MeasurementTool ID (어노테이션 도구 선택 시)
+  const [activeMeasurementToolId, setActiveMeasurementToolId] = useState<string | null>(null);
+
+  // 콜백 ref (의존성 배열 문제 해결용)
+  const getActiveViewportTransformContextRef = useRef<() => TransformContext | null>(() => null);
+  const viewportsRef = useRef<Viewport[]>([]);
+
+  // 임시 어노테이션 (드로잉 중 미리보기)
+  const [tempAnnotation, setTempAnnotation] = useState<TempAnnotation | null>(null);
+
+  // MeasurementTool 인스턴스 (렌더링마다 재생성 방지)
+  const measurementToolsRef = useRef<Record<string, MeasurementTool>>({
+    Length: new LengthTool(),
+    Angle: new AngleTool(),
+    Point: new PointTool(),
+  });
+
+  // 어노테이션 도구 ID 목록
+  const ANNOTATION_TOOL_IDS = ['Length', 'Angle', 'Point'] as const;
+
   // DPR (성능 옵션 또는 자동)
   const dpr = dprOverride ?? Math.min(window.devicePixelRatio || 1, 2);
 
@@ -376,15 +442,293 @@ export const HybridMultiViewport = forwardRef<
     !v.series || v.series.frameCount <= 1
   );
 
+  // ViewportManagerLike 어댑터 (Tool System 연결)
+  // hybridManager의 메서드를 호출하고, React 상태를 업데이트하여 렌더링 트리거
+  const viewportManagerAdapter = useMemo<ViewportManagerLike | null>(() => {
+    const hybridManager = hybridManagerRef.current;
+    if (!hybridManager) return null;
+
+    return {
+      getViewport: (id: string) => hybridManager.getViewport(id),
+
+      setViewportWindowLevel: (id: string, wl: { center: number; width: number } | null) => {
+        hybridManager.setViewportWindowLevel(id, wl);
+        setViewports(hybridManager.getAllViewports());
+        renderSchedulerRef.current?.renderSingleFrame();
+      },
+
+      setViewportPan: (id: string, pan: { x: number; y: number }) => {
+        hybridManager.setViewportPan(id, pan);
+        setViewports(hybridManager.getAllViewports());
+        renderSchedulerRef.current?.renderSingleFrame();
+      },
+
+      setViewportZoom: (id: string, zoom: number) => {
+        hybridManager.setViewportZoom(id, zoom);
+        setViewports(hybridManager.getAllViewports());
+        renderSchedulerRef.current?.renderSingleFrame();
+      },
+
+      setViewportFrame: (id: string, frameIndex: number) => {
+        hybridManager.setViewportFrame(id, frameIndex);
+        setViewports(hybridManager.getAllViewports());
+        renderSchedulerRef.current?.renderSingleFrame();
+      },
+    };
+  }, [isInitialized]); // hybridManager 초기화 후에만 생성
+
   // Tool System 통합
-  useToolGroup({
+  const { setToolActive, toolGroup } = useToolGroup({
     toolGroupId: 'hybrid-viewport',
-    viewportManager: hybridManagerRef.current,
+    viewportManager: viewportManagerAdapter,
     viewportElements,
     viewportElementsKey: viewportElementsVersion,
-    disabled: !isInitialized,
+    disabled: !isInitialized || !viewportManagerAdapter,
     isStaticImage,
   });
+
+  // 조작 도구 ID 목록
+  const MANIPULATION_TOOL_IDS = ['WindowLevel', 'Pan', 'Zoom', 'StackScroll'] as const;
+
+  // 도구별 기본 바인딩 (isStaticImage에 따라 다름)
+  const getDefaultBindings = useCallback((toolId: string): ToolBinding[] => {
+    switch (toolId) {
+      case 'WindowLevel':
+        return [{ mouseButton: MouseBindings.Secondary }];
+      case 'Pan':
+        return [{ mouseButton: MouseBindings.Auxiliary }];
+      case 'Zoom':
+        if (isStaticImage) {
+          return [
+            { mouseButton: MouseBindings.Primary, modifierKey: KeyboardModifiers.Shift },
+            { mouseButton: MouseBindings.Wheel },
+          ];
+        }
+        return [{ mouseButton: MouseBindings.Primary, modifierKey: KeyboardModifiers.Shift }];
+      case 'StackScroll':
+        return isStaticImage ? [] : [{ mouseButton: MouseBindings.Wheel }];
+      default:
+        return [];
+    }
+  }, [isStaticImage]);
+
+  // 초기 도구 설정: toolGroup 생성 후 activeTool에 좌클릭 바인딩 추가
+  useEffect(() => {
+    if (!isInitialized || !toolGroup) return;
+
+    // 조작 도구인 경우에만 좌클릭 바인딩 추가
+    if ((MANIPULATION_TOOL_IDS as readonly string[]).includes(activeTool)) {
+      const bindings = getDefaultBindings(activeTool);
+      const primaryBinding: ToolBinding = { mouseButton: MouseBindings.Primary };
+      const hasPrimary = bindings.some(
+        b => b.mouseButton === MouseBindings.Primary && !b.modifierKey
+      );
+
+      if (!hasPrimary) {
+        setToolActive(activeTool, [...bindings, primaryBinding]);
+      }
+    }
+  }, [isInitialized, toolGroup]); // toolGroup이 생성된 후 실행
+
+  // MeasurementTool cleanup (컴포넌트 언마운트 시)
+  useEffect(() => {
+    return () => {
+      Object.values(measurementToolsRef.current).forEach(tool => {
+        if (tool.isActive()) {
+          tool.deactivate();
+        }
+      });
+    };
+  }, []);
+
+  // 활성 뷰포트의 TransformContext 생성 (어노테이션 도구용)
+  const getActiveViewportTransformContext = useCallback((): TransformContext | null => {
+    if (!activeViewportId) return null;
+
+    const viewport = viewports.find(v => v.id === activeViewportId);
+    const element = viewportElements.get(activeViewportId);
+    if (!viewport?.series || !element) return null;
+
+    const slotWidth = element.clientWidth;
+    const slotHeight = element.clientHeight;
+    if (slotWidth <= 0 || slotHeight <= 0) return null;
+
+    // seriesMap에서 calibration 정보 가져오기
+    let calibration: CalibrationData | undefined;
+    if (seriesMap) {
+      // seriesMap 순회하여 activeViewportId에 해당하는 시리즈 찾기
+      const viewportIndex = viewportIds.indexOf(activeViewportId);
+      if (viewportIndex >= 0) {
+        const seriesArray = Array.from(seriesMap.values());
+        const seriesData = seriesArray[viewportIndex];
+        if (seriesData?.imageInfo.pixelSpacing) {
+          calibration = {
+            physicalDeltaX: seriesData.imageInfo.pixelSpacing.columnSpacing / 10,
+            physicalDeltaY: seriesData.imageInfo.pixelSpacing.rowSpacing / 10,
+            unitX: 1, // DICOM_UNIT_CODES.CENTIMETER
+            unitY: 1,
+          };
+        }
+      }
+    }
+
+    return {
+      viewport: {
+        imageWidth: viewport.series.imageWidth,
+        imageHeight: viewport.series.imageHeight,
+        canvasWidth: slotWidth,
+        canvasHeight: slotHeight,
+        zoom: viewport.transform.zoom,
+        pan: viewport.transform.pan,
+        rotation: viewport.transform.rotation,
+        flipH: viewport.transform.flipH,
+        flipV: viewport.transform.flipV,
+      },
+      calibration,
+    };
+  }, [activeViewportId, viewports, viewportElements, seriesMap, viewportIds]);
+
+  // ref 업데이트 (마우스 이벤트 핸들러에서 최신 값 참조용)
+  getActiveViewportTransformContextRef.current = getActiveViewportTransformContext;
+  viewportsRef.current = viewports;
+
+  // 어노테이션 생성 완료 콜백
+  const handleAnnotationCreated = useCallback((annotation: Annotation) => {
+    if (!activeViewportId) return;
+
+    // 외부 핸들러 호출
+    if (onAnnotationCreate) {
+      onAnnotationCreate(activeViewportId, annotation);
+    } else if (onAnnotationUpdate) {
+      // onAnnotationCreate가 없으면 onAnnotationUpdate 사용
+      onAnnotationUpdate(activeViewportId, annotation);
+    }
+
+    // 생성 후 자동 선택
+    onAnnotationSelect?.(activeViewportId, annotation.id);
+
+    // 임시 어노테이션 초기화
+    setTempAnnotation(null);
+  }, [activeViewportId, onAnnotationCreate, onAnnotationUpdate, onAnnotationSelect]);
+
+  // 임시 어노테이션 업데이트 콜백 (미리보기)
+  const handleTempUpdate = useCallback((temp: TempAnnotation | null) => {
+    setTempAnnotation(temp);
+  }, []);
+
+  // 도구 변경 핸들러
+  const handleToolChange = useCallback((toolId: string) => {
+    const isAnnotationTool = (ANNOTATION_TOOL_IDS as readonly string[]).includes(toolId);
+    const prevTool = activeTool;
+
+    // 이전 어노테이션 도구 비활성화
+    if (activeMeasurementToolId && activeMeasurementToolId !== toolId) {
+      measurementToolsRef.current[activeMeasurementToolId]?.deactivate();
+      setTempAnnotation(null);
+    }
+
+    if (isAnnotationTool) {
+      // ========================================
+      // 어노테이션 도구 선택
+      // ========================================
+      setActiveMeasurementToolId(toolId);
+
+      // 활성 뷰포트가 있으면 바로 활성화
+      const tool = measurementToolsRef.current[toolId];
+      const transformContext = getActiveViewportTransformContext();
+
+      if (tool && transformContext && activeViewportId) {
+        const viewport = viewports.find(v => v.id === activeViewportId);
+        const context: ToolContext = {
+          dicomId: activeViewportId,
+          frameIndex: viewport?.playback.currentFrame ?? 0,
+          mode: 'B',
+          calibration: transformContext.calibration,
+          transformContext,
+        };
+
+        tool.activate(context, handleAnnotationCreated, handleTempUpdate);
+      }
+
+      // 모든 조작 도구의 Primary 바인딩 해제 (기본 바인딩으로 복원)
+      // → 좌클릭(Primary)은 어노테이션 도구만 사용하게 됨
+      for (const manipToolId of MANIPULATION_TOOL_IDS) {
+        const defaultBindings = getDefaultBindings(manipToolId);
+        setToolActive(manipToolId, defaultBindings);
+      }
+    } else {
+      // ========================================
+      // 조작 도구 선택 (W/L, Pan, Zoom 등)
+      // ========================================
+      if (activeMeasurementToolId) {
+        measurementToolsRef.current[activeMeasurementToolId]?.deactivate();
+        setActiveMeasurementToolId(null);
+        setTempAnnotation(null);
+      }
+
+      // 이전 도구: 기본 바인딩으로 복원 (좌클릭 제거)
+      if (prevTool !== toolId && (MANIPULATION_TOOL_IDS as readonly string[]).includes(prevTool)) {
+        const prevBindings = getDefaultBindings(prevTool);
+        setToolActive(prevTool, prevBindings);
+      }
+
+      // 새 도구: 기본 바인딩 + 좌클릭 추가
+      const newBindings = getDefaultBindings(toolId);
+      const primaryBinding: ToolBinding = { mouseButton: MouseBindings.Primary };
+
+      // 이미 Primary가 있으면 추가하지 않음
+      const hasPrimary = newBindings.some(
+        b => b.mouseButton === MouseBindings.Primary && !b.modifierKey
+      );
+
+      if (!hasPrimary) {
+        setToolActive(toolId, [...newBindings, primaryBinding]);
+      } else {
+        setToolActive(toolId, newBindings);
+      }
+    }
+
+    // 외부 또는 내부 상태 업데이트
+    if (onToolChange) {
+      onToolChange(toolId);
+    } else {
+      setInternalActiveTool(toolId);
+    }
+  }, [activeTool, activeMeasurementToolId, activeViewportId, viewports, getActiveViewportTransformContext,
+      handleAnnotationCreated, handleTempUpdate, onToolChange, getDefaultBindings, setToolActive]);
+
+  // activeViewportId 변경 시 MeasurementTool 재활성화 (뷰포트 선택 후 도구 활성화)
+  useEffect(() => {
+    if (!activeMeasurementToolId || !activeViewportId) return;
+
+    const tool = measurementToolsRef.current[activeMeasurementToolId];
+    const transformContext = getActiveViewportTransformContext();
+
+    if (tool && transformContext) {
+      // 이미 활성화된 상태라면 context만 업데이트
+      if (tool.isActive()) {
+        const viewport = viewports.find(v => v.id === activeViewportId);
+        tool.updateContext({
+          dicomId: activeViewportId,
+          frameIndex: viewport?.playback.currentFrame ?? 0,
+          transformContext,
+        });
+      } else {
+        // 비활성 상태라면 새로 활성화
+        const viewport = viewports.find(v => v.id === activeViewportId);
+        const context: ToolContext = {
+          dicomId: activeViewportId,
+          frameIndex: viewport?.playback.currentFrame ?? 0,
+          mode: 'B',
+          calibration: transformContext.calibration,
+          transformContext,
+        };
+
+        tool.activate(context, handleAnnotationCreated, handleTempUpdate);
+      }
+    }
+  }, [activeViewportId, activeMeasurementToolId, viewports, getActiveViewportTransformContext,
+      handleAnnotationCreated, handleTempUpdate]);
 
   // ResizeObserver로 컨테이너 크기 자동 감지
   useEffect(() => {
@@ -914,15 +1258,132 @@ export const HybridMultiViewport = forwardRef<
     renderSchedulerRef.current?.renderSingleFrame();
   }, []);
 
+  // =========================================================================
+  // MeasurementTool Canvas 이벤트 처리 (Phase 3g)
+  // =========================================================================
+
+  useEffect(() => {
+    if (!activeMeasurementToolId || !activeViewportId) return;
+
+    const element = viewportElements.get(activeViewportId);
+    if (!element) return;
+
+    const tool = measurementToolsRef.current[activeMeasurementToolId];
+    if (!tool) return;
+
+    // 마우스 이벤트 → ToolMouseEvent 변환 (ref를 통해 최신 값 사용)
+    const createToolEvent = (evt: MouseEvent): ToolMouseEvent | null => {
+      // ref를 통해 최신 transformContext와 viewports 가져오기
+      const transformContext = getActiveViewportTransformContextRef.current();
+      if (!transformContext) return null;
+
+      const currentViewports = viewportsRef.current;
+      const viewport = currentViewports.find(v => v.id === activeViewportId);
+      const imageWidth = viewport?.series?.imageWidth ?? 0;
+      const imageHeight = viewport?.series?.imageHeight ?? 0;
+
+      const rect = element.getBoundingClientRect();
+      const canvasX = evt.clientX - rect.left;
+      const canvasY = evt.clientY - rect.top;
+
+      // Canvas 좌표 → DICOM 좌표 변환
+      const dicomPoint = coordinateTransformer.canvasToDicom(
+        { x: canvasX, y: canvasY },
+        transformContext
+      );
+
+      // 이미지 영역 밖이면 null 반환
+      if (dicomPoint.x < 0 || dicomPoint.x > imageWidth ||
+          dicomPoint.y < 0 || dicomPoint.y > imageHeight) {
+        return null;
+      }
+
+      return {
+        canvasX,
+        canvasY,
+        dicomX: dicomPoint.x,
+        dicomY: dicomPoint.y,
+        button: evt.button,
+        shiftKey: evt.shiftKey,
+        ctrlKey: evt.ctrlKey,
+        originalEvent: evt,
+      };
+    };
+
+    const handleMouseDown = (evt: MouseEvent) => {
+      // 어노테이션 Shape 또는 DragHandle 클릭 시 무시
+      const target = evt.target as Element;
+      if (target.closest('.annotation-shape, .drag-handle')) {
+        return;
+      }
+
+      if (evt.button === 0) {
+        const toolEvent = createToolEvent(evt);
+        if (!toolEvent) return;
+
+        evt.preventDefault();
+        evt.stopPropagation(); // Tool System과 이벤트 충돌 방지
+        tool.handleMouseDown(toolEvent);
+      } else if (evt.button === 2) {
+        // 우클릭: 드로잉 취소
+        tool.cancelDrawing();
+        setTempAnnotation(null);
+      }
+    };
+
+    const handleMouseMove = (evt: MouseEvent) => {
+      const toolEvent = createToolEvent(evt);
+      if (!toolEvent) return;
+
+      tool.handleMouseMove(toolEvent);
+    };
+
+    element.addEventListener('mousedown', handleMouseDown);
+    element.addEventListener('mousemove', handleMouseMove);
+
+    return () => {
+      element.removeEventListener('mousedown', handleMouseDown);
+      element.removeEventListener('mousemove', handleMouseMove);
+    };
+    // viewports, getActiveViewportTransformContext는 ref를 통해 참조하므로 의존성에서 제외
+  }, [activeMeasurementToolId, activeViewportId, viewportElements]);
+
+  // =========================================================================
+  // 키보드 이벤트 핸들러 (Phase 3g)
+  // =========================================================================
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    switch (e.key) {
+      case 'Delete':
+      case 'Backspace':
+        // 선택된 어노테이션 삭제
+        if (selectedAnnotationId && activeViewportId && onAnnotationDelete) {
+          e.preventDefault();
+          onAnnotationDelete(activeViewportId, selectedAnnotationId);
+        }
+        break;
+      case 'Escape':
+        // 드로잉 취소
+        if (activeMeasurementToolId) {
+          measurementToolsRef.current[activeMeasurementToolId]?.cancelDrawing();
+          setTempAnnotation(null);
+        }
+        break;
+    }
+  }, [selectedAnnotationId, activeViewportId, onAnnotationDelete, activeMeasurementToolId]);
+
   return (
     <div
       ref={wrapperRef}
       className={className}
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
       style={{
         width: width !== undefined ? `${width}px` : '100%',
         height: height !== undefined ? `${height}px` : '100%',
         minHeight: 0,
         position: 'relative',
+        outline: 'none', // 포커스 시 outline 제거
         ...style,
       }}
     >
@@ -994,17 +1455,31 @@ export const HybridMultiViewport = forwardRef<
                 }
               }}
             >
-              {/* SVGOverlay - 어노테이션이 있고 transformContext가 유효할 때만 렌더링 */}
-              {viewportAnnotations.length > 0 && transformContext && (
-                <SVGOverlay
-                  annotations={viewportAnnotations}
-                  currentFrame={viewport?.playback.currentFrame ?? 0}
-                  transformContext={transformContext}
-                  selectedId={selectedAnnotationId}
-                  config={annotationConfig}
-                  handlers={annotationHandlers}
-                  readOnly={readOnlyAnnotations}
-                />
+              {/* SVGOverlay - 어노테이션 표시 */}
+              {/* showAnnotations: 저장된 어노테이션 표시 여부 */}
+              {/* tempAnnotation: 도구 사용 중에는 showAnnotations와 관계없이 표시 */}
+              {transformContext && (
+                (
+                  (showAnnotations && viewportAnnotations.length > 0) ||
+                  (activeViewportId === id && tempAnnotation)
+                ) && (
+                  <SVGOverlay
+                    annotations={showAnnotations ? viewportAnnotations : []}
+                    tempAnnotation={activeViewportId === id ? tempAnnotation : null}
+                    tempAnnotationType={
+                      activeMeasurementToolId === 'Length' ? 'length' :
+                      activeMeasurementToolId === 'Angle' ? 'angle' :
+                      activeMeasurementToolId === 'Point' ? 'point' :
+                      undefined
+                    }
+                    currentFrame={viewport?.playback.currentFrame ?? 0}
+                    transformContext={transformContext}
+                    selectedId={showAnnotations ? selectedAnnotationId : null}
+                    config={annotationConfig}
+                    handlers={showAnnotations ? annotationHandlers : undefined}
+                    readOnly={readOnlyAnnotations}
+                  />
+                )
               )}
 
               {/* 기존 오버레이 렌더링 */}
@@ -1026,6 +1501,10 @@ export const HybridMultiViewport = forwardRef<
                   onFlipH={() => handleFlipH(id)}
                   onFlipV={() => handleFlipV(id)}
                   onReset={() => handleResetViewport(id)}
+                  // Phase 3g: 어노테이션 도구
+                  showAnnotationTools={showAnnotationTools}
+                  activeTool={activeTool}
+                  onToolChange={handleToolChange}
                 />
               ) : null}
             </HybridViewportSlot>

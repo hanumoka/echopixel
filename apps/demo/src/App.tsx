@@ -268,6 +268,12 @@ export default function App() {
   // 어노테이션 표시 여부 (Phase 3g: 보이기/숨김 토글)
   const [showAnnotations, setShowAnnotations] = useState(true);
 
+  // Multi Viewport용 어노테이션 상태 (Phase 3g: 어노테이션 생성 기능)
+  const [multiAnnotations, setMultiAnnotations] = useState<Map<string, Annotation[]>>(new Map());
+  const [multiSelectedAnnotationId, setMultiSelectedAnnotationId] = useState<string | null>(null);
+  const [multiActiveTool, setMultiActiveTool] = useState('WindowLevel');
+  const [multiShowAnnotations, setMultiShowAnnotations] = useState(true);
+
   // viewportData가 변경되면 초기 테스트 어노테이션 설정
   useEffect(() => {
     if (!viewportData?.imageInfo) {
@@ -382,6 +388,52 @@ export default function App() {
     setSingleAnnotations(prev => prev.filter(a => a.id !== annotationId));
     // 삭제된 어노테이션이 선택된 상태였으면 선택 해제
     setSelectedAnnotationId(prev => prev === annotationId ? null : prev);
+  }, []);
+
+  // ============================================================
+  // Multi Viewport 어노테이션 핸들러 (Phase 3g: 어노테이션 생성)
+  // ============================================================
+
+  // Multi Viewport 어노테이션 생성/업데이트 핸들러
+  const handleMultiAnnotationUpdate = useCallback((viewportId: string, annotation: Annotation) => {
+    setMultiAnnotations(prev => {
+      const newMap = new Map(prev);
+      const viewportAnnotations = newMap.get(viewportId) ?? [];
+
+      const existingIndex = viewportAnnotations.findIndex(a => a.id === annotation.id);
+      if (existingIndex >= 0) {
+        // 기존 어노테이션 업데이트
+        console.log('[Phase 3g] Multi Annotation updated:', viewportId, annotation.id);
+        const newList = [...viewportAnnotations];
+        newList[existingIndex] = annotation;
+        newMap.set(viewportId, newList);
+      } else {
+        // 새 어노테이션 추가
+        console.log('[Phase 3g] Multi Annotation created:', viewportId, annotation.id);
+        newMap.set(viewportId, [...viewportAnnotations, annotation]);
+      }
+
+      return newMap;
+    });
+  }, []);
+
+  // Multi Viewport 어노테이션 선택 핸들러
+  const handleMultiAnnotationSelect = useCallback((viewportId: string, annotationId: string | null) => {
+    console.log('[Phase 3g] Multi Annotation selected:', viewportId, annotationId);
+    setMultiSelectedAnnotationId(annotationId);
+  }, []);
+
+  // Multi Viewport 어노테이션 삭제 핸들러
+  const handleMultiAnnotationDelete = useCallback((viewportId: string, annotationId: string) => {
+    console.log('[Phase 3g] Multi Annotation deleted:', viewportId, annotationId);
+    setMultiAnnotations(prev => {
+      const newMap = new Map(prev);
+      const viewportAnnotations = newMap.get(viewportId) ?? [];
+      newMap.set(viewportId, viewportAnnotations.filter(a => a.id !== annotationId));
+      return newMap;
+    });
+    // 삭제된 어노테이션이 선택된 상태였으면 선택 해제
+    setMultiSelectedAnnotationId(prev => prev === annotationId ? null : prev);
   }, []);
 
   // Multi Canvas용 DataSource (안정적인 참조 유지)
@@ -1832,8 +1884,18 @@ export default function App() {
               performanceOptions={performanceOptions}
               onPlayingChange={handleMultiPlayingChange}
               onStatsUpdate={handleMultiStatsUpdate}
-              // Phase 3e: SVG 어노테이션 오버레이 테스트
-              annotations={testAnnotations}
+              // Phase 3g: 어노테이션 생성 기능
+              annotations={multiAnnotations.size > 0 ? multiAnnotations : testAnnotations}
+              selectedAnnotationId={multiSelectedAnnotationId}
+              onAnnotationSelect={handleMultiAnnotationSelect}
+              onAnnotationUpdate={handleMultiAnnotationUpdate}
+              onAnnotationDelete={handleMultiAnnotationDelete}
+              // 어노테이션 도구
+              showAnnotationTools={true}
+              activeTool={multiActiveTool}
+              onToolChange={setMultiActiveTool}
+              showAnnotations={multiShowAnnotations}
+              onAnnotationsVisibilityChange={setMultiShowAnnotations}
               style={{
                 border: '1px solid #444',
                 marginBottom: '10px',
@@ -1900,6 +1962,23 @@ export default function App() {
                     />
                   </div>
                 )}
+
+                {/* 어노테이션 표시 토글 */}
+                <button
+                  onClick={() => setMultiShowAnnotations(!multiShowAnnotations)}
+                  style={{
+                    padding: '8px 16px',
+                    fontSize: '14px',
+                    background: multiShowAnnotations ? '#2a4a4a' : '#3a3a3a',
+                    color: multiShowAnnotations ? '#8ff' : '#888',
+                    border: multiShowAnnotations ? '2px solid #5aa' : '2px solid transparent',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                  }}
+                  title={multiShowAnnotations ? '어노테이션 숨기기' : '어노테이션 표시'}
+                >
+                  {multiShowAnnotations ? '👁 어노테이션 표시' : '👁‍🗨 어노테이션 숨김'}
+                </button>
 
                 {/* 영상/정지 영상 통계 */}
                 <div style={{ fontSize: '12px', color: '#888', marginLeft: 'auto' }}>

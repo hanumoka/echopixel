@@ -6,6 +6,112 @@
 
 ---
 
+## 2026-01-21 세션 #25 (HybridMultiViewport 어노테이션 생성 & 조작 도구 통합)
+
+### 작업 내용
+
+**HybridMultiViewport 어노테이션 생성 기능** ⭐
+- [x] MeasurementTool 통합 (LengthTool, AngleTool, PointTool)
+- [x] DicomMiniOverlay에 어노테이션 도구 버튼 추가 (📏 거리, ∠ 각도, ● 점)
+- [x] Canvas 이벤트 처리 (mousedown, mousemove, contextmenu)
+- [x] tempAnnotation 렌더링 (점선 미리보기)
+- [x] Delete/Backspace 키 삭제 기능
+- [x] Escape 키 드로잉 취소
+
+**HybridMultiViewport 조작 도구 통합** ⭐
+- [x] **문제**: W/L, Pan, Zoom, StackScroll 도구가 동작하지 않음
+- [x] **원인**: Tool System 콜백이 React 상태를 업데이트하지 않음 (hybridManager만 변경)
+- [x] **해결**: ViewportManagerLike 어댑터 패턴 구현
+  - hybridManager 메서드 호출 + setViewports() + renderSingleFrame() 조합
+- [x] StackScroll 프레임 변경 시 렌더링 동작 확인
+
+**성능 최적화 (드래그 버벅임 수정)** ⭐
+- [x] **문제**: 어노테이션 드래그 시 극심한 렉 발생
+- [x] **원인**: useEffect 의존성에 viewports, getActiveViewportTransformContext 포함
+  - 매 마우스 이동마다 이벤트 핸들러 재등록
+- [x] **해결**: Ref 패턴으로 최신 값 접근
+  - `getActiveViewportTransformContextRef`, `viewportsRef` 사용
+  - useEffect 의존성에서 제거하여 재등록 방지
+
+**tempAnnotation 첫 포인트 미표시 수정**
+- [x] **문제**: 첫 포인트 클릭 후 화면에 미표시, 두 번째 클릭 후에야 표시
+- [x] **원인**: SVGOverlay에 tempAnnotationType prop 미전달
+- [x] **해결**: tempAnnotationType prop 추가 및 activeMeasurementToolId 매핑
+
+**UI 개선**
+- [x] DicomMiniOverlay 버튼 크기 증가 (24×24px → 32×32px)
+- [x] 버튼 폰트 크기 증가 (12px → 16px)
+- [x] W/L, Pan, Zoom 버튼 추가 (어노테이션 도구와 분리)
+- [x] 어노테이션 표시 토글 버튼 (데모 앱)
+
+### 파일 변경
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `packages/react/.../HybridMultiViewport.tsx` | MeasurementTool 통합, ViewportManagerLike 어댑터, Ref 패턴 최적화, Delete 키 핸들러 |
+| `packages/react/.../DicomMiniOverlay.tsx` | 버튼 크기 증가, W/L/Pan/Zoom 버튼 추가 |
+| `packages/react/.../SVGOverlay.tsx` | tempAnnotationType prop 추가 |
+| `apps/demo/src/App.tsx` | 어노테이션 표시 토글 버튼 |
+
+### 핵심 코드
+
+**ViewportManagerLike 어댑터 (HybridMultiViewport.tsx)**
+```typescript
+const viewportManagerAdapter = useMemo<ViewportManagerLike | null>(() => {
+  const hybridManager = hybridManagerRef.current;
+  if (!hybridManager) return null;
+
+  return {
+    getViewport: (id: string) => hybridManager.getViewport(id),
+    setViewportWindowLevel: (id: string, wl: { center: number; width: number } | null) => {
+      hybridManager.setViewportWindowLevel(id, wl);
+      setViewports(hybridManager.getAllViewports());  // React 상태 업데이트
+      renderSchedulerRef.current?.renderSingleFrame();  // 즉시 렌더링
+    },
+    // Pan, Zoom, Frame도 동일 패턴
+  };
+}, [isInitialized]);
+```
+
+**Ref 패턴으로 성능 최적화 (HybridMultiViewport.tsx)**
+```typescript
+// Ref로 최신 값 접근 (useEffect 의존성 제거)
+const getActiveViewportTransformContextRef = useRef<() => TransformContext | null>(() => null);
+const viewportsRef = useRef<Viewport[]>([]);
+
+// 매 렌더링마다 ref 업데이트 (의존성 없음)
+getActiveViewportTransformContextRef.current = getActiveViewportTransformContext;
+viewportsRef.current = viewports;
+
+// useEffect에서 ref 사용 → 재등록 없이 최신 값 접근
+useEffect(() => {
+  const handleMouseMove = (e: MouseEvent) => {
+    const transformContext = getActiveViewportTransformContextRef.current();
+    // ...
+  };
+  canvas.addEventListener('mousemove', handleMouseMove);
+  // 의존성: [isInitialized, activeMeasurementToolId] (viewports 제거!)
+}, [isInitialized, activeMeasurementToolId]);
+```
+
+### 학습 포인트
+
+- **ViewportManagerLike 어댑터**: Tool System은 ViewportManagerLike 인터페이스를 통해 뷰포트 조작
+  - SingleDicomViewer: 직접 React 상태 업데이트
+  - HybridMultiViewport: hybridManager + React 상태 + 렌더링 조합 필요
+- **Ref 패턴**: useEffect 내부에서 최신 상태 접근이 필요하지만 재실행을 원하지 않을 때
+  - 상태 변경 → ref 업데이트 (렌더링 단계)
+  - useEffect → ref.current 읽기 (최신 값, 재등록 없음)
+- **성능**: 이벤트 핸들러 등록/해제는 비용이 큼 → 의존성 최소화
+
+### 다음 세션 할 일
+
+- [ ] 어노테이션 선택/편집 UI (DragHandle 통합)
+- [ ] 포인트 드래그 편집
+- [ ] 라벨 위치 이동
+
+---
+
 ## 2026-01-21 세션 #24 (도구 격리, 이미지 경계, 브라우저 줌 수정)
 
 ### 작업 내용
