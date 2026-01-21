@@ -135,7 +135,7 @@ export const HybridViewportGrid = forwardRef<
         position: 'relative',
         width: `${width}px`,
         height: `${height}px`,
-        background: '#000',
+        background: '#1a1a1a', // 어두운 회색 - DICOM 이미지와 구분
         overflow: 'hidden',
         ...style,
       }}

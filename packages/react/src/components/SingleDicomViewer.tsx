@@ -72,6 +72,8 @@ export interface SingleDicomViewerHandle {
   goToFrame: (frame: number) => void;
   /** 뷰포트 리셋 (W/L, Pan, Zoom) */
   resetViewport: () => void;
+  /** 활성 도구를 기본 도구(WindowLevel)로 리셋 */
+  resetActiveTool: () => void;
   /** 현재 상태 조회 */
   getState: () => {
     isPlaying: boolean;
@@ -893,6 +895,15 @@ export const SingleDicomViewer = forwardRef<
     e.preventDefault();
   }, []);
 
+  // 활성 도구를 기본 도구(WindowLevel)로 리셋
+  const resetActiveTool = useCallback(() => {
+    // 이미 기본 도구인 경우 무시
+    if (activeTool === 'WindowLevel') return;
+
+    // handleToolbarToolChange를 통해 도구 전환
+    handleToolbarToolChange('WindowLevel');
+  }, [activeTool, handleToolbarToolChange]);
+
   // 외부 제어 핸들 노출
   useImperativeHandle(
     ref,
@@ -918,6 +929,7 @@ export const SingleDicomViewer = forwardRef<
         canvasRef.current?.renderFrame(targetFrame);
       },
       resetViewport,
+      resetActiveTool,
       getState: () => ({
         isPlaying,
         currentFrame,
@@ -925,7 +937,7 @@ export const SingleDicomViewer = forwardRef<
         totalFrames,
       }),
     }),
-    [isPlaying, currentFrame, fps, totalFrames, resetViewport]
+    [isPlaying, currentFrame, fps, totalFrames, resetViewport, resetActiveTool]
   );
 
   return (
@@ -989,8 +1001,8 @@ export const SingleDicomViewer = forwardRef<
           height,
           marginBottom: '10px',
           overflow: 'hidden',
-          // 뷰포트 영역 스타일링 (OHIF 스타일)
-          background: '#000',
+          // 뷰포트 영역 스타일링 (OHIF 스타일) - 어두운 회색으로 DICOM 이미지와 구분
+          background: '#1a1a1a',
           border: '1px solid #333',
           borderRadius: '2px',
           boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(0, 0, 0, 0.3)',

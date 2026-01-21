@@ -42,6 +42,7 @@ import {
   type HybridSeriesData as ReactHybridSeriesData,
   type HybridViewportStats,
   type PerformanceOptions,
+  DEFAULT_TOOLS,
 } from '@echopixel/react';
 import { PerformanceOptionsPanel } from './components/PerformanceOptions';
 
@@ -107,6 +108,9 @@ export default function App() {
   } | null>(null);
 
   // === 멀티 뷰포트 관련 상태 ===
+  // Single canvas 기반: 1~100개, Single viewport 기반: 1~16개
+  const [viewportCount, setViewportCount] = useState(4);
+  // 레거시 layout 상태 (SingleDicomViewerGroup에서 사용)
   const [layout, setLayout] = useState<LayoutType>('grid-2x2');
   const [multiViewportReady, setMultiViewportReady] = useState(false);
   const [multiLoadingStatus, setMultiLoadingStatus] = useState('');
@@ -123,6 +127,9 @@ export default function App() {
   const [multiCanvasViewers, setMultiCanvasViewers] = useState<ViewerData[]>([]);
   const [multiCanvasLoading, setMultiCanvasLoading] = useState(false);
   const multiCanvasGroupRef = useRef<SingleDicomViewerGroupHandle>(null);
+  const [multiCanvasFps, setMultiCanvasFps] = useState(30);
+  const [multiCanvasIsPlaying, setMultiCanvasIsPlaying] = useState(false);
+  const [multiCanvasShowAnnotations, setMultiCanvasShowAnnotations] = useState(true);
 
 
   // Multi 모드 (리팩토링) - @echopixel/react HybridMultiViewport 사용
@@ -806,20 +813,22 @@ export default function App() {
     }
   };
 
-  // 최대 선택 개수 계산 (layout 기반, 모든 multi 모드 공통)
+  // 최대 선택 개수 계산 (viewportCount 기반)
   const getMaxSelect = () => {
-    const gridSizeMap: Record<string, number> = {
-      'grid-1x1': 1,
-      'grid-2x2': 2,
-      'grid-3x3': 3,
-      'grid-4x4': 4,
-      'grid-5x5': 5,
-      'grid-6x6': 6,
-      'grid-7x7': 7,
-      'grid-8x8': 8,
-    };
-    const gridSize = gridSizeMap[layout] ?? 2;
-    return gridSize * gridSize;
+    return viewportCount;
+  };
+
+  // 그리드 차원 계산 (UI 표시용)
+  // calculateGridFromCount와 동일 로직
+  const getGridDimensions = (count: number): { rows: number; cols: number } => {
+    if (count <= 0) return { rows: 1, cols: 1 };
+    if (count === 1) return { rows: 1, cols: 1 };
+    if (count === 2) return { rows: 1, cols: 2 };
+    if (count <= 4) return { rows: 2, cols: 2 };
+    // 5개 이상: 가로 4개 제한
+    const cols = 4;
+    const rows = Math.ceil(count / cols);
+    return { rows, cols };
   };
 
   // Instance UID 선택 토글
@@ -900,24 +909,10 @@ export default function App() {
     setIsPlaying(false);
     setMultiSeriesMap(new Map());
 
-    // 레이아웃에 따른 뷰포트 수 계산
-    const getViewportCount = (l: LayoutType): number => {
-      switch (l) {
-        case 'grid-1x1': return 1;
-        case 'grid-2x2': return 4;
-        case 'grid-3x3': return 9;
-        case 'grid-4x4': return 16;
-        case 'grid-5x5': return 25;
-        case 'grid-6x6': return 36;
-        case 'grid-7x7': return 49;
-        case 'grid-8x8': return 64;
-        default: return 4;
-      }
-    };
-    const viewportCount = getViewportCount(layout);
-
-    // 선택된 Instance UID 사용
+    // 선택된 Instance UID 사용 (viewportCount 상태 사용)
+    console.log('[handleMultiViewportLoad] viewportCount:', viewportCount, 'selectedUids.size:', selectedUids.size);
     const instanceUidsToLoad = Array.from(selectedUids).slice(0, viewportCount);
+    console.log('[handleMultiViewportLoad] instanceUidsToLoad.length:', instanceUidsToLoad.length);
 
     if (instanceUidsToLoad.length === 0) {
       setError('먼저 "Instance 스캔"을 실행하고 로드할 Instance를 선택하세요');
@@ -1022,24 +1017,8 @@ export default function App() {
     setError(null);
     setMultiCanvasViewers([]);
 
-    // 레이아웃에 따른 최대 뷰포트 수 계산
-    const getViewportCount = (l: LayoutType): number => {
-      switch (l) {
-        case 'grid-1x1': return 1;
-        case 'grid-2x2': return 4;
-        case 'grid-3x3': return 9;
-        case 'grid-4x4': return 16;
-        case 'grid-5x5': return 25;
-        case 'grid-6x6': return 36;
-        case 'grid-7x7': return 49;
-        case 'grid-8x8': return 64;
-        default: return 4;
-      }
-    };
-    const maxViewports = getViewportCount(layout);
-
-    // 선택된 Instance UID 사용
-    const instanceUidsToLoad = Array.from(selectedUids).slice(0, maxViewports);
+    // viewportCount 상태 사용 (슬라이더 값)
+    const instanceUidsToLoad = Array.from(selectedUids).slice(0, viewportCount);
 
     if (instanceUidsToLoad.length === 0) {
       setError('먼저 "Instance 스캔"을 실행하고 로드할 Instance를 선택하세요');
@@ -1123,6 +1102,29 @@ export default function App() {
     setIsPlaying(playing);
   }, []);
 
+  // Multi Canvas 모드 핸들러
+  const toggleMultiCanvasPlay = useCallback(() => {
+    if (multiCanvasGroupRef.current) {
+      multiCanvasGroupRef.current.togglePlayAll();
+      setMultiCanvasIsPlaying(!multiCanvasIsPlaying);
+    }
+  }, [multiCanvasIsPlaying]);
+
+  const handleMultiCanvasFpsChange = useCallback((newFps: number) => {
+    setMultiCanvasFps(newFps);
+    if (multiCanvasGroupRef.current) {
+      multiCanvasGroupRef.current.setFpsAll(newFps);
+    }
+  }, []);
+
+  // Multi Canvas 영상/정지 통계
+  const multiCanvasStats = useMemo(() => {
+    const playableCount = multiCanvasViewers.filter(v =>
+      v.imageInfo && v.frames.length > 1
+    ).length;
+    const stillCount = multiCanvasViewers.length - playableCount;
+    return { playableCount, stillCount, allStillImages: playableCount === 0 };
+  }, [multiCanvasViewers]);
 
   return (
     <div style={{
@@ -1858,29 +1860,24 @@ export default function App() {
               </div>
               <div>
                 <label style={{ display: 'block', color: '#8cf', marginBottom: '5px', fontSize: '13px' }}>
-                  Layout
+                  뷰포트 개수: {viewportCount}개 ({getGridDimensions(viewportCount).cols}×{getGridDimensions(viewportCount).rows})
                 </label>
-                <select
-                  value={layout}
-                  onChange={(e) => setLayout(e.target.value as LayoutType)}
+                <input
+                  type="range"
+                  min="1"
+                  max="100"
+                  value={viewportCount}
+                  onChange={(e) => setViewportCount(Number(e.target.value))}
                   style={{
                     width: '100%',
-                    padding: '8px',
-                    fontSize: '13px',
-                    background: '#2a2a3a',
-                    border: '1px solid #555',
-                    borderRadius: '4px',
-                    color: '#fff',
+                    cursor: 'pointer',
                   }}
-                >
-                  <option value="grid-2x2">2x2 (4 viewports)</option>
-                  <option value="grid-3x3">3x3 (9 viewports)</option>
-                  <option value="grid-4x4">4x4 (16 viewports)</option>
-                  <option value="grid-5x5">5x5 (25 viewports)</option>
-                  <option value="grid-6x6">6x6 (36 viewports)</option>
-                  <option value="grid-7x7">7x7 (49 viewports)</option>
-                  <option value="grid-8x8">8x8 (64 viewports)</option>
-                </select>
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#888', marginTop: '2px' }}>
+                  <span>1</span>
+                  <span>50</span>
+                  <span>100</span>
+                </div>
               </div>
             </div>
 
@@ -1916,7 +1913,7 @@ export default function App() {
                   fontWeight: 'bold',
                 }}
               >
-                {multiLoadingStatus || `로드 (${selectedUids.size > 0 ? selectedUids.size : layout === 'grid-2x2' ? 4 : layout === 'grid-3x3' ? 9 : 16}개)`}
+                {multiLoadingStatus || `로드 (${selectedUids.size > 0 ? selectedUids.size : viewportCount}개)`}
               </button>
             </div>
 
@@ -1930,7 +1927,7 @@ export default function App() {
                   marginBottom: '10px',
                 }}>
                   <span style={{ color: '#8cf', fontSize: '13px' }}>
-                    Instance 선택 ({selectedUids.size} / {layout === 'grid-2x2' ? 4 : layout === 'grid-3x3' ? 9 : 16}개)
+                    Instance 선택 ({selectedUids.size} / {viewportCount}개)
                   </span>
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <button
@@ -2128,7 +2125,7 @@ export default function App() {
               justifyContent: 'space-between',
               alignItems: 'center',
             }}>
-              <span>Multi-Viewport ({layout}) | {multiSeriesMap.size} viewports loaded</span>
+              <span>Multi-Viewport ({viewportCount}개, {getGridDimensions(viewportCount).cols}×{getGridDimensions(viewportCount).rows}) | {multiSeriesMap.size} loaded</span>
               <span style={{ color: '#8f8' }}>
                 FPS: {multiStats.fps} | Frame Time: {multiStats.frameTime.toFixed(1)}ms | VRAM: {multiStats.vramMB.toFixed(1)}MB
               </span>
@@ -2140,9 +2137,10 @@ export default function App() {
             <ReactHybridMultiViewport
               key={performanceKey}
               ref={multiViewportRef}
-              layout={layout}
+              viewportCount={viewportCount}
               width={1320}
               height={900}
+              minViewportHeight={250}
               seriesMap={multiSeriesMap}
               syncMode="frame-ratio"
               initialFps={fps}
@@ -2593,29 +2591,24 @@ export default function App() {
               </div>
               <div>
                 <label style={{ display: 'block', color: '#8cf', marginBottom: '5px', fontSize: '13px' }}>
-                  Layout
+                  뷰포트 개수: {viewportCount}개 ({getGridDimensions(viewportCount).cols}×{getGridDimensions(viewportCount).rows})
                 </label>
-                <select
-                  value={layout}
-                  onChange={(e) => setLayout(e.target.value as LayoutType)}
+                <input
+                  type="range"
+                  min="1"
+                  max="16"
+                  value={Math.min(viewportCount, 16)}
+                  onChange={(e) => setViewportCount(Number(e.target.value))}
                   style={{
                     width: '100%',
-                    padding: '8px',
-                    fontSize: '13px',
-                    background: '#2a2a3a',
-                    border: '1px solid #555',
-                    borderRadius: '4px',
-                    color: '#fff',
+                    cursor: 'pointer',
                   }}
-                >
-                  <option value="grid-2x2">2x2 (4 viewports)</option>
-                  <option value="grid-3x3">3x3 (9 viewports)</option>
-                  <option value="grid-4x4">4x4 (16 viewports)</option>
-                  <option value="grid-5x5">5x5 (25 viewports)</option>
-                  <option value="grid-6x6">6x6 (36 viewports)</option>
-                  <option value="grid-7x7">7x7 (49 viewports)</option>
-                  <option value="grid-8x8">8x8 (64 viewports)</option>
-                </select>
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#888', marginTop: '2px' }}>
+                  <span>1</span>
+                  <span>8</span>
+                  <span>16</span>
+                </div>
               </div>
             </div>
 
@@ -2757,34 +2750,98 @@ export default function App() {
           {/* SingleDicomViewerGroup 렌더링 */}
           {multiCanvasViewers.length > 0 && (
             <div style={{ marginTop: '15px' }}>
-              {/* 그룹 컨트롤 패널 */}
+              {/* 상태 표시 바 */}
+              <div style={{
+                padding: '8px 12px',
+                marginBottom: '10px',
+                background: '#2a2a2a',
+                color: '#fff',
+                borderRadius: '4px',
+                fontSize: '13px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}>
+                <span>Multi-Canvas ({viewportCount}개, {getGridDimensions(viewportCount).cols}×{getGridDimensions(viewportCount).rows}) | {multiCanvasViewers.length} loaded</span>
+                <span style={{ color: '#8f8' }}>
+                  FPS: {multiCanvasFps}
+                </span>
+              </div>
+
+              {/* SingleDicomViewerGroup */}
+              <SingleDicomViewerGroup
+                ref={multiCanvasGroupRef}
+                viewers={multiCanvasViewers}
+                viewportCount={viewportCount}
+                width={1320}
+                minViewerHeight={510}
+                gap={8}
+                fps={multiCanvasFps}
+                selectable={true}
+                enableDoubleClickExpand={true}
+                toolbarTools={DEFAULT_TOOLS}
+                viewerOptions={{
+                  showToolbar: true,
+                  showStatusBar: true,
+                  showControls: true,
+                  toolbarCompact: true,
+                  showAnnotations: multiCanvasShowAnnotations,
+                }}
+              />
+
+              {/* 컨트롤 패널 */}
               <div style={{
                 padding: '12px',
-                marginBottom: '10px',
-                background: '#1a2a1a',
-                border: '1px solid #4a7',
+                marginTop: '10px',
+                background: '#1a1a2e',
                 borderRadius: '4px',
+                color: '#fff',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '16px',
                 flexWrap: 'wrap',
               }}>
                 <button
-                  onClick={() => multiCanvasGroupRef.current?.togglePlayAll()}
+                  onClick={toggleMultiCanvasPlay}
+                  disabled={multiCanvasStats.allStillImages}
                   style={{
                     padding: '8px 20px',
                     fontSize: '14px',
-                    background: '#4c4',
+                    background: multiCanvasStats.allStillImages ? '#555' : (multiCanvasIsPlaying ? '#c44' : '#4c4'),
                     color: '#fff',
                     border: 'none',
                     borderRadius: '4px',
-                    cursor: 'pointer',
-                    minWidth: '120px',
-                    fontWeight: 'bold',
+                    cursor: multiCanvasStats.allStillImages ? 'not-allowed' : 'pointer',
+                    minWidth: '100px',
+                    opacity: multiCanvasStats.allStillImages ? 0.6 : 1,
                   }}
+                  title={multiCanvasStats.allStillImages ? '모든 뷰포트가 정지 영상입니다' : ''}
                 >
-                  ▶/⏸ 전체 재생/정지
+                  {multiCanvasIsPlaying ? '⏸ Stop' : '▶ Play All'}
                 </button>
+
+                {!multiCanvasStats.allStillImages && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <label>FPS:</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={60}
+                      value={multiCanvasFps}
+                      onChange={(e) => handleMultiCanvasFpsChange(Math.max(1, Math.min(60, Number(e.target.value))))}
+                      style={{ width: '50px', padding: '4px' }}
+                    />
+                    <input
+                      type="range"
+                      min={1}
+                      max={60}
+                      value={multiCanvasFps}
+                      onChange={(e) => handleMultiCanvasFpsChange(Number(e.target.value))}
+                      style={{ width: '100px' }}
+                    />
+                  </div>
+                )}
+
                 <button
                   onClick={() => multiCanvasGroupRef.current?.resetFrameAll()}
                   style={{
@@ -2799,6 +2856,7 @@ export default function App() {
                 >
                   ⏮ 처음으로
                 </button>
+
                 <button
                   onClick={() => multiCanvasGroupRef.current?.resetViewportAll()}
                   style={{
@@ -2813,41 +2871,107 @@ export default function App() {
                 >
                   🔄 뷰포트 리셋
                 </button>
-                <span style={{ color: '#8f8', fontSize: '13px' }}>
-                  {multiCanvasViewers.length}개 뷰어 로드됨
-                </span>
+
+                {/* 어노테이션 표시 토글 */}
+                <button
+                  onClick={() => setMultiCanvasShowAnnotations(!multiCanvasShowAnnotations)}
+                  style={{
+                    padding: '8px 16px',
+                    fontSize: '14px',
+                    background: multiCanvasShowAnnotations ? '#2a4a4a' : '#3a3a3a',
+                    color: multiCanvasShowAnnotations ? '#8ff' : '#888',
+                    border: multiCanvasShowAnnotations ? '2px solid #5aa' : '2px solid transparent',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                  }}
+                  title={multiCanvasShowAnnotations ? '어노테이션 숨기기' : '어노테이션 표시'}
+                >
+                  {multiCanvasShowAnnotations ? '👁 어노테이션 표시' : '👁‍🗨 어노테이션 숨김'}
+                </button>
+
+                {/* 영상/정지 영상 통계 */}
+                <div style={{ fontSize: '12px', color: '#888', marginLeft: 'auto' }}>
+                  {multiCanvasStats.allStillImages ? (
+                    <span style={{ color: '#fa8' }}>모든 뷰포트가 정지 영상입니다</span>
+                  ) : (
+                    <>
+                      <span style={{ color: '#8f8' }}>영상: {multiCanvasStats.playableCount}개</span>
+                      {multiCanvasStats.stillCount > 0 && (
+                        <span style={{ color: '#fa8', marginLeft: '10px' }}>정지: {multiCanvasStats.stillCount}개</span>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
 
-              {/* SingleDicomViewerGroup */}
-              <SingleDicomViewerGroup
-                ref={multiCanvasGroupRef}
-                viewers={multiCanvasViewers}
-                layout={(() => {
-                  // LayoutType → ViewerGroupLayout 변환
-                  const layoutMap: Record<LayoutType, ViewerGroupLayout> = {
-                    'grid-1x1': '1x1',
-                    'grid-2x2': '2x2',
-                    'grid-3x3': '3x3',
-                    'grid-4x4': '4x4',
-                    'grid-5x5': '4x4', // 4x4로 fallback (ViewerGroupLayout에 5x5 없음)
-                    'grid-6x6': '4x4',
-                    'grid-7x7': '4x4',
-                    'grid-8x8': '4x4',
-                  };
-                  return layoutMap[layout] ?? '2x2';
-                })()}
-                width={1320}
-                height={900}
-                gap={8}
-                fps={30}
-                selectable={true}
-                viewerOptions={{
-                  showToolbar: true,
-                  showStatusBar: true,
-                  showControls: true,
-                  toolbarCompact: true,
-                }}
-              />
+              {/* 뷰포트 정보 그리드 */}
+              <div style={{
+                marginTop: '10px',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                gap: '8px',
+              }}>
+                {multiCanvasViewers.map((viewer, idx) => (
+                  <div
+                    key={viewer.id}
+                    style={{
+                      padding: '10px',
+                      background: '#1a1a1a',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      color: '#aaa',
+                      border: '1px solid #333',
+                    }}
+                  >
+                    <div style={{
+                      fontWeight: 'bold',
+                      color: '#fff',
+                      marginBottom: '6px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}>
+                      <span>Viewport {idx + 1}</span>
+                      {viewer.frames.length <= 1 ? (
+                        <span style={{
+                          fontSize: '10px',
+                          color: '#fa8',
+                          background: '#3a2a1a',
+                          padding: '2px 6px',
+                          borderRadius: '3px',
+                        }}>
+                          정지 영상
+                        </span>
+                      ) : (
+                        <span style={{
+                          fontSize: '10px',
+                          color: multiCanvasIsPlaying ? '#8f8' : '#888',
+                          background: multiCanvasIsPlaying ? '#1a3a1a' : '#2a2a2a',
+                          padding: '2px 6px',
+                          borderRadius: '3px',
+                        }}>
+                          {multiCanvasIsPlaying ? 'Playing' : 'Stopped'}
+                        </span>
+                      )}
+                    </div>
+                    {viewer.label && (
+                      <div style={{
+                        fontFamily: 'monospace',
+                        fontSize: '9px',
+                        color: '#6af',
+                        marginBottom: '4px',
+                        wordBreak: 'break-all',
+                      }}>
+                        UID: ...{viewer.label.slice(-25)}
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Frames: {viewer.frames.length}</span>
+                      <span>Size: {viewer.imageInfo.width}x{viewer.imageInfo.height}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

@@ -12,6 +12,7 @@ import {
   decodeJpeg,
   decodeNative,
   closeDecodedFrame,
+  calculateAspectScale,
   type DicomImageInfo,
   type WindowLevelOptions,
 } from '@echopixel/core';
@@ -201,7 +202,7 @@ export const DicomCanvas = forwardRef<DicomCanvasHandle, DicomCanvasProps>(
           textureManagerRef.current = new TextureManager(gl);
           quadRendererRef.current = new QuadRenderer(gl);
 
-          gl.clearColor(0, 0, 0, 1);
+          gl.clearColor(0.1, 0.1, 0.1, 1); // 어두운 회색 (#1a1a1a) - DICOM 이미지와 구분
           gl.clear(gl.COLOR_BUFFER_BIT);
 
           return true;
@@ -326,7 +327,15 @@ export const DicomCanvas = forwardRef<DicomCanvasHandle, DicomCanvasProps>(
           textureManager.upload(decodedFrame.image);
           gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
           textureManager.bind(0);
-          quadRenderer.render(0, shaderWL);
+
+          // 종횡비 보정 스케일 계산 (fit-to-viewport with aspect ratio preservation)
+          const aspectScale = calculateAspectScale(
+            imageInfo.columns,
+            imageInfo.rows,
+            gl.drawingBufferWidth,
+            gl.drawingBufferHeight
+          );
+          quadRenderer.render(0, shaderWL, undefined, aspectScale);
 
           closeDecodedFrame(decodedFrame);
         } catch (err) {
@@ -382,7 +391,7 @@ export const DicomCanvas = forwardRef<DicomCanvasHandle, DicomCanvasProps>(
           display: 'block',
           width: `${width}px`,
           height: `${height}px`,
-          background: '#000',
+          background: '#1a1a1a',
           transform: `translate(${pan.x}px, ${pan.y}px) scale(${flipH ? -zoom : zoom}, ${flipV ? -zoom : zoom}) rotate(${rotation}deg)`,
           transformOrigin: 'center center',
           cursor: 'crosshair',

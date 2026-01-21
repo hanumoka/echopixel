@@ -128,7 +128,9 @@ export function HybridViewportSlot({
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 클릭 핸들러
-  const handleClick = useCallback(() => {
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    console.log('[HybridViewportSlot] handleClick - viewportId:', viewportId, 'stopping propagation');
+    e.stopPropagation(); // 배경 클릭 핸들러로 전파 방지
     onClick?.(viewportId);
   }, [onClick, viewportId]);
 

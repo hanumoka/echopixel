@@ -5,8 +5,8 @@
 | 항목 | 상태 |
 |------|------|
 | **현재 Phase** | Phase 3 (Annotations) ✅ 핵심 완료 |
-| **마지막 업데이트** | 2026-01-21 (Multi ViewPort 캘리브레이션 버그 수정) |
-| **다음 마일스톤** | Phase 3g-2 (어노테이션 선택/편집 UI) 또는 Phase 4 |
+| **마지막 업데이트** | 2026-01-21 (UI 레이아웃 개선, 최대 뷰포트 설정) |
+| **다음 마일스톤** | Phase 4 (Plugin System) 또는 Phase 5 (npm 배포) |
 
 ---
 
@@ -21,7 +21,7 @@
 
 | 메트릭 | 목표 | 현황 | 비고 |
 |--------|------|------|------|
-| 동시 뷰포트 | **16개** | ✅ 달성 | 16개 동시 표시 성공 |
+| 동시 뷰포트 | **16개** | ✅ 달성 | Single canvas: 최대 100개, Single viewport: 최대 16개 |
 | 프레임 레이트 | **30fps+** | ✅ **60fps** | 목표 2배 초과 달성 |
 | Frame Time | **<33ms** | ✅ **0.1~3ms** | 목표 10배+ 초과 달성 |
 | GPU 메모리 | **<1.5GB** | ✅ 측정 가능 | Performance Options 패널 추가 |
@@ -187,16 +187,25 @@
 | 더블클릭 확대 뷰 | ✅ | Single/Multi ViewPort에서 DICOM 더블클릭 → 오버레이 확대 |
 | onViewportIdsReady 콜백 | ✅ | setTimeout 대신 안정적인 ID 매핑 콜백 |
 | IP 접속 지원 | ✅ | Vite host 0.0.0.0, 동적 WADO URL, sado_be CORS |
+| 동적 뷰포트 개수 (1~50) | ✅ | 슬라이더 UI, 자동 그리드 계산, 실시간 슬롯 재생성 |
+| 그리드 레이아웃 최적화 | ✅ | 4개 이하 정사각형 배치, 5개 이상 4열 제한 |
+| SingleDicomViewerGroup 어노테이션 | ✅ | 어노테이션 도구, 더블클릭 확대, ESC 닫기 |
+| Click Outside 뷰포트 선택 해제 | ✅ | 컴포넌트 외부 클릭 시 도구바 숨김 (document mousedown 감지) |
+| Multi ViewPort (Single viewport 기반) UI 통합 | ✅ | Single canvas 기반과 동일한 컨트롤 UI |
+| UI 레이아웃 정확도 개선 | ✅ | uiElementsHeight 계산 수정 (DicomControls 113px 등) |
+| DicomToolbar/Controls flex-wrap | ✅ | 가로 공간 부족 시 자동 줄바꿈 |
+| 최대 뷰포트 개수 차별화 | ✅ | Single canvas: 100개, Single viewport: 16개 |
 | 측정 도구 (Ellipse, VTI) | ⏳ | 확장 도구 (선택적) |
 | 플러그인 시스템 | ⏳ | 도구/계산기/렌더러 확장 (선택적) |
 
-#### Phase 3g-2: 어노테이션 선택/편집 UI 🚧 계획됨
+#### Phase 3g-2: 어노테이션 선택/편집 UI ✅ 완료
 
 | 항목 | 상태 | 비고 |
 |------|------|------|
-| DragHandle 통합 | ⏳ | Shape 컴포넌트에 핸들 표시 |
-| 포인트 드래그 편집 | ⏳ | 어노테이션 포인트 위치 수정 |
-| 라벨 드래그 | ⏳ | 측정값 라벨 위치 이동 |
+| DragHandle 통합 | ✅ | LengthShape, AngleShape, PointShape에 핸들 표시 |
+| 포인트 드래그 편집 | ✅ | SVGOverlay 드래그 상태 관리, 실시간 피드백, 측정값 재계산 |
+| Delete 키 삭제 | ✅ | SingleDicomViewer, HybridMultiViewport 모두 지원 |
+| 라벨 드래그 | ⏳ | 측정값 라벨 위치 이동 (선택적) |
 
 **Calibration 구현 상세**:
 - Local File: `getImageInfo()` → `getPixelSpacing()` / `getUltrasoundCalibration()`
@@ -387,11 +396,12 @@
    - [x] 어노테이션 표시 토글 기능
    - [ ] 측정 도구 확장 (Ellipse, VTI) - 선택적
    - [ ] 플러그인 시스템 - 선택적
-21. **Phase 3g-2 구현** (계획됨): ⬅️ 다음 마일스톤
-   - [ ] 어노테이션 선택/편집 UI (DragHandle 통합)
-   - [ ] 포인트 드래그 편집
-   - [ ] 라벨 위치 이동
-22. **npm 배포 준비**: README, CHANGELOG (Phase 5)
+21. ~~**Phase 3g-2 구현**~~ ✅ 완료
+   - [x] 어노테이션 선택/편집 UI (DragHandle 통합)
+   - [x] 포인트 드래그 편집
+   - [x] Delete 키로 어노테이션 삭제
+   - [ ] 라벨 위치 이동 (선택적)
+22. **npm 배포 준비**: README, CHANGELOG (Phase 5) ⬅️ 다음 마일스톤
 
 ---
 

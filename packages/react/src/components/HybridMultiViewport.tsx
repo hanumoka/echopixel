@@ -187,12 +187,19 @@ export interface PerformanceOptions {
  * HybridMultiViewport Props
  */
 export interface HybridMultiViewportProps {
-  /** 레이아웃 타입 (기본 'grid-2x2') */
+  /** 레이아웃 타입 (기본 'grid-2x2') - viewportCount가 지정되면 무시됨 */
   layout?: LayoutType;
+  /**
+   * 뷰포트 개수 (1~50) - 지정 시 그리드가 자동 계산됨
+   * layout보다 우선순위가 높음
+   */
+  viewportCount?: number;
   /** 컨테이너 너비 (CSS 픽셀) - 미지정 시 부모 크기 자동 감지 */
   width?: number;
   /** 컨테이너 높이 (CSS 픽셀) - 미지정 시 부모 크기 자동 감지 */
   height?: number;
+  /** 개별 뷰포트 최소 높이 (픽셀, 기본: 0=자동) - 지정 시 이 높이보다 작아지면 스크롤 활성화 */
+  minViewportHeight?: number;
   /** 그리드 간격 (기본 2) */
   gap?: number;
   /** 시리즈 데이터 맵 */
@@ -268,7 +275,26 @@ export interface HybridMultiViewportProps {
 }
 
 /**
- * 레이아웃 타입에서 행/열 추출
+ * 뷰포트 개수로부터 최적의 그리드 차원 계산
+ * - 4개 이하: 정사각형에 가깝게 배치
+ * - 5개 이상: 가로(열) 최대 4개로 제한
+ * - 예: 2 → 2×1, 4 → 2×2, 8 → 4×2, 16 → 4×4, 20 → 4×5
+ */
+function calculateGridFromCount(count: number): { rows: number; cols: number } {
+  if (count <= 0) return { rows: 1, cols: 1 };
+  if (count === 1) return { rows: 1, cols: 1 };
+  if (count === 2) return { rows: 1, cols: 2 };
+  if (count <= 4) return { rows: 2, cols: 2 };
+
+  // 5개 이상: 가로 4개 제한
+  const cols = 4;
+  const rows = Math.ceil(count / cols);
+
+  return { rows, cols };
+}
+
+/**
+ * 레이아웃 타입에서 행/열 추출 (레거시 지원)
  */
 function getLayoutDimensions(layout: LayoutType): { rows: number; cols: number } {
   switch (layout) {
@@ -322,8 +348,10 @@ export const HybridMultiViewport = forwardRef<
 >(function HybridMultiViewport(
   {
     layout = 'grid-2x2',
+    viewportCount,
     width,
     height,
+    minViewportHeight = 0,
     gap = 2,
     seriesMap,
     syncMode = 'frame-ratio',
@@ -446,13 +474,27 @@ export const HybridMultiViewport = forwardRef<
   // DPR (성능 옵션 또는 자동)
   const dpr = dprOverride ?? Math.min(window.devicePixelRatio || 1, 2);
 
-  // 레이아웃 차원
-  const { rows, cols } = getLayoutDimensions(layout);
+  // 레이아웃 차원 (viewportCount 우선, 없으면 layout 사용)
+  const { rows, cols } = viewportCount !== undefined
+    ? calculateGridFromCount(Math.min(Math.max(viewportCount, 1), 50))
+    : getLayoutDimensions(layout);
   const slotCount = rows * cols;
 
   // 실제 사용할 크기
   const effectiveWidth = width ?? containerSize.width;
   const effectiveHeight = height ?? containerSize.height;
+
+  // 실제 그리드 높이 계산
+  // minViewportHeight가 설정되면 rows * minViewportHeight로 계산 (브라우저 스크롤 처리)
+  const actualGridHeight = useMemo(() => {
+    if (minViewportHeight > 0) {
+      // minViewportHeight 기반으로 높이 계산 (고정 height 무시)
+      const totalGapY = gap * (rows - 1);
+      return rows * minViewportHeight + totalGapY;
+    }
+    // minViewportHeight가 없으면 고정 height 또는 컨테이너 크기 사용
+    return effectiveHeight;
+  }, [minViewportHeight, effectiveHeight, rows, gap]);
 
   // 정지 이미지 여부
   const isStaticImage = viewports.length > 0 && viewports.every((v) =>
@@ -1102,6 +1144,51 @@ export const HybridMultiViewport = forwardRef<
     setIsInitialized(true);
   }, [dpr, slotCount, setupRenderCallbacks, onPlayingChange]);
 
+  // slotCount 변경 시 슬롯 재생성 (이미 초기화된 상태에서 viewportCount가 변경될 때)
+  const prevSlotCountRef = useRef<number>(slotCount);
+  useEffect(() => {
+    // 초기화 전이거나 slotCount가 변경되지 않았으면 스킵
+    if (!isInitialized || !hybridManagerRef.current || prevSlotCountRef.current === slotCount) {
+      prevSlotCountRef.current = slotCount;
+      return;
+    }
+
+    console.log(`[HybridMultiViewport] slotCount changed: ${prevSlotCountRef.current} -> ${slotCount}`);
+    prevSlotCountRef.current = slotCount;
+
+    const hybridManager = hybridManagerRef.current;
+
+    // 기존 뷰포트/슬롯 정리
+    hybridManager.dispose();
+
+    // 새로운 HybridViewportManager 생성
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const newHybridManager = new HybridViewportManager({ canvas, dpr });
+    hybridManagerRef.current = newHybridManager;
+
+    // 새로운 슬롯 생성
+    const ids = newHybridManager.createSlots(slotCount);
+    setViewportIds(ids);
+
+    // RenderScheduler 재생성
+    const gl = glRef.current;
+    const syncEngine = syncEngineRef.current;
+    if (gl && syncEngine) {
+      renderSchedulerRef.current?.dispose();
+      const newRenderScheduler = new HybridRenderScheduler(gl, newHybridManager, syncEngine);
+      renderSchedulerRef.current = newRenderScheduler;
+
+      const arrayRenderer = arrayRendererRef.current;
+      if (arrayRenderer) {
+        setupRenderCallbacks(newRenderScheduler, newHybridManager, arrayRenderer);
+      }
+    }
+
+    setViewports(newHybridManager.getAllViewports());
+  }, [slotCount, isInitialized, dpr, setupRenderCallbacks]);
+
   // onViewportIdsReady 콜백 호출 (viewportIds와 seriesMap이 모두 준비되면)
   useEffect(() => {
     if (!onViewportIdsReady || viewportIds.length === 0 || !seriesMap || seriesMap.size === 0) {
@@ -1329,10 +1416,51 @@ export const HybridMultiViewport = forwardRef<
 
   // 뷰포트 이벤트 핸들러
   const handleViewportClick = useCallback((viewportId: string) => {
+    console.log('[HybridMultiViewport] handleViewportClick:', viewportId);
     setActiveViewportId(viewportId);
     onActiveViewportChange?.(viewportId);
     onViewportClick?.(viewportId);
   }, [onViewportClick, onActiveViewportChange]);
+
+  // =========================================================================
+  // Click Outside 패턴: 컴포넌트 바깥 클릭 시 뷰포트 선택 해제 (툴바 숨김)
+  // =========================================================================
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const wrapper = wrapperRef.current;
+      if (!wrapper || !activeViewportId) return;
+
+      // 클릭이 컴포넌트 바깥에서 발생했는지 확인
+      if (!wrapper.contains(e.target as Node)) {
+        console.log('[HybridMultiViewport] Click outside detected - deselecting viewport');
+        setActiveViewportId(null);
+        onActiveViewportChange?.(null as unknown as string);
+      }
+    };
+
+    // document 레벨에서 클릭 이벤트 감지
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [activeViewportId, onActiveViewportChange]);
+
+  // 컴포넌트 내부 빈 영역 (gap 등) 클릭 시 선택 해제
+  const handleBackgroundClick = useCallback((e: React.MouseEvent) => {
+    // 클릭 타겟이 뷰포트 슬롯 내부인지 확인
+    const target = e.target as HTMLElement;
+    const isViewportSlot = target.closest('[data-viewport-id]');
+
+    // 뷰포트 슬롯 내부 클릭이면 무시 (슬롯 자체의 onClick에서 처리)
+    if (isViewportSlot) {
+      return;
+    }
+
+    // 빈 영역 클릭 시 선택 해제
+    if (activeViewportId) {
+      console.log('[HybridMultiViewport] Background click - deselecting viewport');
+      setActiveViewportId(null);
+      onActiveViewportChange?.(null as unknown as string);
+    }
+  }, [activeViewportId, onActiveViewportChange]);
 
   const handleViewportDoubleClick = useCallback((viewportId: string) => {
     onViewportDoubleClick?.(viewportId);
@@ -1518,9 +1646,10 @@ export const HybridMultiViewport = forwardRef<
       className={className}
       tabIndex={0}
       onKeyDown={handleKeyDown}
+      onClick={handleBackgroundClick}
       style={{
         width: width !== undefined ? `${width}px` : '100%',
-        height: height !== undefined ? `${height}px` : '100%',
+        height: actualGridHeight ? `${actualGridHeight}px` : '100%',
         minHeight: 0,
         position: 'relative',
         outline: 'none', // 포커스 시 outline 제거
@@ -1531,7 +1660,7 @@ export const HybridMultiViewport = forwardRef<
         rows={rows}
         cols={cols}
         width={effectiveWidth}
-        height={effectiveHeight}
+        height={actualGridHeight}
         gap={gap}
         dpr={dpr}
         onCanvasRef={handleCanvasRef}

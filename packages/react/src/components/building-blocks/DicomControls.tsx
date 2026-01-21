@@ -155,15 +155,17 @@ export function DicomControls({
           ▶
         </button>
 
-        {/* FPS 조절 */}
+        {/* FPS 조절 - 공간 부족 시 줄바꿈 */}
         <div style={{
           marginLeft: 'auto',
           display: 'flex',
           alignItems: 'center',
-          gap: '6px',
-          fontSize: '13px',
+          gap: '4px',
+          fontSize: '12px',
+          flexShrink: 0,
+          minWidth: 'fit-content',
         }}>
-          <label>FPS:</label>
+          <label style={{ whiteSpace: 'nowrap' }}>FPS:</label>
           <input
             type="number"
             min={minFps}
@@ -173,7 +175,7 @@ export function DicomControls({
               const newFps = Math.max(minFps, Math.min(maxFps, Number(e.target.value)));
               onFpsChange?.(newFps);
             }}
-            style={{ width: '45px', padding: '3px' }}
+            style={{ width: '40px', padding: '2px' }}
           />
           <input
             type="range"
@@ -181,7 +183,7 @@ export function DicomControls({
             max={maxFps}
             value={fps}
             onChange={(e) => onFpsChange?.(Number(e.target.value))}
-            style={{ width: '80px' }}
+            style={{ width: '60px' }}
           />
         </div>
       </div>

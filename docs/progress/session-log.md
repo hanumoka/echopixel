@@ -6,6 +6,379 @@
 
 ---
 
+## 2026-01-21 세션 #35 (UI 레이아웃 개선 및 최대 뷰포트 설정)
+
+### 작업 내용
+
+**1. UI 레이아웃 정확도 개선** ⭐
+
+사용자 요청: "도구와 재생 컨트롤이 잘리는 문제 해결"
+
+**문제 분석**:
+- `uiElementsHeight` 계산이 실제 UI 요소 높이와 불일치
+- 특히 `DicomControls`를 60px로 계산했으나 실제는 **113px**
+
+**수정 전/후 비교**:
+| UI 요소 | 이전 계산 | 실제 높이 |
+|---------|-----------|-----------|
+| DicomStatusBar | 38px | **44px** |
+| DicomToolbar (compact) | 52px | **58px** |
+| DicomControls | **60px** | **113px** |
+| 총합 | 178px | **233px** |
+
+**해결**:
+- `SingleDicomViewerGroup.tsx`: `uiElementsHeight` 계산 수정
+- `App.tsx`: `minViewerHeight` 450px → **510px**
+
+**2. Flex-wrap 자동 줄바꿈 추가**
+
+사용자 요청: "가로 공간 부족 시 도구/컨트롤이 잘리는 문제"
+
+**수정 사항**:
+- `DicomToolbar.tsx`: `flexWrap: 'wrap'` 추가
+- `DicomControls.tsx`: FPS 컨트롤 compact화 (gap, fontSize, width 축소)
+
+**3. 최대 뷰포트 개수 차별화**
+
+| 탭 | 컴포넌트 | 최대 뷰포트 |
+|---|---|---|
+| Multi ViewPort (Single canvas 기반) | HybridMultiViewport | **100개** |
+| Multi ViewPort (Single viewport 기반) | SingleDicomViewerGroup | **16개** |
+
+### 파일 변경
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `packages/react/.../SingleDicomViewerGroup.tsx` | `uiElementsHeight` 정확한 계산 |
+| `packages/react/.../DicomToolbar.tsx` | `flexWrap: 'wrap'` 추가 |
+| `packages/react/.../DicomControls.tsx` | FPS 컨트롤 compact화, `flexShrink: 0` |
+| `apps/demo/src/App.tsx` | `minViewerHeight` 510px, 최대 뷰포트 슬라이더 설정 |
+
+### 학습 포인트
+
+- **CSS Flexbox**: `flex-wrap: wrap`으로 자동 줄바꿈 처리
+- **레이아웃 계산의 문제점**: 하드코딩된 높이 계산은 유지보수가 어려움
+- **향후 개선**: Tailwind CSS 또는 Flex 기반 레이아웃으로 리팩토링 권장
+
+### 다음 세션 할 일
+
+- [ ] Phase 3g-2: 어노테이션 선택/편집 UI (DragHandle 통합)
+- [ ] 포인트 드래그 편집
+- [ ] 라벨 위치 이동
+- [ ] (선택) Flex 기반 레이아웃 리팩토링
+
+---
+
+## 2026-01-21 세션 #34 (Click Outside 뷰포트 선택 해제)
+
+### 작업 내용
+
+**뷰포트 선택 해제 기능 구현** ⭐
+
+사용자 요청: "DICOM 뷰 선택 후 바깥 영역 클릭 시 도구바가 숨겨져야 함"
+
+**문제 분석**:
+- 기존 로직은 컴포넌트 **내부**의 클릭만 감지
+- 컴포넌트 **외부** (상단 컨트롤 패널, 어노테이션 버튼 등) 클릭 시 이벤트 감지 불가
+- `handleBackgroundClick`이 호출되지 않는 문제 발견
+
+**해결책: "Click Outside" 패턴 적용**
+
+```typescript
+// document 레벨에서 클릭 이벤트 감지
+useEffect(() => {
+  const handleClickOutside = (e: MouseEvent) => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper || !activeViewportId) return;
+
+    // 클릭이 컴포넌트 바깥에서 발생했는지 확인
+    if (!wrapper.contains(e.target as Node)) {
+      setActiveViewportId(null);  // 선택 해제 → 도구바 숨김
+    }
+  };
+
+  document.addEventListener('mousedown', handleClickOutside);
+  return () => document.removeEventListener('mousedown', handleClickOutside);
+}, [activeViewportId]);
+```
+
+**구현 사항**:
+
+1. **HybridMultiViewport Click Outside 패턴**
+   - [x] `useEffect`로 document `mousedown` 이벤트 리스너 추가
+   - [x] `wrapperRef.current.contains(e.target)` 체크
+   - [x] 컴포넌트 외부 클릭 시 `activeViewportId` null로 설정 → 도구바 숨김
+
+2. **SingleDicomViewerGroup Click Outside 패턴**
+   - [x] `containerRef` 추가
+   - [x] document `mousedown` 이벤트 리스너 추가
+   - [x] 컴포넌트 외부 클릭 시 선택 해제 + `resetActiveTool()` 호출
+
+3. **Multi ViewPort (Single viewport 기반) UI 통합**
+   - [x] 상태 변수 추가: `multiCanvasFps`, `multiCanvasIsPlaying`, `multiCanvasShowAnnotations`
+   - [x] 핸들러 함수 추가: `toggleMultiCanvasPlay`, `handleMultiCanvasFpsChange`
+   - [x] 상단 컨트롤 UI: 상태 바, Play/Stop 버튼, FPS 컨트롤, 어노테이션 토글, 뷰포트 정보 그리드
+
+4. **뷰포트 컨테이너 높이 수정**
+   - [x] `rows * minViewportHeight + totalGapY` 계산으로 세로 스크롤 지원
+
+### 동작 방식
+
+| 상황 | 동작 |
+|------|------|
+| 뷰포트 클릭 | 해당 뷰포트 선택, 도구바 표시 |
+| 다른 뷰포트 클릭 | 새 뷰포트 선택, 이전 도구바 숨김 |
+| 빈 영역 (gap) 클릭 | 선택 해제, 도구바 숨김 |
+| **컴포넌트 외부 클릭** | 선택 해제, 도구바 숨김 ⭐ |
+
+### 파일 변경
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `packages/react/src/components/HybridMultiViewport.tsx` | Click Outside useEffect 추가 |
+| `packages/react/src/components/SingleDicomViewerGroup.tsx` | containerRef, Click Outside useEffect 추가 |
+| `packages/react/src/components/building-blocks/HybridViewportSlot.tsx` | 디버그 로그 추가 |
+| `apps/demo/src/App.tsx` | Multi ViewPort (Single viewport 기반) UI 통합, 컨트롤 패널 추가 |
+
+### 학습 포인트
+
+- **Click Outside 패턴**: React에서 드롭다운/모달 닫기에 흔히 사용되는 패턴
+- `document.addEventListener('mousedown', handler)` - `click`보다 `mousedown`이 더 빠르게 반응
+- `element.contains(target)` - DOM 요소가 다른 요소를 포함하는지 확인
+- `useEffect` cleanup - 이벤트 리스너 해제 필수
+
+---
+
+## 2026-01-21 세션 #32 (Multi ViewPort UI 통합 및 그리드 최적화)
+
+### 작업 내용
+
+**Multi ViewPort (Single ViewPort 기반) UI 통합** ⭐
+
+사용자 요청: "multi 뷰포터 (single canvas)의 화면구현을 multi viewport(single viewport기반)에 적용해줘"
+
+**구현 사항**:
+
+1. **SingleDicomViewerGroup 컴포넌트 확장**
+   - [x] `viewportCount` prop 추가
+   - [x] `calculateGridFromCount()` 함수 추가 (HybridMultiViewport와 동일 로직)
+   - [x] UI 요소 높이 계산 개선 (toolbar, statusbar, controls, padding)
+
+2. **DicomCanvas 종횡비 보정**
+   - [x] `calculateAspectScale` 적용 (기존에는 HybridMultiViewport만 적용)
+   - [x] 3개 탭 모두 DICOM 원본 종횡비 유지
+
+3. **배경색 구분**
+   - [x] WebGL clearColor: `(0, 0, 0, 1)` → `(0.1, 0.1, 0.1, 1)` (어두운 회색)
+   - [x] CSS background: `#000` → `#1a1a1a`
+   - [x] 적용 파일: DicomCanvas, SingleDicomViewer, HybridViewportGrid, RenderScheduler, HybridRenderScheduler
+
+4. **그리드 레이아웃 최적화** ⭐
+   - [x] 가로 열 최대 4개로 제한
+   - [x] 4개 이하 뷰포트: 정사각형에 가깝게 배치 (1→1×1, 2→2×1, 3-4→2×2)
+   - [x] 5개 이상 뷰포트: 4열 고정 (5→4×2, 9→4×3...)
+
+### 파일 변경
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `packages/react/src/components/SingleDicomViewerGroup.tsx` | `viewportCount` prop, `calculateGridFromCount()`, UI 높이 계산 |
+| `packages/react/src/components/HybridMultiViewport.tsx` | `calculateGridFromCount()` 그리드 최적화 로직 |
+| `packages/react/src/components/building-blocks/DicomCanvas.tsx` | `calculateAspectScale` 적용, 배경색 변경 |
+| `packages/react/src/components/SingleDicomViewer.tsx` | 배경색 변경 |
+| `packages/react/src/components/building-blocks/HybridViewportGrid.tsx` | 배경색 변경 |
+| `packages/core/src/sync/RenderScheduler.ts` | WebGL clearColor 변경 |
+| `packages/core/src/hybrid/HybridRenderScheduler.ts` | WebGL clearColor 변경 |
+| `apps/demo/src/App.tsx` | `getGridDimensions()` 함수, 레이아웃 슬라이더 UI, 그리드 표시 텍스트 |
+
+### 핵심 코드
+
+**그리드 차원 계산 최적화**
+```typescript
+function calculateGridFromCount(count: number): { rows: number; cols: number } {
+  if (count <= 0) return { rows: 1, cols: 1 };
+  if (count === 1) return { rows: 1, cols: 1 };
+  if (count === 2) return { rows: 1, cols: 2 };
+  if (count <= 4) return { rows: 2, cols: 2 };  // 정사각형 배치
+  // 5개 이상: 가로 4개 제한
+  const cols = 4;
+  const rows = Math.ceil(count / cols);
+  return { rows, cols };
+}
+```
+
+### 버그 수정
+
+- [x] DICOM 이미지 하단 잘림: UI 요소 높이 계산 누락 → 정확한 높이 계산 추가
+- [x] DicomCanvas 종횡비 미적용: `calculateAspectScale` 추가
+- [x] 4개 뷰포트 4×1 레이아웃 (과도한 세로 길이): 4개 이하는 2×2 배치로 수정
+
+### 학습 포인트
+
+- **종횡비 보정**: `calculateAspectScale(imageWidth, imageHeight, canvasWidth, canvasHeight)` → fit-to-viewport 방식
+- **그리드 최적화**: UX 관점에서 가로 열 제한이 필요한 이유 - 너무 긴 가로 스크롤 방지
+- **배경색 설계**: DICOM 이미지가 검은색인 경우 배경과 구분 필요
+
+### 다음 세션 할 일
+
+- [ ] Phase 3g-2: 어노테이션 선택/편집 UI (DragHandle 통합)
+- [ ] 포인트 드래그 편집
+- [ ] 라벨 위치 이동
+
+---
+
+## 2026-01-21 세션 #33 (Multi ViewPort Single viewport 기반 기능 보완)
+
+### 작업 내용
+
+**SingleDicomViewerGroup 기능 보완** ⭐
+
+사용자 요청: "multi Viewport(Singleviewport기반)에서 어노테이션 도구 동작 안함, 레이아웃 수정 필요, 기능 검증 필요"
+
+**구현 사항**:
+
+1. **SingleDicomViewerGroup Props 확장**
+   - [x] `toolbarTools` prop 추가 (어노테이션 도구 포함)
+   - [x] `enableDoubleClickExpand` prop 추가 (더블클릭 확대)
+   - [x] Annotation 관련 props 추가:
+     - `onAnnotationSelect`, `onAnnotationUpdate`, `onAnnotationDelete`
+     - `onAnnotationCreate`, `onAnnotationsVisibilityChange`
+   - [x] `ViewerData.annotations` 필드 추가
+
+2. **더블클릭 확대 뷰 구현**
+   - [x] `expandedViewerId` 상태 관리
+   - [x] 확대 뷰 오버레이 렌더링 (90% 크기)
+   - [x] ESC 키로 닫기 (useEffect + keydown)
+   - [x] 더블클릭으로 닫기
+
+3. **데모 앱 업데이트**
+   - [x] `DEFAULT_TOOLS` import 및 전달
+   - [x] `enableDoubleClickExpand={true}` 활성화
+   - [x] `showAnnotations: true` viewerOptions 추가
+
+### 파일 변경
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `packages/react/src/components/SingleDicomViewerGroup.tsx` | annotation props, toolbarTools, enableDoubleClickExpand, 확대 뷰 오버레이 |
+| `apps/demo/src/App.tsx` | DEFAULT_TOOLS import, SingleDicomViewerGroup props 추가 |
+
+### 기능 비교표
+
+| 기능 | Single canvas | Single viewport 기반 |
+|------|---------------|---------------------|
+| 레이아웃 슬라이더 | ✅ | ✅ |
+| 어노테이션 도구 | ✅ | ✅ (추가됨) |
+| 더블클릭 확대 | ✅ | ✅ (추가됨) |
+| 개별 재생/정지 | 그룹만 | ✅ 개별+그룹 |
+| FPS 제어 | ✅ | ✅ |
+| VRAM 관리 | ✅ | N/A (독립 캔버스) |
+
+### 학습 포인트
+
+- **컴포넌트 Props 설계**: 상위 컴포넌트(Group)가 하위 컴포넌트(Viewer)에 props를 전달할 때, 콜백은 viewerId를 포함하여 어떤 뷰어에서 발생했는지 식별
+- **ESC 키 핸들링**: useEffect에서 조건부 이벤트 리스너 등록 (상태가 있을 때만)
+- **확대 뷰 구현**: position: absolute 오버레이 + stopPropagation으로 버블링 방지
+
+---
+
+## 2026-01-21 세션 #31 (뷰포트 개수 슬라이더 및 동적 그리드)
+
+### 작업 내용
+
+**레이아웃 시스템 변경: 고정 그리드 → 동적 뷰포트 개수** ⭐
+
+사용자 요청: "레이아웃을 2x2, 3x3 이런 식으로 만들지 않겠다. 1~50개로 슬라이드 바로 선택하고 싶다."
+
+**구현 사항**:
+
+1. **HybridMultiViewport 컴포넌트 확장**
+   - [x] `viewportCount` prop 추가 (1~50)
+   - [x] `calculateGridFromCount()` 함수 구현
+     - 뷰포트 개수로 최적 그리드 차원 자동 계산
+     - 예: 16개 → 4×4, 17개 → 5×4
+   - [x] `slotCount` 변경 감지 useEffect 추가
+     - 뷰포트 개수 변경 시 슬롯 재생성
+     - HybridViewportManager dispose 후 재초기화
+
+2. **데모 앱 UI 변경**
+   - [x] 레이아웃 드롭다운 → 슬라이더로 교체
+   - [x] `viewportCount` 상태 추가
+   - [x] `getMaxSelect()` 함수 수정: `viewportCount` 반환
+   - [x] UI 텍스트 업데이트 (로드 버튼, Instance 선택 표시)
+
+**버그 수정**:
+- [x] 인스턴스 로드 4개 제한 버그
+  - **원인**: `getMaxSelect()` 함수가 오래된 `layout` 변수 사용
+  - **수정**: `viewportCount`를 직접 반환하도록 변경
+- [x] 뷰포트 그리드 4개만 표시 버그
+  - **원인**: `handleCanvasRef` 콜백이 canvas 변경 시에만 실행되어 `slotCount` 변경 미감지
+  - **수정**: `slotCount` 변경을 감지하는 별도 useEffect 추가
+
+### 파일 변경
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `packages/react/src/components/HybridMultiViewport.tsx` | `viewportCount` prop, `calculateGridFromCount()`, slotCount 변경 감지 effect |
+| `apps/demo/src/App.tsx` | 레이아웃 드롭다운→슬라이더, `viewportCount` 상태, `getMaxSelect()` 수정, UI 텍스트 |
+
+### 핵심 코드
+
+**자동 그리드 차원 계산 (HybridMultiViewport.tsx)**
+```typescript
+function calculateGridFromCount(count: number): { rows: number; cols: number } {
+  if (count <= 0) return { rows: 1, cols: 1 };
+  if (count === 1) return { rows: 1, cols: 1 };
+  const cols = Math.ceil(Math.sqrt(count));
+  const rows = Math.ceil(count / cols);
+  return { rows, cols };
+}
+```
+
+**slotCount 변경 감지 effect (HybridMultiViewport.tsx)**
+```typescript
+const prevSlotCountRef = useRef<number>(slotCount);
+useEffect(() => {
+  if (!isInitialized || !hybridManagerRef.current || prevSlotCountRef.current === slotCount) {
+    prevSlotCountRef.current = slotCount;
+    return;
+  }
+
+  // 기존 매니저 정리 후 재생성
+  hybridManager.dispose();
+  const newHybridManager = new HybridViewportManager({ canvas, dpr });
+  const ids = newHybridManager.createSlots(slotCount);
+  setViewportIds(ids);
+  // ... RenderScheduler 재생성
+}, [slotCount, isInitialized, dpr, setupRenderCallbacks]);
+```
+
+**getMaxSelect() 수정 (App.tsx)**
+```typescript
+// 이전: layout 기반 계산 (버그)
+const getMaxSelect = () => {
+  const gridSizeMap = { 'grid-2x2': 2, 'grid-3x3': 3, ... };
+  return gridSize * gridSize;  // 항상 4 반환
+};
+
+// 수정: viewportCount 직접 반환
+const getMaxSelect = () => viewportCount;
+```
+
+### 학습 포인트
+
+- **useCallback 의존성**: `useCallback`에 의존성을 추가해도 콜백 자체가 재호출되지는 않음. 콜백은 "호출"되어야 실행됨.
+- **React 상태와 클로저**: 함수 컴포넌트 내 함수가 오래된 상태를 참조하는 클로저 문제 주의
+- **동적 그리드 계산**: `Math.ceil(Math.sqrt(count))`로 열 수 계산, `Math.ceil(count / cols)`로 행 수 계산하면 최적의 정사각형에 가까운 그리드 생성
+
+### 다음 세션 할 일
+
+- [ ] 어노테이션 선택/편집 UI (DragHandle 통합)
+- [ ] 포인트 드래그 편집
+- [ ] 라벨 위치 이동
+
+---
+
 ## 2026-01-21 세션 #30 (Multi ViewPort 캘리브레이션 버그 수정)
 
 ### 작업 내용

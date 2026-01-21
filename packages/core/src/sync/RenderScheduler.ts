@@ -157,8 +157,8 @@ export class RenderScheduler {
     const gl = this.gl;
     const viewports = this.viewportManager.getActiveViewports();
 
-    // 전체 Canvas 클리어
-    gl.clearColor(0, 0, 0, 1);
+    // 전체 Canvas 클리어 (어두운 회색 - DICOM 이미지와 구분)
+    gl.clearColor(0.1, 0.1, 0.1, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     // Scissor 테스트 활성화

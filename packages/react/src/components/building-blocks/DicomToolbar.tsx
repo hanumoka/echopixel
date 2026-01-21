@@ -187,6 +187,7 @@ export function DicomToolbar({
       style={{
         display: 'flex',
         flexDirection: isHorizontal ? 'row' : 'column',
+        flexWrap: 'wrap', // 넘치면 자동 줄바꿈
         gap: '4px',
         padding: '8px',
         background: '#1a1a2e',
