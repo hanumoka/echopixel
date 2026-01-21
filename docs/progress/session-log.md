@@ -6,9 +6,16 @@
 
 ---
 
-## 2026-01-21 세션 #28 (더블클릭 확대 뷰 & 버그 수정)
+## 2026-01-21 세션 #28 (더블클릭 확대 뷰 & IP 접속 지원)
 
 ### 작업 내용
+
+**IP 접속 지원 (동료 테스트용)** ⭐
+- [x] Vite 개발 서버 `host: '0.0.0.0'` 설정 (모든 IP에서 접속 허용)
+- [x] WADO-RS URL 동적 생성 (`window.location.hostname` 기반)
+- [x] sado_be CORS 설정 수정 (개발 환경에서 모든 origin 허용)
+  - `allowedOriginPatterns("*")` 사용 (allowCredentials와 호환)
+  - 개발/로컬 프로파일에서만 활성화, 운영 환경은 기존 방식 유지
 
 **더블클릭 확대 뷰 기능 구현** ⭐
 - [x] Multi ViewPort에서 DICOM 더블클릭 시 Single Viewport 확대 뷰 표시
@@ -34,9 +41,11 @@
 
 | 파일 | 변경 내용 |
 |------|-----------|
+| `apps/demo/vite.config.ts` | `host: '0.0.0.0'` 추가 (IP 접속 허용) |
+| `apps/demo/src/App.tsx` | WADO URL 동적 생성, 확대 뷰 오버레이, handleViewportIdsReady |
 | `packages/react/.../HybridViewportSlot.tsx` | onDoubleClick prop 추가 |
 | `packages/react/.../HybridMultiViewport.tsx` | onViewportDoubleClick prop, onViewportIdsReady prop, 중복 이벤트 핸들러 제거 |
-| `apps/demo/src/App.tsx` | expandedViewportId 상태, 확대 뷰 오버레이, handleViewportIdsReady |
+| `sado_be/.../WebConfig.java` | 개발 환경 CORS `allowedOriginPatterns("*")` 적용 |
 
 ### 핵심 코드
 
@@ -69,6 +78,9 @@ const handleViewportIdsReady = useCallback((internalIds: string[], seriesKeys: s
 - **React vs Native 이벤트 중복**: 동일 요소에 React onDoubleClick + native addEventListener('dblclick') 모두 등록하면 콜백이 여러 번 호출됨
 - **setTimeout 안티패턴**: 타이밍에 의존한 초기화는 race condition 발생 → 콜백 기반 접근이 안정적
 - **ID 매핑 문제**: HybridMultiViewport 내부 ID (viewport-timestamp-random)와 seriesMap 키 (viewport-0, viewport-1)가 다름 → 양방향 매핑 필요
+- **Vite IP 접속**: `server.host: '0.0.0.0'` 설정으로 모든 네트워크 인터페이스에서 접속 허용
+- **Spring CORS**: `allowCredentials(true)` + `allowedOrigins("*")` 불가 → `allowedOriginPatterns("*")` 사용
+- **동적 WADO URL**: `window.location.hostname`으로 접속한 호스트 기반 URL 자동 생성
 
 ### 다음 세션 할 일
 

@@ -81,7 +81,10 @@ export default function App() {
   const [mode, setMode] = useState<DataSourceMode>('local');
 
   // WADO-RS 설정 (테스트용 기본값 설정)
-  const [wadoBaseUrl, setWadoBaseUrl] = useState('http://localhost:10201/dicomweb');
+  // 접속한 호스트명 기반으로 WADO URL 자동 설정 (다른 PC에서 IP 접속 시 동작)
+  const [wadoBaseUrl, setWadoBaseUrl] = useState(
+    `http://${window.location.hostname}:10201/dicomweb`
+  );
   const [studyUid, setStudyUid] = useState('1.2.410.2000010.82.2291.2816285240528008');
   const [seriesUid, setSeriesUid] = useState('1.2.840.113619.2.391.60843.1732524731.1.1');
   const [instanceUid, setInstanceUid] = useState('1.2.840.113619.2.391.60843.1732524816.3.1.512');

@@ -10,6 +10,7 @@ export default defineConfig({
     },
   },
   server: {
+    host: '0.0.0.0',  // 모든 IP에서 접속 허용
     port: 3000,
     open: true,
   },
