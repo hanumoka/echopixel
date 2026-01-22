@@ -6,6 +6,105 @@
 
 ---
 
+## 2026-01-22 세션 #38 (Tailwind CSS 마이그레이션)
+
+### 작업 내용
+
+**1. Tailwind CSS 인프라 설정** ⭐
+
+모노레포 전체에서 공유하는 Tailwind CSS 설정 구축
+
+| 파일 | 내용 |
+|------|------|
+| `tailwind.config.ts` | 커스텀 테마 (viewer, accent, text, border 색상) |
+| `postcss.config.js` | PostCSS 플러그인 설정 |
+| `globals.css` | @tailwind 지시자 + 베이스 스타일 |
+
+**커스텀 테마 색상**:
+```
+viewer: bg, surface, surface-alt, panel
+accent: primary, secondary, success, warning, error, info
+text: primary, secondary, muted, disabled
+border: DEFAULT, active, selected, hover
+```
+
+**2. cn() 유틸리티 구현**
+
+`clsx` + `tailwind-merge` 조합으로 조건부 클래스 병합 유틸리티 구현
+
+```typescript
+// extendTailwindMerge로 커스텀 색상 인식
+const customTwMerge = extendTailwindMerge({
+  extend: {
+    theme: {
+      colors: ['viewer-bg', 'accent-primary', 'text-primary', ...]
+    }
+  }
+})
+
+export function cn(...inputs: ClassValue[]) {
+  return customTwMerge(clsx(inputs))
+}
+```
+
+**3. Demo App 마이그레이션**
+
+| 파일 | 변환 내용 |
+|------|----------|
+| `App.tsx` | 탭 버튼, 컨테이너 레이아웃 |
+| `SingleViewportPage.tsx` | 전체 레이아웃, 패널 |
+| `MultiCanvasPage.tsx` | 그리드, 패널, 버튼 |
+| `MultiViewportPage.tsx` | 레이아웃, 상태 표시 |
+| `PerfTestPage.tsx` | 레이아웃 (WebGL 캔버스 유지) |
+| `PlaybackControlBar.tsx` | 버튼, FPS 컨트롤 |
+| `PerformanceOptions.tsx` | 체크박스, 입력 필드 |
+| `WadoConfigPanel.tsx` | 폼 요소, 패널 |
+| `InstanceSelector.tsx` | 테이블, 버튼 |
+| `ExpandedViewModal.tsx` | 모달 오버레이 |
+
+**4. Building-blocks 마이그레이션**
+
+| 컴포넌트 | 변환 내용 |
+|----------|----------|
+| `DicomToolbar.tsx` | 도구 버튼 그룹, 활성 상태 |
+| `DicomControls.tsx` | 재생 버튼, 슬라이더 |
+| `DicomStatusBar.tsx` | 상태 텍스트, 배지 |
+| `DicomToolInfo.tsx` | 안내 패널, 아이콘 |
+| `DicomMiniOverlay.tsx` | 오버레이, 컨트롤 |
+| `HybridViewportGrid.tsx` | 그리드 레이아웃 |
+| `HybridViewportSlot.tsx` | 뷰포트 슬롯, 테두리 |
+
+**5. 모노레포 호환성 이슈 해결**
+
+| 문제 | 원인 | 해결 |
+|------|------|------|
+| Vite에서 PostCSS 설정 미인식 | 루트의 postcss.config.js 탐색 실패 | `vite.config.ts`에 명시적 PostCSS 설정 |
+| "No utility classes detected" | 상대 경로 content 패턴 | `fileURLToPath`로 절대 경로 사용 |
+| Input 텍스트 미표시 | `@tailwindcss/forms` 기본 스타일 | globals.css에서 오버라이드 |
+
+### 커밋 내역
+
+| 커밋 | 내용 |
+|------|------|
+| `3775513` | Add Tailwind CSS infrastructure and migrate all components |
+| `937d375` | Fix input text visibility by overriding @tailwindcss/forms styles |
+
+### 변경 통계
+
+- **파일**: 29개 변경
+- **추가**: 1,536줄
+- **삭제**: 1,869줄
+- **순감소**: 333줄 (인라인 스타일 → Tailwind 유틸리티)
+
+### 학습 포인트
+
+- **모노레포 Tailwind 설정**: Vite에서 루트 설정 파일 자동 탐색이 안 될 수 있음 → 명시적 경로 지정
+- **ESM에서 __dirname**: `dirname(fileURLToPath(import.meta.url))` 사용
+- **tailwind-merge 커스텀 테마**: `extendTailwindMerge`로 커스텀 색상 인식 필요
+- **@tailwindcss/forms**: 폼 요소의 기본 스타일을 리셋하므로 다크 테마에서 오버라이드 필요
+
+---
+
 ## 2026-01-22 세션 #37 (Multi ViewPort 어노테이션 버그 수정)
 
 ### 작업 내용
@@ -159,6 +258,7 @@ if (!finalImageInfo.pixelSpacing && !finalImageInfo.ultrasoundCalibration) {
 
 ## 다음 세션 할 일
 
+- [x] Tailwind CSS 마이그레이션 ✅ (세션 #38 완료)
 - [ ] npm 배포 준비 (README.md, CHANGELOG.md)
 - [ ] 패키지 버전 관리 설정
 - [ ] 선택적: Ellipse, VTI 측정 도구

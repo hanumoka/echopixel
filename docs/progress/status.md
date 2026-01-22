@@ -5,8 +5,9 @@
 | 항목 | 상태 |
 |------|------|
 | **현재 Phase** | Phase 3 (Annotations) ✅ **완료** |
-| **마지막 업데이트** | 2026-01-22 (세션 #37) |
+| **마지막 업데이트** | 2026-01-22 (세션 #38) |
 | **다음 마일스톤** | Phase 5 (npm 배포 준비) |
+| **스타일링** | Tailwind CSS ✅ **마이그레이션 완료** |
 
 ### 핵심 목표
 
@@ -41,6 +42,7 @@
 | **2.7** | Multi Viewport Rotation/Flip | ✅ 완료 |
 | **2.8** | Performance Options | ✅ 완료 |
 | **3** | Annotations (측정 도구, SVG 오버레이) | ✅ **완료** |
+| **3.5** | Tailwind CSS 마이그레이션 | ✅ **완료** |
 | **4** | Plugin System & 16-bit | ⏳ 대기 |
 | **5** | npm v1.0.0 배포 | ⏳ 대기 |
 
@@ -57,6 +59,17 @@
 | 3h | Performance Test 탭 | ✅ |
 | - | Ellipse, VTI 측정 도구 | ⏳ 선택적 |
 | - | 라벨 드래그 | ⏳ 선택적 |
+
+### Phase 3.5 세부 (Tailwind CSS)
+
+| 단계 | 내용 | 상태 |
+|------|------|------|
+| 인프라 | tailwind.config.ts, postcss.config.js, globals.css | ✅ |
+| 유틸리티 | cn() with extendTailwindMerge | ✅ |
+| Demo App | App.tsx, 4개 페이지, 5개 컴포넌트 | ✅ |
+| Building-blocks | 7개 컴포넌트 (DicomToolbar, Controls 등) | ✅ |
+| 설정 수정 | Vite PostCSS 명시적 설정, 절대 경로 | ✅ |
+| 버그 수정 | @tailwindcss/forms 스타일 오버라이드 | ✅ |
 
 ---
 
