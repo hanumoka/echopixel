@@ -10,7 +10,8 @@ import {
 import {
   useToolGroup,
   MouseBindings,
-  KeyboardModifiers,
+  getToolDefaultBindings,
+  MANIPULATION_TOOL_IDS,
   coordinateTransformer,
   LengthTool,
   AngleTool,
@@ -49,12 +50,6 @@ import type {
   PlaybackState,
   ToolMode,
 } from '../types';
-
-/**
- * 조작 도구 ID 목록 (ToolGroup에 등록된 도구들)
- * 어노테이션 도구 선택 시 이 도구들의 Primary 바인딩을 해제합니다.
- */
-const MANIPULATION_TOOL_IDS = ['WindowLevel', 'Pan', 'Zoom', 'StackScroll'] as const;
 
 /**
  * SingleDicomViewer 외부 제어용 핸들
@@ -564,28 +559,6 @@ export const SingleDicomViewer = forwardRef<
     isStaticImage,
   });
 
-  // 도구별 기본 바인딩 (isStaticImage에 따라 다름)
-  const getDefaultBindings = useCallback((toolId: string): ToolBinding[] => {
-    switch (toolId) {
-      case 'WindowLevel':
-        return [{ mouseButton: MouseBindings.Secondary }];
-      case 'Pan':
-        return [{ mouseButton: MouseBindings.Auxiliary }];
-      case 'Zoom':
-        if (isStaticImage) {
-          return [
-            { mouseButton: MouseBindings.Primary, modifierKey: KeyboardModifiers.Shift },
-            { mouseButton: MouseBindings.Wheel },
-          ];
-        }
-        return [{ mouseButton: MouseBindings.Primary, modifierKey: KeyboardModifiers.Shift }];
-      case 'StackScroll':
-        return isStaticImage ? [] : [{ mouseButton: MouseBindings.Wheel }];
-      default:
-        return [];
-    }
-  }, [isStaticImage]);
-
   // 어노테이션 생성 완료 콜백 (Phase 3f + 3g-2 Figma 방식)
   const handleAnnotationCreated = useCallback((annotation: Annotation) => {
     // 외부 핸들러 호출 (어노테이션 저장)
@@ -645,7 +618,7 @@ export const SingleDicomViewer = forwardRef<
         // - Zoom: Shift+Primary만 (Wheel은 정지 이미지에서만)
         // - StackScroll: Wheel만 (동영상에서만)
         for (const manipToolId of MANIPULATION_TOOL_IDS) {
-          const defaultBindings = getDefaultBindings(manipToolId);
+          const defaultBindings = getToolDefaultBindings(manipToolId, isStaticImage);
           setToolGroupToolActive(manipToolId, defaultBindings);
         }
       }
@@ -663,12 +636,12 @@ export const SingleDicomViewer = forwardRef<
 
       // 이전 도구: 기본 바인딩으로 복원 (좌클릭 제거)
       if (prevTool !== toolId) {
-        const prevBindings = getDefaultBindings(prevTool);
+        const prevBindings = getToolDefaultBindings(prevTool, isStaticImage);
         setToolGroupToolActive(prevTool, prevBindings);
       }
 
       // 새 도구: 기본 바인딩 + 좌클릭 추가
-      const newBindings = getDefaultBindings(toolId);
+      const newBindings = getToolDefaultBindings(toolId, isStaticImage);
       const primaryBinding: ToolBinding = { mouseButton: MouseBindings.Primary };
 
       // 이미 Primary가 있으면 추가하지 않음
@@ -682,7 +655,7 @@ export const SingleDicomViewer = forwardRef<
         setToolGroupToolActive(toolId, newBindings);
       }
     }
-  }, [activeTool, activeMeasurementToolId, getDefaultBindings, setToolGroupToolActive, transformContext, viewportId, currentFrame, handleAnnotationCreated, handleTempUpdate, imageInfo]);
+  }, [activeTool, activeMeasurementToolId, isStaticImage, setToolGroupToolActive, transformContext, viewportId, currentFrame, handleAnnotationCreated, handleTempUpdate, imageInfo]);
 
   // 비활성화된 도구 목록 (정지 이미지에서 StackScroll)
   const disabledToolbarTools = useMemo(() => {

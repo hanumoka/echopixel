@@ -95,3 +95,10 @@ export {
   type ViewportManagerLike,
   type DefaultToolBindings,
 } from './useToolGroup';
+
+// Tool Bindings Utility
+export {
+  getToolDefaultBindings,
+  MANIPULATION_TOOL_IDS,
+  type ManipulationToolId,
+} from './toolBindings';

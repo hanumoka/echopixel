@@ -89,7 +89,8 @@ import {
   type ToolBinding,
   type ViewportManagerLike,
   MouseBindings,
-  KeyboardModifiers,
+  getToolDefaultBindings,
+  MANIPULATION_TOOL_IDS,
 } from '@echopixel/core';
 
 import { HybridViewportGrid } from './building-blocks/HybridViewportGrid';
@@ -579,38 +580,13 @@ export const HybridMultiViewport = forwardRef<
     isStaticImage,
   });
 
-  // 조작 도구 ID 목록
-  const MANIPULATION_TOOL_IDS = ['WindowLevel', 'Pan', 'Zoom', 'StackScroll'] as const;
-
-  // 도구별 기본 바인딩 (isStaticImage에 따라 다름)
-  const getDefaultBindings = useCallback((toolId: string): ToolBinding[] => {
-    switch (toolId) {
-      case 'WindowLevel':
-        return [{ mouseButton: MouseBindings.Secondary }];
-      case 'Pan':
-        return [{ mouseButton: MouseBindings.Auxiliary }];
-      case 'Zoom':
-        if (isStaticImage) {
-          return [
-            { mouseButton: MouseBindings.Primary, modifierKey: KeyboardModifiers.Shift },
-            { mouseButton: MouseBindings.Wheel },
-          ];
-        }
-        return [{ mouseButton: MouseBindings.Primary, modifierKey: KeyboardModifiers.Shift }];
-      case 'StackScroll':
-        return isStaticImage ? [] : [{ mouseButton: MouseBindings.Wheel }];
-      default:
-        return [];
-    }
-  }, [isStaticImage]);
-
   // 초기 도구 설정: toolGroup 생성 후 activeTool에 좌클릭 바인딩 추가
   useEffect(() => {
     if (!isInitialized || !toolGroup) return;
 
     // 조작 도구인 경우에만 좌클릭 바인딩 추가
     if ((MANIPULATION_TOOL_IDS as readonly string[]).includes(activeTool)) {
-      const bindings = getDefaultBindings(activeTool);
+      const bindings = getToolDefaultBindings(activeTool, isStaticImage);
       const primaryBinding: ToolBinding = { mouseButton: MouseBindings.Primary };
       const hasPrimary = bindings.some(
         b => b.mouseButton === MouseBindings.Primary && !b.modifierKey
@@ -814,7 +790,7 @@ export const HybridMultiViewport = forwardRef<
       // 모든 조작 도구의 Primary 바인딩 해제 (기본 바인딩으로 복원)
       // → 좌클릭(Primary)은 어노테이션 도구만 사용하게 됨
       for (const manipToolId of MANIPULATION_TOOL_IDS) {
-        const defaultBindings = getDefaultBindings(manipToolId);
+        const defaultBindings = getToolDefaultBindings(manipToolId, isStaticImage);
         setToolActive(manipToolId, defaultBindings);
       }
     } else {
@@ -829,12 +805,12 @@ export const HybridMultiViewport = forwardRef<
 
       // 이전 도구: 기본 바인딩으로 복원 (좌클릭 제거)
       if (prevTool !== toolId && (MANIPULATION_TOOL_IDS as readonly string[]).includes(prevTool)) {
-        const prevBindings = getDefaultBindings(prevTool);
+        const prevBindings = getToolDefaultBindings(prevTool, isStaticImage);
         setToolActive(prevTool, prevBindings);
       }
 
       // 새 도구: 기본 바인딩 + 좌클릭 추가
-      const newBindings = getDefaultBindings(toolId);
+      const newBindings = getToolDefaultBindings(toolId, isStaticImage);
       const primaryBinding: ToolBinding = { mouseButton: MouseBindings.Primary };
 
       // 이미 Primary가 있으면 추가하지 않음
@@ -856,7 +832,7 @@ export const HybridMultiViewport = forwardRef<
       setInternalActiveTool(toolId);
     }
   }, [activeTool, activeMeasurementToolId, activeViewportId, viewports, getActiveViewportTransformContext,
-      handleAnnotationCreated, handleTempUpdate, onToolChange, getDefaultBindings, setToolActive]);
+      handleAnnotationCreated, handleTempUpdate, onToolChange, isStaticImage, setToolActive]);
 
   // activeViewportId 변경 시 MeasurementTool 재활성화 (뷰포트 선택 후 도구 활성화)
   useEffect(() => {

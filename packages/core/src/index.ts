@@ -215,6 +215,9 @@ export {
   StackScrollTool,
   // React Integration
   useToolGroup,
+  // Tool Bindings Utility
+  getToolDefaultBindings,
+  MANIPULATION_TOOL_IDS,
 } from './tools';
 
 export type {
@@ -236,6 +239,8 @@ export type {
   UseToolGroupReturn,
   ViewportManagerLike,
   DefaultToolBindings,
+  // Tool Bindings Types
+  ManipulationToolId,
 } from './tools';
 
 // Hardware Info Utils
