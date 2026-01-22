@@ -10,7 +10,37 @@
 
 ### 작업 내용
 
-**0. 가이드 문서 작성 및 검토** ⭐⭐
+**0. 개발자 가이드 심화 문서 추가** ⭐⭐⭐
+
+사용자 요청: 개발자 가이드 보강
+1. Cornerstone3D 내부 구조, 동작 원리, 한계 및 극복 아이디어
+2. Cornerstone vs EchoPixel 설계/동작 원리 비교
+3. DICOM 파일 근본적 이해
+4. Core 개발 기반 지식 (WebGL, WebAssembly, 인코딩/디코딩, 캐시, WebWorker 등)
+5. **DICOM 렌더링 파이프라인** - 파일 입력부터 화면 출력까지 전체 흐름 (이벤트 흐름 포함)
+
+**생성된 문서** (4개 파일, +4,500줄):
+
+| 파일 | 내용 | 크기 |
+|------|------|------|
+| `cornerstone-vs-echopixel.md` | Cornerstone3D 내부 구조, 성능 병목점, EchoPixel 접근 방식 | ~700줄 |
+| `dicom-fundamentals.md` | DICOM 바이너리 구조, Data Element 파싱, Transfer Syntax | ~650줄 |
+| `core-technologies.md` | WebGL2 파이프라인, 디코딩 전략, LRU 캐시, Web Workers | ~1000줄 |
+| `rendering-pipeline.md` | DICOM 파일 입력 → 화면 렌더링 전체 흐름, 이벤트 처리 | ~1600줄 |
+
+**rendering-pipeline.md 주요 내용**:
+- 데이터 입력 단계 (로컬 파일 / WADO-RS)
+- DICOM 파싱 프로세스 (DicomParser)
+- 이미지 디코딩 (WebCodecs / createImageBitmap)
+- 텍스처 업로드 (TextureManager)
+- WebGL 렌더링 (QuadRenderer, Shaders)
+- Cine 재생 및 프레임 동기화 (FrameSyncEngine)
+- Tool System 이벤트 처리 흐름
+- 전체 데이터 흐름도 (ASCII 다이어그램)
+
+---
+
+**1. 가이드 문서 작성 및 검토** ⭐⭐
 
 사용자 요청: "사용자 가이드와 개발자 가이드 작성 (주니어 React 개발자 대상)"
 

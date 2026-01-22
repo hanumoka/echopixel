@@ -16,12 +16,13 @@
 3. [DICOM 기본 이해](./dicom-fundamentals.md) - DICOM 파일 포맷 근본 원리
 4. [Cornerstone vs EchoPixel](./cornerstone-vs-echopixel.md) - 아키텍처 비교 분석
 5. [Core 기반 기술](./core-technologies.md) - WebGL2, 디코딩, 캐싱 등
+6. [DICOM 렌더링 파이프라인](./rendering-pipeline.md) - 파일 입력부터 화면 출력까지 전체 흐름 ⭐
 
 ### 개발 가이드
-6. [아키텍처 이해](./architecture.md) - 핵심 설계 및 데이터 흐름
-7. [코딩 가이드](./coding-guide.md) - 컨벤션 및 베스트 프랙티스
-8. [테스트 가이드](./testing.md) - 테스트 작성 및 실행
-9. [기여 가이드](./contributing.md) - PR 작성 및 코드 리뷰
+7. [아키텍처 이해](./architecture.md) - 핵심 설계 및 데이터 흐름
+8. [코딩 가이드](./coding-guide.md) - 컨벤션 및 베스트 프랙티스
+9. [테스트 가이드](./testing.md) - 테스트 작성 및 실행
+10. [기여 가이드](./contributing.md) - PR 작성 및 코드 리뷰
 
 ---
 
