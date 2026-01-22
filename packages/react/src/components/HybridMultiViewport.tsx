@@ -68,8 +68,7 @@ import {
   AngleTool,
   PointTool,
   calculateAspectScale,
-  ULTRASOUND_PHYSICAL_UNITS,
-  DICOM_UNIT_CODES,
+  createCalibrationFromImageInfo,
   type LayoutType,
   type Viewport,
   type ViewportSeriesInfo,
@@ -624,73 +623,14 @@ export const HybridMultiViewport = forwardRef<
     if (slotWidth <= 0 || slotHeight <= 0) return null;
 
     // seriesMap에서 calibration 정보 가져오기
-    // 우선순위: 1) Pixel Spacing (mm/pixel) → cm 변환
-    //          2) Ultrasound Calibration (이미 cm/pixel)
     let calibration: CalibrationData | undefined;
     if (seriesMap) {
-      // seriesMap 순회하여 activeViewportId에 해당하는 시리즈 찾기
       const viewportIndex = viewportIds.indexOf(activeViewportId);
-      console.log('[HybridMultiViewport] getActiveViewportTransformContext:', {
-        activeViewportId,
-        viewportIndex,
-        viewportIdsLength: viewportIds.length,
-        seriesMapSize: seriesMap.size,
-      });
-
       if (viewportIndex >= 0) {
         const seriesArray = Array.from(seriesMap.values());
         const seriesData = seriesArray[viewportIndex];
-        const imageInfo = seriesData?.imageInfo;
-
-        console.log('[HybridMultiViewport] imageInfo for viewport:', {
-          viewportIndex,
-          hasPixelSpacing: !!imageInfo?.pixelSpacing,
-          hasUltrasoundCalibration: !!imageInfo?.ultrasoundCalibration,
-          ultrasoundCalibration: imageInfo?.ultrasoundCalibration,
-        });
-
-        if (imageInfo?.pixelSpacing) {
-          // Pixel Spacing: mm/pixel → cm/pixel 변환 (/10)
-          calibration = {
-            physicalDeltaX: imageInfo.pixelSpacing.columnSpacing / 10,
-            physicalDeltaY: imageInfo.pixelSpacing.rowSpacing / 10,
-            unitX: DICOM_UNIT_CODES.CENTIMETER,
-            unitY: DICOM_UNIT_CODES.CENTIMETER,
-          };
-          console.log('[HybridMultiViewport] ✅ Using pixelSpacing calibration:', calibration);
-        } else if (imageInfo?.ultrasoundCalibration) {
-          // Ultrasound Calibration: 이미 단위/pixel (보통 cm/pixel)
-          const usCal = imageInfo.ultrasoundCalibration;
-
-          // Physical Units를 DICOM_UNIT_CODES로 변환
-          const convertUnit = (usUnit: number): number => {
-            switch (usUnit) {
-              case ULTRASOUND_PHYSICAL_UNITS.CM:
-                return DICOM_UNIT_CODES.CENTIMETER;
-              case ULTRASOUND_PHYSICAL_UNITS.SECONDS:
-                return DICOM_UNIT_CODES.SECONDS;
-              case ULTRASOUND_PHYSICAL_UNITS.CM_PER_SEC:
-                return DICOM_UNIT_CODES.CM_PER_SEC;
-              default:
-                return DICOM_UNIT_CODES.CENTIMETER; // 기본값
-            }
-          };
-
-          calibration = {
-            physicalDeltaX: Math.abs(usCal.physicalDeltaX), // 음수 가능하므로 절대값
-            physicalDeltaY: Math.abs(usCal.physicalDeltaY),
-            unitX: convertUnit(usCal.physicalUnitsX),
-            unitY: convertUnit(usCal.physicalUnitsY),
-          };
-          console.log('[HybridMultiViewport] ✅ Using ultrasoundCalibration:', calibration);
-        } else {
-          console.log('[HybridMultiViewport] ❌ No calibration found in imageInfo');
-        }
-      } else {
-        console.log('[HybridMultiViewport] ❌ viewportIndex not found in viewportIds');
+        calibration = createCalibrationFromImageInfo(seriesData?.imageInfo);
       }
-    } else {
-      console.log('[HybridMultiViewport] ❌ seriesMap is null/undefined');
     }
 
     return {

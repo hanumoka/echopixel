@@ -1062,11 +1062,41 @@ export default function App() {
           sopInstanceUid: instanceUidToLoad,
         });
 
+        // calibration 확인 - WADO-RS 메타데이터에 없으면 전체 DICOM 인스턴스에서 추출
+        let finalImageInfo = metadata.imageInfo;
+
+        if (!finalImageInfo.pixelSpacing && !finalImageInfo.ultrasoundCalibration) {
+          try {
+            // 전체 DICOM 인스턴스 로드 (Part 10 파일)
+            const instanceUrl = `${wadoBaseUrl}/studies/${studyUid}/series/${seriesUid}/instances/${instanceUidToLoad}`;
+            const instanceResponse = await fetch(instanceUrl, {
+              headers: {
+                'Accept': 'application/dicom',
+              },
+            });
+
+            if (instanceResponse.ok) {
+              const instanceBuffer = await instanceResponse.arrayBuffer();
+              // Ultrasound Calibration 추출
+              const ultrasoundCalibration = getUltrasoundCalibration(instanceBuffer);
+              if (ultrasoundCalibration) {
+                console.log(`[MultiCanvas] Extracted ultrasoundCalibration for viewer ${i + 1}:`, ultrasoundCalibration);
+                finalImageInfo = {
+                  ...finalImageInfo,
+                  ultrasoundCalibration,
+                };
+              }
+            }
+          } catch (calibrationError) {
+            console.warn(`[MultiCanvas] Failed to fetch calibration for viewer ${i + 1}:`, calibrationError);
+          }
+        }
+
         // ViewerData 형식으로 변환
         viewers.push({
           id: `viewer-${i}`,
           frames,
-          imageInfo: metadata.imageInfo,
+          imageInfo: finalImageInfo,
           isEncapsulated: metadata.isEncapsulated,
           label: `#${i + 1} (${metadata.frameCount}f)`,
         });
@@ -1141,6 +1171,36 @@ export default function App() {
     const stillCount = multiCanvasViewers.length - playableCount;
     return { playableCount, stillCount, allStillImages: playableCount === 0 };
   }, [multiCanvasViewers]);
+
+  // Multi Canvas 어노테이션 핸들러
+  const handleMultiCanvasAnnotationUpdate = useCallback((viewerId: string, annotation: Annotation) => {
+    setMultiCanvasViewers(prev => prev.map(viewer => {
+      if (viewer.id !== viewerId) return viewer;
+
+      const existingAnnotations = viewer.annotations || [];
+      const existingIndex = existingAnnotations.findIndex(a => a.id === annotation.id);
+
+      if (existingIndex >= 0) {
+        // 기존 어노테이션 업데이트
+        const updated = [...existingAnnotations];
+        updated[existingIndex] = annotation;
+        return { ...viewer, annotations: updated };
+      } else {
+        // 새 어노테이션 추가
+        return { ...viewer, annotations: [...existingAnnotations, annotation] };
+      }
+    }));
+  }, []);
+
+  const handleMultiCanvasAnnotationDelete = useCallback((viewerId: string, annotationId: string) => {
+    setMultiCanvasViewers(prev => prev.map(viewer => {
+      if (viewer.id !== viewerId) return viewer;
+      return {
+        ...viewer,
+        annotations: (viewer.annotations || []).filter(a => a.id !== annotationId),
+      };
+    }));
+  }, []);
 
   // === Performance Test 핸들러 ===
 
@@ -3147,6 +3207,8 @@ export default function App() {
                   toolbarCompact: true,
                   showAnnotations: multiCanvasShowAnnotations,
                 }}
+                onAnnotationUpdate={handleMultiCanvasAnnotationUpdate}
+                onAnnotationDelete={handleMultiCanvasAnnotationDelete}
               />
 
               {/* 컨트롤 패널 */}

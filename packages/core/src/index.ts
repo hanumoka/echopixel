@@ -262,5 +262,8 @@ export type {
   HardwareInfo,
 } from './utils/hardwareInfo';
 
+// Calibration Utils
+export { createCalibrationFromImageInfo } from './utils/calibration';
+
 // Annotations (Phase 3)
 export * from './annotations';

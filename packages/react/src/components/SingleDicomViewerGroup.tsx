@@ -275,6 +275,9 @@ export const SingleDicomViewerGroup = forwardRef<
   // 확대 뷰 상태
   const [expandedViewerId, setExpandedViewerId] = useState<string | null>(null);
 
+  // 각 뷰어별 어노테이션 표시 상태 (개별 컨트롤용)
+  const [viewerAnnotationsVisibility, setViewerAnnotationsVisibility] = useState<Record<string, boolean>>({});
+
   // 선택된 ID (controlled vs uncontrolled)
   const selectedId = controlledSelectedId !== undefined ? controlledSelectedId : internalSelectedId;
 
@@ -362,6 +365,15 @@ export const SingleDicomViewerGroup = forwardRef<
       const container = containerRef.current;
       if (!container || !selectedId) return;
 
+      // 어노테이션 도구가 활성화된 상태에서는 외부 클릭 감지 건너뛰기
+      // (어노테이션 도구 사용 중 클릭이 외부 클릭으로 잘못 감지되는 것 방지)
+      const selectedHandle = viewerRefs.current.get(selectedId);
+      const activeMeasurementToolId = selectedHandle?.getActiveMeasurementToolId?.();
+      if (activeMeasurementToolId) {
+        console.log('[SingleDicomViewerGroup] handleClickOutside - skipping, annotation tool active:', activeMeasurementToolId);
+        return;
+      }
+
       // 클릭이 컴포넌트 바깥에서 발생했는지 확인
       if (!container.contains(e.target as Node)) {
         console.log('[SingleDicomViewerGroup] Click outside detected - deselecting viewer');
@@ -408,8 +420,18 @@ export const SingleDicomViewerGroup = forwardRef<
 
   // 뷰어 클릭 핸들러 (이벤트 전파 방지 포함)
   const handleViewerClick = useCallback((e: React.MouseEvent, id: string) => {
-    console.log('[SingleDicomViewerGroup] handleViewerClick - id:', id, 'stopping propagation');
     e.stopPropagation(); // 컨테이너 클릭 핸들러로 전파 방지
+
+    // 어노테이션 도구가 활성화된 상태에서는 선택 로직 건너뛰기
+    // (캔버스 클릭이 어노테이션 도구의 점 입력으로 사용되어야 함)
+    const viewerHandle = viewerRefs.current.get(id);
+    const activeMeasurementToolId = viewerHandle?.getActiveMeasurementToolId?.();
+    if (activeMeasurementToolId) {
+      console.log('[SingleDicomViewerGroup] handleViewerClick - skipping selection, annotation tool active:', activeMeasurementToolId);
+      return;
+    }
+
+    console.log('[SingleDicomViewerGroup] handleViewerClick - id:', id);
     handleSelect(id);
   }, [handleSelect]);
 
@@ -565,8 +587,12 @@ export const SingleDicomViewerGroup = forwardRef<
             onAnnotationSelect={(annotationId) => onAnnotationSelect?.(viewer.id, annotationId)}
             onAnnotationUpdate={(annotation) => onAnnotationUpdate?.(viewer.id, annotation)}
             onAnnotationDelete={(annotationId) => onAnnotationDelete?.(viewer.id, annotationId)}
-            onAnnotationsVisibilityChange={(visible) => onAnnotationsVisibilityChange?.(viewer.id, visible)}
             {...defaultViewerOptions}
+            showAnnotations={viewerAnnotationsVisibility[viewer.id] ?? viewerOptions.showAnnotations ?? true}
+            onAnnotationsVisibilityChange={(visible) => {
+              setViewerAnnotationsVisibility(prev => ({ ...prev, [viewer.id]: visible }));
+              onAnnotationsVisibilityChange?.(viewer.id, visible);
+            }}
             style={{
               padding: '4px',
             }}
@@ -691,13 +717,17 @@ export const SingleDicomViewerGroup = forwardRef<
               onAnnotationSelect={(annotationId) => onAnnotationSelect?.(expandedViewer.id, annotationId)}
               onAnnotationUpdate={(annotation) => onAnnotationUpdate?.(expandedViewer.id, annotation)}
               onAnnotationDelete={(annotationId) => onAnnotationDelete?.(expandedViewer.id, annotationId)}
-              onAnnotationsVisibilityChange={(visible) => onAnnotationsVisibilityChange?.(expandedViewer.id, visible)}
               showStatusBar={true}
               showControls={true}
               showToolInfo={false}
               showToolbar={true}
               toolbarTools={toolbarTools}
               toolbarCompact={false}
+              showAnnotations={viewerAnnotationsVisibility[expandedViewer.id] ?? viewerOptions.showAnnotations ?? true}
+              onAnnotationsVisibilityChange={(visible) => {
+                setViewerAnnotationsVisibility(prev => ({ ...prev, [expandedViewer.id]: visible }));
+                onAnnotationsVisibilityChange?.(expandedViewer.id, visible);
+              }}
             />
           </div>
 

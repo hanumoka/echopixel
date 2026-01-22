@@ -16,8 +16,7 @@ import {
   LengthTool,
   AngleTool,
   PointTool,
-  DICOM_UNIT_CODES,
-  ULTRASOUND_PHYSICAL_UNITS,
+  createCalibrationFromImageInfo,
   type DicomImageInfo,
   type ViewportManagerLike,
   type Viewport,
@@ -29,7 +28,6 @@ import {
   type ToolContext,
   type TempAnnotation,
   type ToolMouseEvent,
-  type CalibrationData,
 } from '@echopixel/core';
 import { SVGOverlay } from './annotations/SVGOverlay';
 import { DicomCanvas, type DicomCanvasHandle } from './building-blocks/DicomCanvas';
@@ -69,6 +67,8 @@ export interface SingleDicomViewerHandle {
   resetViewport: () => void;
   /** 활성 도구를 기본 도구(WindowLevel)로 리셋 */
   resetActiveTool: () => void;
+  /** 현재 활성 어노테이션 도구 ID 조회 (없으면 null) */
+  getActiveMeasurementToolId: () => string | null;
   /** 현재 상태 조회 */
   getState: () => {
     isPlaying: boolean;
@@ -392,44 +392,8 @@ export const SingleDicomViewer = forwardRef<
     // 이미지 정보가 없거나 캔버스 크기가 유효하지 않으면 null
     if (!imageInfo || width <= 0 || height <= 0) return null;
 
-    // Calibration 생성
-    // 우선순위: 1) Pixel Spacing (mm/pixel) → cm 변환
-    //          2) Ultrasound Calibration (이미 cm/pixel)
-    let calibration: CalibrationData | undefined;
-
-    if (imageInfo.pixelSpacing) {
-      // Pixel Spacing: mm/pixel → cm/pixel 변환 (/10)
-      calibration = {
-        physicalDeltaX: imageInfo.pixelSpacing.columnSpacing / 10,
-        physicalDeltaY: imageInfo.pixelSpacing.rowSpacing / 10,
-        unitX: DICOM_UNIT_CODES.CENTIMETER,
-        unitY: DICOM_UNIT_CODES.CENTIMETER,
-      };
-    } else if (imageInfo.ultrasoundCalibration) {
-      // Ultrasound Calibration: 이미 단위/pixel (보통 cm/pixel)
-      const usCal = imageInfo.ultrasoundCalibration;
-
-      // Physical Units를 DICOM_UNIT_CODES로 변환
-      const convertUnit = (usUnit: number): number => {
-        switch (usUnit) {
-          case ULTRASOUND_PHYSICAL_UNITS.CM:
-            return DICOM_UNIT_CODES.CENTIMETER;
-          case ULTRASOUND_PHYSICAL_UNITS.SECONDS:
-            return DICOM_UNIT_CODES.SECONDS;
-          case ULTRASOUND_PHYSICAL_UNITS.CM_PER_SEC:
-            return DICOM_UNIT_CODES.CM_PER_SEC;
-          default:
-            return DICOM_UNIT_CODES.CENTIMETER; // 기본값
-        }
-      };
-
-      calibration = {
-        physicalDeltaX: Math.abs(usCal.physicalDeltaX), // 음수 가능하므로 절대값
-        physicalDeltaY: Math.abs(usCal.physicalDeltaY),
-        unitX: convertUnit(usCal.physicalUnitsX),
-        unitY: convertUnit(usCal.physicalUnitsY),
-      };
-    }
+    // Calibration 생성 (유틸리티 함수 사용)
+    const calibration = createCalibrationFromImageInfo(imageInfo);
 
     return {
       viewport: {
@@ -465,10 +429,30 @@ export const SingleDicomViewer = forwardRef<
 
   useEffect(() => {
     const element = canvasContainerRef.current;
-    if (!element || !activeMeasurementToolId || !transformContext) return;
+
+    // ★ DEBUG: 어노테이션 이벤트 핸들러 설정 조건 확인
+    console.log('[SingleDicomViewer] Annotation useEffect:', {
+      viewportId,
+      hasElement: !!element,
+      activeMeasurementToolId,
+      hasTransformContext: !!transformContext,
+      webglReady,
+    });
+
+    if (!element || !activeMeasurementToolId || !transformContext) {
+      console.log('[SingleDicomViewer] ❌ Annotation useEffect early return:', {
+        reason: !element ? 'no element' : !activeMeasurementToolId ? 'no activeMeasurementToolId' : 'no transformContext',
+      });
+      return;
+    }
 
     const tool = measurementToolsRef.current[activeMeasurementToolId];
-    if (!tool) return;
+    if (!tool) {
+      console.log('[SingleDicomViewer] ❌ Tool not found:', activeMeasurementToolId);
+      return;
+    }
+
+    console.log('[SingleDicomViewer] ✅ Setting up annotation event handlers for:', activeMeasurementToolId);
 
     // 이미지 경계 (DICOM 좌표 기준)
     const imageWidth = imageInfo.columns;
@@ -509,11 +493,20 @@ export const SingleDicomViewer = forwardRef<
     };
 
     const handleMouseDown = (evt: MouseEvent) => {
+      // ★ DEBUG: 마우스 클릭 이벤트 감지
+      console.log('[SingleDicomViewer] handleMouseDown:', {
+        viewportId,
+        button: evt.button,
+        target: (evt.target as Element).tagName,
+        activeMeasurementToolId,
+      });
+
       // 어노테이션 Shape 또는 DragHandle 내부 클릭이면 무시
       // (SVGOverlay에서 선택/드래그 처리)
       // .annotation-shape: 모든 어노테이션 도형의 공통 클래스 (확장성)
       const target = evt.target as Element;
       if (target.closest('.annotation-shape, .drag-handle')) {
+        console.log('[SingleDicomViewer] ❌ Ignored: clicked on annotation shape or drag handle');
         return;
       }
 
@@ -521,12 +514,21 @@ export const SingleDicomViewer = forwardRef<
       if (evt.button === 0) {
         const toolEvent = createToolEvent(evt);
         // ★ 이미지 영역 밖이면 무시
-        if (!toolEvent) return;
+        if (!toolEvent) {
+          console.log('[SingleDicomViewer] ❌ Ignored: outside image bounds');
+          return;
+        }
+
+        console.log('[SingleDicomViewer] ✅ Calling tool.handleMouseDown:', {
+          toolEvent,
+          toolIsActive: tool.isActive(),
+        });
 
         evt.preventDefault(); // 텍스트 선택 방지
         tool.handleMouseDown(toolEvent);
       } else if (evt.button === 2) {
         // 우클릭: 드로잉 취소
+        console.log('[SingleDicomViewer] Right-click: cancelling drawing');
         tool.cancelDrawing();
         setTempAnnotation(null);
       }
@@ -544,10 +546,11 @@ export const SingleDicomViewer = forwardRef<
     element.addEventListener('mousemove', handleMouseMove);
 
     return () => {
+      console.log('[SingleDicomViewer] Cleaning up annotation event handlers for:', activeMeasurementToolId);
       element.removeEventListener('mousedown', handleMouseDown);
       element.removeEventListener('mousemove', handleMouseMove);
     };
-  }, [activeMeasurementToolId, transformContext]);
+  }, [activeMeasurementToolId, transformContext, viewportId, imageInfo]);
 
   // Tool System 통합
   const { setToolActive: setToolGroupToolActive } = useToolGroup({
@@ -579,12 +582,28 @@ export const SingleDicomViewer = forwardRef<
 
   // 툴바에서 도구 선택 시 좌클릭 바인딩 변경
   const handleToolbarToolChange = useCallback((toolId: string) => {
+    // ★ DEBUG: 도구 변경 시작
+    console.log('[SingleDicomViewer] handleToolbarToolChange:', {
+      viewportId,
+      toolId,
+      prevTool: activeTool,
+      activeMeasurementToolId,
+      hasTransformContext: !!transformContext,
+    });
+
     const isAnnotationTool = (ANNOTATION_TOOL_IDS as readonly string[]).includes(toolId);
     const prevTool = activeTool;
     const isPrevAnnotationTool = (ANNOTATION_TOOL_IDS as readonly string[]).includes(prevTool);
 
+    console.log('[SingleDicomViewer] Tool type:', {
+      isAnnotationTool,
+      isPrevAnnotationTool,
+      ANNOTATION_TOOL_IDS,
+    });
+
     // 이전 어노테이션 도구 비활성화
     if (activeMeasurementToolId && activeMeasurementToolId !== toolId) {
+      console.log('[SingleDicomViewer] Deactivating previous tool:', activeMeasurementToolId);
       measurementToolsRef.current[activeMeasurementToolId]?.deactivate();
       setTempAnnotation(null);
     }
@@ -594,6 +613,13 @@ export const SingleDicomViewer = forwardRef<
       // 어노테이션 도구 선택
       // ========================================
       const tool = measurementToolsRef.current[toolId];
+      console.log('[SingleDicomViewer] Annotation tool activation attempt:', {
+        toolId,
+        hasTool: !!tool,
+        hasTransformContext: !!transformContext,
+        toolsAvailable: Object.keys(measurementToolsRef.current),
+      });
+
       if (tool && transformContext) {
         // ToolContext 생성
         // calibration은 transformContext에 이미 포함되어 있음
@@ -605,12 +631,20 @@ export const SingleDicomViewer = forwardRef<
           transformContext,
         };
 
+        console.log('[SingleDicomViewer] ✅ Activating annotation tool:', {
+          toolId,
+          context: {
+            dicomId: context.dicomId,
+            frameIndex: context.frameIndex,
+            hasCalibration: !!context.calibration,
+          },
+        });
+
         // MeasurementTool 활성화
         tool.activate(context, handleAnnotationCreated, handleTempUpdate);
 
         setActiveMeasurementToolId(toolId);
         setActiveTool(toolId);
-
         // ★ 모든 조작 도구의 Primary 바인딩 해제 (기본 바인딩으로 복원)
         // 이렇게 하면 좌클릭(Primary)은 어노테이션 도구만 사용하게 됨
         // - WindowLevel: Secondary (우클릭)만
@@ -621,6 +655,10 @@ export const SingleDicomViewer = forwardRef<
           const defaultBindings = getToolDefaultBindings(manipToolId, isStaticImage);
           setToolGroupToolActive(manipToolId, defaultBindings);
         }
+      } else {
+        console.log('[SingleDicomViewer] ❌ Cannot activate annotation tool:', {
+          reason: !tool ? 'tool not found' : 'no transformContext',
+        });
       }
     } else {
       // ========================================
@@ -903,6 +941,7 @@ export const SingleDicomViewer = forwardRef<
       },
       resetViewport,
       resetActiveTool,
+      getActiveMeasurementToolId: () => activeMeasurementToolId,
       getState: () => ({
         isPlaying,
         currentFrame,
@@ -910,7 +949,7 @@ export const SingleDicomViewer = forwardRef<
         totalFrames,
       }),
     }),
-    [isPlaying, currentFrame, fps, totalFrames, resetViewport, resetActiveTool]
+    [isPlaying, currentFrame, fps, totalFrames, resetViewport, resetActiveTool, activeMeasurementToolId]
   );
 
   return (
