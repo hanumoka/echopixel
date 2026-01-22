@@ -14,11 +14,13 @@ docs/
 ├── design/                       # 상세 설계
 │   ├── technical-stack.md        # 기술 스택 결정
 │   ├── performance-strategy.md   # 성능 최적화 전략
-│   └── phase3-annotations-plan.md # Phase 3 어노테이션 설계
+│   ├── phase3-annotations-plan.md # Phase 3 어노테이션 설계
+│   └── archive/                  # 과거 설계 문서 보관
 ├── research/                     # 기술 조사
 │   ├── cornerstone3d-analysis.md # Cornerstone3D 분석
 │   ├── sonix-viviane-analysis.md # 실제 프로젝트 요구사항
-│   └── sado-poc-analysis.md      # SADO POC 분석
+│   ├── sado-poc-analysis.md      # SADO POC 분석
+│   └── poc-summary.md            # 초기 POC 계획 요약
 ├── roadmap/                      # 로드맵
 │   └── implementation-phases.md  # 구현 단계별 계획
 ├── progress/                     # 진행 상황 ⭐
@@ -27,11 +29,10 @@ docs/
 │   └── archive/                  # 이전 세션 기록
 ├── troubleshooting/              # 트러블슈팅
 │   └── README.md                 # 문제 해결 인덱스
-├── learning/                     # 기술 학습
-│   ├── webgl2/                   # WebGL2 학습 노트
-│   ├── dicom/                    # DICOM 학습 노트
-│   └── typescript/               # TypeScript 학습 노트
-└── archive/                      # 아카이브 (이전 문서)
+└── learning/                     # 기술 학습
+    ├── webgl2/                   # WebGL2 학습 노트
+    ├── dicom/                    # DICOM 학습 노트
+    └── typescript/               # TypeScript 학습 노트
 ```
 
 ## 빠른 링크
@@ -60,6 +61,7 @@ docs/
 |------|------|
 | [구현 로드맵](./roadmap/implementation-phases.md) | 단계별 구현 계획 |
 | [Cornerstone3D 분석](./research/cornerstone3d-analysis.md) | 기존 라이브러리 분석 |
+| [POC 계획 요약](./research/poc-summary.md) | 초기 POC 계획 및 목표 |
 | [트러블슈팅](./troubleshooting/README.md) | 문제 해결 기록 |
 
 ---

@@ -196,26 +196,32 @@ Single ViewPort → Multi ViewPort (Single viewPort 기반) → Multi ViewPort (
 docs/
 ├── README.md                    # 문서 인덱스
 ├── architecture/                # 아키텍처 설계
-│   └── overview.md
+│   ├── overview.md              # 전체 아키텍처 개요
+│   ├── memory-architecture-analysis.md   # 메모리/GPU 전략
+│   └── multi-viewport-strategy-analysis.md  # 멀티뷰포트 전략
 ├── design/                      # 상세 설계
-│   ├── technical-stack.md
-│   └── performance-strategy.md
+│   ├── technical-stack.md       # 기술 스택 결정
+│   ├── performance-strategy.md  # 성능 최적화 전략
+│   ├── phase3-annotations-plan.md  # Phase 3 어노테이션 설계
+│   └── archive/                 # 과거 설계 문서 보관
 ├── roadmap/                     # 개발 로드맵
-│   └── implementation-phases.md
+│   └── implementation-phases.md # 5단계 구현 계획
 ├── progress/                    # 진행상황 추적 ⭐
-│   ├── status.md               # 현재 상태 (Phase, 완료/진행중)
-│   └── session-log.md          # 세션별 작업 기록
+│   ├── status.md                # 현재 상태 (Phase, 완료/진행중)
+│   ├── session-log.md           # 최근 세션별 작업 기록
+│   └── archive/                 # 이전 세션 기록
 ├── troubleshooting/             # 트러블슈팅 ⭐
-│   └── README.md               # 문제 해결 인덱스
+│   └── README.md                # 문제 해결 인덱스
 ├── learning/                    # 기술 학습 ⭐
-│   ├── README.md               # 학습 자료 인덱스
-│   ├── webgl2/                 # WebGL2 학습 노트
-│   ├── dicom/                  # DICOM 학습 노트
-│   └── typescript/             # TypeScript 학습 노트
+│   ├── README.md                # 학습 자료 인덱스
+│   ├── webgl2/                  # WebGL2 학습 노트
+│   ├── dicom/                   # DICOM 학습 노트
+│   └── typescript/              # TypeScript 학습 노트
 └── research/                    # 기술 조사
     ├── cornerstone3d-analysis.md
     ├── sonix-viviane-analysis.md
-    └── sado-poc-analysis.md
+    ├── sado-poc-analysis.md
+    └── poc-summary.md           # 초기 POC 계획 요약
 ```
 
 ### 문서 업데이트 규칙
