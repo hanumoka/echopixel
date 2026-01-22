@@ -16,6 +16,12 @@
   #root {
     min-height: 100vh;
   }
+  /* @tailwindcss/forms 플러그인 스타일 오버라이드 */
+  input, select, textarea {
+    color: theme('colors.text.primary');
+    background-color: theme('colors.viewer.panel');
+    border-color: theme('colors.border.DEFAULT');
+  }
 }
 
 @layer components {
