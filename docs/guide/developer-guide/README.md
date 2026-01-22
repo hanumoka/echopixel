@@ -8,12 +8,20 @@
 
 ## 목차
 
+### 시작하기
 1. [개발 환경 설정](./setup.md) - 로컬 개발 환경 구성
 2. [프로젝트 구조](./project-structure.md) - 디렉토리 및 패키지 구조
-3. [아키텍처 이해](./architecture.md) - 핵심 설계 및 데이터 흐름
-4. [코딩 가이드](./coding-guide.md) - 컨벤션 및 베스트 프랙티스
-5. [테스트 가이드](./testing.md) - 테스트 작성 및 실행
-6. [기여 가이드](./contributing.md) - PR 작성 및 코드 리뷰
+
+### 핵심 개념 이해 ⭐
+3. [DICOM 기본 이해](./dicom-fundamentals.md) - DICOM 파일 포맷 근본 원리
+4. [Cornerstone vs EchoPixel](./cornerstone-vs-echopixel.md) - 아키텍처 비교 분석
+5. [Core 기반 기술](./core-technologies.md) - WebGL2, 디코딩, 캐싱 등
+
+### 개발 가이드
+6. [아키텍처 이해](./architecture.md) - 핵심 설계 및 데이터 흐름
+7. [코딩 가이드](./coding-guide.md) - 컨벤션 및 베스트 프랙티스
+8. [테스트 가이드](./testing.md) - 테스트 작성 및 실행
+9. [기여 가이드](./contributing.md) - PR 작성 및 코드 리뷰
 
 ---
 
@@ -40,8 +48,17 @@ EchoPixel은 **고성능 DICOM 의료 영상 뷰어 라이브러리**입니다.
 
 기존 라이브러리(Cornerstone3D 등)의 한계:
 - WebGL Context 수 제한 (8~16개)으로 다중 뷰포트 한계
-- 메모리 사용량이 높음
-- 심초음파(멀티프레임) 최적화 부족
+- vtk.js 의존성으로 인한 번들 크기와 오버헤드
+- 매 프레임 메타데이터 재계산으로 성능 저하
+- 심초음파(멀티프레임 Cine) 최적화 부족
+
+**해결 전략**:
+- vtk.js 제거, 직접 WebGL2 제어
+- 2D Array Texture로 프레임 전환 최적화
+- Hybrid DOM-WebGL로 100+ 뷰포트 지원
+- Lazy DICOM 파싱
+
+> 자세한 분석: [Cornerstone vs EchoPixel](./cornerstone-vs-echopixel.md)
 
 ---
 
