@@ -5,9 +5,10 @@
 | 항목 | 상태 |
 |------|------|
 | **현재 Phase** | Phase 3 (Annotations) ✅ **완료** |
-| **마지막 업데이트** | 2026-01-22 (세션 #38) |
+| **마지막 업데이트** | 2026-01-22 (세션 #38 계속) |
 | **다음 마일스톤** | Phase 5 (npm 배포 준비) |
 | **스타일링** | Tailwind CSS ✅ **마이그레이션 완료** |
+| **문서화** | 사용자/개발자 가이드 ✅ **작성 완료** |
 
 ### 핵심 목표
 
@@ -70,6 +71,21 @@
 | Building-blocks | 7개 컴포넌트 (DicomToolbar, Controls 등) | ✅ |
 | 설정 수정 | Vite PostCSS 명시적 설정, 절대 경로 | ✅ |
 | 버그 수정 | @tailwindcss/forms 스타일 오버라이드 | ✅ |
+
+### 문서화 (Phase 3.5+)
+
+| 가이드 | 대상 | 파일 수 | 상태 |
+|--------|------|---------|------|
+| **사용자 가이드** | React 개발자 | 8개 | ✅ |
+| **개발자 가이드** | 기여자/메인테이너 | 7개 | ✅ |
+
+**사용자 가이드** (`docs/guide/user-guide/`):
+- README.md, getting-started.md, components.md, tools.md
+- annotations.md, datasources.md, advanced.md, troubleshooting.md
+
+**개발자 가이드** (`docs/guide/developer-guide/`):
+- README.md, setup.md, project-structure.md, architecture.md
+- coding-guide.md, testing.md, contributing.md
 
 ---
 

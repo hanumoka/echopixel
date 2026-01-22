@@ -6,9 +6,45 @@
 
 ---
 
-## 2026-01-22 세션 #38 (Tailwind CSS 마이그레이션)
+## 2026-01-22 세션 #38 (Tailwind CSS + 가이드 문서)
 
 ### 작업 내용
+
+**0. 가이드 문서 작성 및 검토** ⭐⭐
+
+사용자 요청: "사용자 가이드와 개발자 가이드 작성 (주니어 React 개발자 대상)"
+
+**생성된 문서** (15개 파일, +6,186줄):
+
+| 가이드 | 파일 | 내용 |
+|--------|------|------|
+| **사용자 가이드** | README.md | 가이드 인덱스, 빠른 시작 |
+| | getting-started.md | 설치, 첫 뷰어 만들기 튜토리얼 |
+| | components.md | 컴포넌트 API 문서 |
+| | tools.md | 도구 시스템, 바인딩 커스터마이징 |
+| | annotations.md | 측정 도구, 캘리브레이션 |
+| | datasources.md | 로컬 파일, WADO-RS 연동 |
+| | advanced.md | 고급 기능, 성능 최적화 |
+| | troubleshooting.md | 일반적인 문제 해결 |
+| **개발자 가이드** | README.md | 프로젝트 개요 |
+| | setup.md | 개발 환경 설정 |
+| | project-structure.md | 디렉토리 구조 설명 |
+| | architecture.md | 핵심 아키텍처, 데이터 흐름 |
+| | coding-guide.md | 코딩 컨벤션 |
+| | testing.md | 테스트 전략 및 작성법 |
+| | contributing.md | 기여 가이드 |
+
+**문서 검토 및 수정** (7개 파일):
+
+| 문제 | 파일 | 수정 |
+|------|------|------|
+| `frames` 타입 오류 | components.md, getting-started.md, architecture.md | `ArrayBuffer[]` → `Uint8Array[]` |
+| 존재하지 않는 `autoPlay` prop | components.md | 제거 |
+| `width`/`height` 필수 표시 오류 | components.md, getting-started.md | 선택적으로 수정 |
+| Handle 메서드명 오류 | components.md, advanced.md, troubleshooting.md | `reset()` → `resetViewport()` |
+| 존재하지 않는 Handle 메서드 | components.md, advanced.md, tools.md | `getTransform()`, `getWindowLevel()` 제거 |
+| 실제 Handle 메서드 누락 | components.md | `resetActiveTool()`, `getActiveMeasurementToolId()`, `getState()` 추가 |
+| docs/README.md 링크 누락 | docs/README.md | 가이드 폴더 링크 추가 |
 
 **1. Tailwind CSS 인프라 설정** ⭐
 
@@ -88,6 +124,8 @@ export function cn(...inputs: ClassValue[]) {
 |------|------|
 | `3775513` | Add Tailwind CSS infrastructure and migrate all components |
 | `937d375` | Fix input text visibility by overriding @tailwindcss/forms styles |
+| `7dd159d` | Add comprehensive user and developer guides |
+| `66bd9f5` | Fix API documentation errors in guide |
 
 ### 변경 통계
 
@@ -102,6 +140,8 @@ export function cn(...inputs: ClassValue[]) {
 - **ESM에서 __dirname**: `dirname(fileURLToPath(import.meta.url))` 사용
 - **tailwind-merge 커스텀 테마**: `extendTailwindMerge`로 커스텀 색상 인식 필요
 - **@tailwindcss/forms**: 폼 요소의 기본 스타일을 리셋하므로 다크 테마에서 오버라이드 필요
+- **API 문서 검증**: 문서 작성 후 실제 코드와 대조하여 타입, 메서드명, 필수/선택 여부 검증 필수
+- **데이터 흐름 이해**: DataSource(ArrayBuffer) → extractPixelData(Uint8Array) → Component(Uint8Array) 레이어별 타입 차이
 
 ---
 
@@ -259,6 +299,7 @@ if (!finalImageInfo.pixelSpacing && !finalImageInfo.ultrasoundCalibration) {
 ## 다음 세션 할 일
 
 - [x] Tailwind CSS 마이그레이션 ✅ (세션 #38 완료)
+- [x] 사용자/개발자 가이드 문서 작성 ✅ (세션 #38 완료)
 - [ ] npm 배포 준비 (README.md, CHANGELOG.md)
 - [ ] 패키지 버전 관리 설정
 - [ ] 선택적: Ellipse, VTI 측정 도구
