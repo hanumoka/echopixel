@@ -124,7 +124,7 @@ console.log('imageInfo:', viewportData.imageInfo);
 const viewerRef = useRef<SingleDicomViewerHandle>(null);
 
 // 리셋 버튼
-<button onClick={() => viewerRef.current?.reset()}>리셋</button>
+<button onClick={() => viewerRef.current?.resetViewport()}>리셋</button>
 ```
 
 2. **imageInfo 확인**

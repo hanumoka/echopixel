@@ -247,7 +247,7 @@ function RobustViewer({ viewportData }) {
     console.log('WebGL Context Restored');
     setContextLost(false);
     // 필요시 상태 복원
-    viewerRef.current?.reset();
+    viewerRef.current?.resetViewport();
   }, []);
 
   return (
@@ -498,9 +498,9 @@ function DebugViewer({ viewportData }) {
   useEffect(() => {
     const interval = setInterval(() => {
       if (viewerRef.current) {
-        const transform = viewerRef.current.getTransform();
-        const windowLevel = viewerRef.current.getWindowLevel();
-        setStats({ transform, windowLevel });
+        // getState()로 현재 재생 상태 조회
+        const state = viewerRef.current.getState();
+        setStats(state);
       }
     }, 100);
 

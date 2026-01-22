@@ -253,32 +253,33 @@ function AdvancedViewer({ viewportData }) {
 
 ### 도구 상태 저장/복원
 
-도구의 현재 상태를 저장하고 나중에 복원할 수 있습니다:
+뷰어의 재생 상태를 조회하고 제어할 수 있습니다:
 
 ```tsx
 function ViewerWithStateManagement({ viewportData }) {
   const viewerRef = useRef<SingleDicomViewerHandle>(null);
-  const [savedState, setSavedState] = useState(null);
+  const [playbackState, setPlaybackState] = useState(null);
 
-  const saveState = () => {
+  const checkState = () => {
     if (viewerRef.current) {
-      const transform = viewerRef.current.getTransform();
-      const windowLevel = viewerRef.current.getWindowLevel();
-      setSavedState({ transform, windowLevel });
+      // 재생 상태 조회 (isPlaying, currentFrame, fps, totalFrames)
+      const state = viewerRef.current.getState();
+      setPlaybackState(state);
+      console.log('Current state:', state);
     }
   };
 
-  const restoreState = () => {
-    if (viewerRef.current && savedState) {
-      viewerRef.current.setTransform(savedState.transform);
-      viewerRef.current.setWindowLevel(savedState.windowLevel);
+  const resetAll = () => {
+    if (viewerRef.current) {
+      // 뷰포트 초기화 (Window/Level, 위치, 줌 복원)
+      viewerRef.current.resetViewport();
     }
   };
 
   return (
     <div>
-      <button onClick={saveState}>상태 저장</button>
-      <button onClick={restoreState} disabled={!savedState}>상태 복원</button>
+      <button onClick={checkState}>상태 조회</button>
+      <button onClick={resetAll}>뷰포트 초기화</button>
 
       <SingleDicomViewer
         ref={viewerRef}

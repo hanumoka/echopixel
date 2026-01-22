@@ -66,11 +66,16 @@ function MyViewer({ viewportData }) {
 
 | Prop | 타입 | 설명 |
 |------|------|------|
-| `frames` | `ArrayBuffer[]` | 프레임 데이터 배열. 단일 프레임이면 길이 1인 배열 |
+| `frames` | `Uint8Array[]` | 프레임 데이터 배열. 단일 프레임이면 길이 1인 배열 |
 | `imageInfo` | `DicomImageInfo` | DICOM 이미지 메타데이터 |
 | `isEncapsulated` | `boolean` | 압축된 데이터인지 여부 (JPEG, JPEG2000 등) |
-| `width` | `number` | 뷰포트 너비 (픽셀) |
-| `height` | `number` | 뷰포트 높이 (픽셀) |
+
+#### 선택적 Props - 크기 설정
+
+| Prop | 타입 | 기본값 | 설명 |
+|------|------|--------|------|
+| `width` | `number` | 자동 | 뷰포트 너비 (픽셀) |
+| `height` | `number` | 자동 | 뷰포트 높이 (픽셀) |
 
 #### 선택적 Props - UI 설정
 
@@ -86,7 +91,6 @@ function MyViewer({ viewportData }) {
 | Prop | 타입 | 기본값 | 설명 |
 |------|------|--------|------|
 | `initialFps` | `number` | `30` | 초기 재생 FPS |
-| `autoPlay` | `boolean` | `false` | 자동 재생 시작 |
 
 #### 선택적 Props - 어노테이션
 
@@ -118,7 +122,7 @@ function MyViewer({ viewportData }) {
 
   const handleReset = () => {
     if (viewerRef.current) {
-      viewerRef.current.reset(); // 뷰포트 초기화 (W/L, 위치, 줌)
+      viewerRef.current.resetViewport(); // 뷰포트 초기화 (W/L, 위치, 줌)
     }
   };
 
@@ -146,9 +150,10 @@ function MyViewer({ viewportData }) {
 | `togglePlay()` | 재생/정지 토글 |
 | `setFps(fps)` | FPS 설정 |
 | `goToFrame(index)` | 특정 프레임으로 이동 |
-| `reset()` | 뷰포트 초기화 |
-| `getTransform()` | 현재 변환 상태 반환 |
-| `getWindowLevel()` | 현재 Window/Level 반환 |
+| `resetViewport()` | 뷰포트 초기화 (W/L, 위치, 줌) |
+| `resetActiveTool()` | 현재 활성화된 도구 상태 초기화 |
+| `getActiveMeasurementToolId()` | 현재 활성화된 측정 도구 ID 반환 (없으면 `null`) |
+| `getState()` | 현재 상태 반환 `{ isPlaying, currentFrame, fps, totalFrames }` |
 
 ### 전체 예제
 
@@ -245,7 +250,7 @@ function MultiViewer({ viewers }: { viewers: ViewerData[] }) {
 ```typescript
 interface ViewerData {
   id: string;                    // 고유 식별자
-  frames: ArrayBuffer[];         // 프레임 데이터
+  frames: Uint8Array[];          // 프레임 데이터
   imageInfo: DicomImageInfo;     // 이미지 정보
   isEncapsulated?: boolean;      // 압축 여부
   annotations?: Annotation[];    // 어노테이션 (선택)
@@ -385,7 +390,7 @@ function LargeMultiViewer({ seriesDataList }: { seriesDataList: HybridSeriesData
 ```typescript
 interface HybridSeriesData {
   id: string;                    // 고유 식별자
-  frames: ArrayBuffer[];         // 프레임 데이터
+  frames: Uint8Array[];          // 프레임 데이터
   imageInfo: DicomImageInfo;     // 이미지 정보
   isEncapsulated?: boolean;      // 압축 여부
 }

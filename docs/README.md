@@ -7,6 +7,24 @@
 ```
 docs/
 ├── README.md                     # 이 파일 (문서 인덱스)
+├── guide/                        # 사용 가이드 ⭐
+│   ├── user-guide/               # 사용자 가이드 (React 개발자용)
+│   │   ├── README.md             # 가이드 인덱스
+│   │   ├── getting-started.md    # 시작하기
+│   │   ├── components.md         # 컴포넌트 API
+│   │   ├── tools.md              # 도구 시스템
+│   │   ├── annotations.md        # 어노테이션
+│   │   ├── datasources.md        # 데이터 소스
+│   │   ├── advanced.md           # 고급 기능
+│   │   └── troubleshooting.md    # 문제 해결
+│   └── developer-guide/          # 개발자 가이드 (기여자용)
+│       ├── README.md             # 가이드 인덱스
+│       ├── setup.md              # 개발 환경 설정
+│       ├── project-structure.md  # 프로젝트 구조
+│       ├── architecture.md       # 아키텍처 이해
+│       ├── coding-guide.md       # 코딩 가이드
+│       ├── testing.md            # 테스트 가이드
+│       └── contributing.md       # 기여 가이드
 ├── architecture/                 # 아키텍처 설계
 │   ├── overview.md               # 전체 아키텍처 개요
 │   ├── memory-architecture-analysis.md  # 메모리 아키텍처
@@ -43,6 +61,13 @@ docs/
 |------|------|
 | [진행 상황](./progress/status.md) | 현재 Phase, 완료/진행중/예정 작업 |
 | [세션 기록](./progress/session-log.md) | 최근 세션별 작업 기록 |
+
+### 가이드 ⭐
+
+| 문서 | 대상 | 설명 |
+|------|------|------|
+| [사용자 가이드](./guide/user-guide/README.md) | React 개발자 | EchoPixel을 사용하여 DICOM 뷰어 구축 |
+| [개발자 가이드](./guide/developer-guide/README.md) | 기여자/메인테이너 | EchoPixel 개발 참여 |
 
 ### 아키텍처 & 설계
 

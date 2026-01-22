@@ -85,7 +85,7 @@ const imageInfo = getImageInfo(buffer, dataset);
 
 // 3. 픽셀 데이터 추출
 const pixelData = extractPixelData(buffer, dataset);
-// → frames: ArrayBuffer[], isEncapsulated: boolean
+// → frames: Uint8Array[], isEncapsulated: boolean
 ```
 
 ### 2. 이미지 디코딩

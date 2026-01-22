@@ -156,7 +156,7 @@ import { SingleDicomViewer } from '@echopixel/react';
 
 // 뷰포트 데이터 타입 정의
 interface ViewportData {
-  frames: ArrayBuffer[];
+  frames: Uint8Array[];
   imageInfo: {
     rows: number;
     columns: number;
@@ -321,11 +321,11 @@ const pixelData = extractPixelData(buffer, dataset);
 
 | Prop | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| `frames` | `ArrayBuffer[]` | ✅ | 프레임 데이터 배열 |
+| `frames` | `Uint8Array[]` | ✅ | 프레임 데이터 배열 |
 | `imageInfo` | `DicomImageInfo` | ✅ | 이미지 메타데이터 |
 | `isEncapsulated` | `boolean` | ✅ | 압축 여부 (JPEG 등) |
-| `width` | `number` | ✅ | 뷰포트 너비 (픽셀) |
-| `height` | `number` | ✅ | 뷰포트 높이 (픽셀) |
+| `width` | `number` | - | 뷰포트 너비 (선택, 자동 계산) |
+| `height` | `number` | - | 뷰포트 높이 (선택, 자동 계산) |
 
 ---
 
