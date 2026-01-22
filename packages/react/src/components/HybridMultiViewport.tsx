@@ -96,6 +96,8 @@ import { HybridViewportGrid } from './building-blocks/HybridViewportGrid';
 import { HybridViewportSlot } from './building-blocks/HybridViewportSlot';
 import { DicomMiniOverlay } from './building-blocks/DicomMiniOverlay';
 import { SVGOverlay } from './annotations/SVGOverlay';
+import { usePlaybackControl } from '../hooks/usePlaybackControl';
+import { useViewportTransform } from '../hooks/useViewportTransform';
 
 /**
  * 시리즈 데이터
@@ -435,9 +437,40 @@ export const HybridMultiViewport = forwardRef<
   const [viewports, setViewports] = useState<Viewport[]>([]);
   const [activeViewportId, setActiveViewportId] = useState<string | null>(null);
   const [hoveredViewportId, setHoveredViewportId] = useState<string | null>(null);
-  const [isPlayingState, setIsPlayingState] = useState(false);
-  const [fpsState, setFpsState] = useState(initialFps);
   const [isInitialized, setIsInitialized] = useState(false);
+
+  // =========================================================================
+  // 재생 제어 훅 (Phase 1 리팩토링: 상태 및 제어 함수 분리)
+  // =========================================================================
+  const {
+    isPlaying: isPlayingState,
+    fps: fpsState,
+    playAll,
+    pauseAll,
+    togglePlayAll,
+    setFps,
+    forceStop: forceStopPlayback,
+  } = usePlaybackControl({
+    initialFps,
+    hybridManagerRef,
+    renderSchedulerRef,
+    onPlayingChange,
+  });
+
+  // =========================================================================
+  // 뷰포트 변환 훅 (Phase 2 리팩토링: 회전/플립/리셋 핸들러 분리)
+  // =========================================================================
+  const {
+    handleRotateLeft,
+    handleRotateRight,
+    handleFlipH,
+    handleFlipV,
+    handleResetViewport,
+  } = useViewportTransform({
+    hybridManagerRef,
+    renderSchedulerRef,
+    onViewportsChange: setViewports,
+  });
 
   // Tool System용 뷰포트 요소 맵
   const [viewportElements] = useState(() => new Map<string, HTMLElement>());
@@ -1059,8 +1092,7 @@ export const HybridMultiViewport = forwardRef<
       event.preventDefault();
       console.warn('[HybridMultiViewport] WebGL context lost');
       renderSchedulerRef.current?.stop();
-      setIsPlayingState(false);
-      onPlayingChange?.(false);
+      forceStopPlayback(); // usePlaybackControl 훅의 forceStop 사용
       setIsInitialized(false);
     };
 
@@ -1312,55 +1344,8 @@ export const HybridMultiViewport = forwardRef<
     return () => clearInterval(interval);
   }, [onStatsUpdate]);
 
-  // 재생/정지 함수
-  const playAll = useCallback(() => {
-    const hybridManager = hybridManagerRef.current;
-    const renderScheduler = renderSchedulerRef.current;
-    if (!hybridManager || !renderScheduler) return;
-
-    setIsPlayingState(true);
-    onPlayingChange?.(true);
-
-    for (const id of hybridManager.getAllViewportIds()) {
-      hybridManager.setViewportPlaying(id, true);
-      hybridManager.setViewportFps(id, fpsState);
-    }
-
-    renderScheduler.start();
-  }, [fpsState, onPlayingChange]);
-
-  const pauseAll = useCallback(() => {
-    const hybridManager = hybridManagerRef.current;
-    const renderScheduler = renderSchedulerRef.current;
-    if (!hybridManager || !renderScheduler) return;
-
-    setIsPlayingState(false);
-    onPlayingChange?.(false);
-
-    for (const id of hybridManager.getAllViewportIds()) {
-      hybridManager.setViewportPlaying(id, false);
-    }
-
-    renderScheduler.stop();
-  }, [onPlayingChange]);
-
-  const togglePlayAll = useCallback(() => {
-    if (isPlayingState) {
-      pauseAll();
-    } else {
-      playAll();
-    }
-  }, [isPlayingState, playAll, pauseAll]);
-
-  const setFps = useCallback((newFps: number) => {
-    setFpsState(newFps);
-    const hybridManager = hybridManagerRef.current;
-    if (!hybridManager) return;
-
-    for (const id of hybridManager.getAllViewportIds()) {
-      hybridManager.setViewportFps(id, newFps);
-    }
-  }, []);
+  // 재생/정지 함수는 usePlaybackControl 훅으로 이동됨
+  // playAll, pauseAll, togglePlayAll, setFps 는 훅에서 제공
 
   const resetAllViewports = useCallback(() => {
     const hybridManager = hybridManagerRef.current;
@@ -1474,57 +1459,8 @@ export const HybridMultiViewport = forwardRef<
     setHoveredViewportId(null);
   }, []);
 
-  // Rotation/Flip 핸들러
-  const handleRotateLeft = useCallback((viewportId: string) => {
-    const hybridManager = hybridManagerRef.current;
-    const viewport = hybridManager?.getViewport(viewportId);
-    if (!hybridManager || !viewport) return;
-
-    const newRotation = (viewport.transform.rotation - 90 + 360) % 360;
-    hybridManager.setViewportRotation(viewportId, newRotation);
-    setViewports(hybridManager.getAllViewports());
-    renderSchedulerRef.current?.renderSingleFrame();
-  }, []);
-
-  const handleRotateRight = useCallback((viewportId: string) => {
-    const hybridManager = hybridManagerRef.current;
-    const viewport = hybridManager?.getViewport(viewportId);
-    if (!hybridManager || !viewport) return;
-
-    const newRotation = (viewport.transform.rotation + 90) % 360;
-    hybridManager.setViewportRotation(viewportId, newRotation);
-    setViewports(hybridManager.getAllViewports());
-    renderSchedulerRef.current?.renderSingleFrame();
-  }, []);
-
-  const handleFlipH = useCallback((viewportId: string) => {
-    const hybridManager = hybridManagerRef.current;
-    const viewport = hybridManager?.getViewport(viewportId);
-    if (!hybridManager || !viewport) return;
-
-    hybridManager.setViewportFlipH(viewportId, !viewport.transform.flipH);
-    setViewports(hybridManager.getAllViewports());
-    renderSchedulerRef.current?.renderSingleFrame();
-  }, []);
-
-  const handleFlipV = useCallback((viewportId: string) => {
-    const hybridManager = hybridManagerRef.current;
-    const viewport = hybridManager?.getViewport(viewportId);
-    if (!hybridManager || !viewport) return;
-
-    hybridManager.setViewportFlipV(viewportId, !viewport.transform.flipV);
-    setViewports(hybridManager.getAllViewports());
-    renderSchedulerRef.current?.renderSingleFrame();
-  }, []);
-
-  const handleResetViewport = useCallback((viewportId: string) => {
-    const hybridManager = hybridManagerRef.current;
-    if (!hybridManager) return;
-
-    hybridManager.resetViewport(viewportId);
-    setViewports(hybridManager.getAllViewports());
-    renderSchedulerRef.current?.renderSingleFrame();
-  }, []);
+  // Rotation/Flip 핸들러는 useViewportTransform 훅으로 이동됨
+  // handleRotateLeft, handleRotateRight, handleFlipH, handleFlipV, handleResetViewport 는 훅에서 제공
 
   // =========================================================================
   // MeasurementTool Canvas 이벤트 처리 (Phase 3g)
