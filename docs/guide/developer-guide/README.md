@@ -18,11 +18,19 @@
 5. [Core 기반 기술](./core-technologies.md) - WebGL2, 디코딩, 캐싱 등
 6. [DICOM 렌더링 파이프라인](./rendering-pipeline.md) - 파일 입력부터 화면 출력까지 전체 흐름 ⭐
 
+### 심화 아키텍처 ⭐
+7. [멀티 뷰포트 아키텍처](./multi-viewport-architecture.md) - Tiered Rendering, Hybrid DOM-WebGL
+8. [메모리 관리](./memory-management.md) - Context Loss 복구, LRU 캐시, VRAM 관리
+9. [성능 최적화](./performance-optimization.md) - 7가지 최적화 전략 및 구현
+
 ### 개발 가이드
-7. [아키텍처 이해](./architecture.md) - 핵심 설계 및 데이터 흐름
-8. [코딩 가이드](./coding-guide.md) - 컨벤션 및 베스트 프랙티스
-9. [테스트 가이드](./testing.md) - 테스트 작성 및 실행
-10. [기여 가이드](./contributing.md) - PR 작성 및 코드 리뷰
+10. [아키텍처 이해](./architecture.md) - 핵심 설계 및 데이터 흐름
+11. [코딩 가이드](./coding-guide.md) - 컨벤션 및 베스트 프랙티스
+12. [테스트 가이드](./testing.md) - 테스트 작성 및 실행
+13. [기여 가이드](./contributing.md) - PR 작성 및 코드 리뷰
+
+### 트러블슈팅
+14. [트러블슈팅 가이드](./troubleshooting-guide.md) - 주요 문제 해결 (React Strict Mode, WebGL 등)
 
 ---
 
