@@ -46,3 +46,6 @@ venv/
 *.tmp
 *.temp
 memo.txt
+
+# Vite timestamp files
+*.timestamp-*.mjs
