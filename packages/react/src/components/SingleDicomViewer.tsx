@@ -646,7 +646,7 @@ export const SingleDicomViewer = forwardRef<
 
       // 이미 Primary가 있으면 추가하지 않음
       const hasPrimary = newBindings.some(
-        b => b.mouseButton === MouseBindings.Primary && !b.modifierKey
+        (b: ToolBinding) => b.mouseButton === MouseBindings.Primary && !b.modifierKey
       );
 
       if (!hasPrimary) {

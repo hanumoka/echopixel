@@ -580,7 +580,9 @@ export const HybridMultiViewport = forwardRef<
     isStaticImage,
   });
 
-  // 초기 도구 설정: toolGroup 생성 후 activeTool에 좌클릭 바인딩 추가
+  // 초기 도구 설정 및 isStaticImage 변경 시 바인딩 업데이트
+  // - toolGroup 생성 후: activeTool에 좌클릭 바인딩 추가
+  // - isStaticImage 변경 시: Zoom/StackScroll 바인딩 업데이트
   useEffect(() => {
     if (!isInitialized || !toolGroup) return;
 
@@ -589,14 +591,14 @@ export const HybridMultiViewport = forwardRef<
       const bindings = getToolDefaultBindings(activeTool, isStaticImage);
       const primaryBinding: ToolBinding = { mouseButton: MouseBindings.Primary };
       const hasPrimary = bindings.some(
-        b => b.mouseButton === MouseBindings.Primary && !b.modifierKey
+        (b: ToolBinding) => b.mouseButton === MouseBindings.Primary && !b.modifierKey
       );
 
       if (!hasPrimary) {
         setToolActive(activeTool, [...bindings, primaryBinding]);
       }
     }
-  }, [isInitialized, toolGroup]); // toolGroup이 생성된 후 실행
+  }, [isInitialized, toolGroup, activeTool, isStaticImage, setToolActive]);
 
   // MeasurementTool cleanup (컴포넌트 언마운트 시)
   useEffect(() => {
@@ -815,7 +817,7 @@ export const HybridMultiViewport = forwardRef<
 
       // 이미 Primary가 있으면 추가하지 않음
       const hasPrimary = newBindings.some(
-        b => b.mouseButton === MouseBindings.Primary && !b.modifierKey
+        (b: ToolBinding) => b.mouseButton === MouseBindings.Primary && !b.modifierKey
       );
 
       if (!hasPrimary) {
@@ -1395,7 +1397,7 @@ export const HybridMultiViewport = forwardRef<
       if (!wrapper.contains(e.target as Node)) {
         console.log('[HybridMultiViewport] Click outside detected - deselecting viewport');
         setActiveViewportId(null);
-        onActiveViewportChange?.(null as unknown as string);
+        onActiveViewportChange?.(null);
       }
     };
 
@@ -1419,7 +1421,7 @@ export const HybridMultiViewport = forwardRef<
     if (activeViewportId) {
       console.log('[HybridMultiViewport] Background click - deselecting viewport');
       setActiveViewportId(null);
-      onActiveViewportChange?.(null as unknown as string);
+      onActiveViewportChange?.(null);
     }
   }, [activeViewportId, onActiveViewportChange]);
 
