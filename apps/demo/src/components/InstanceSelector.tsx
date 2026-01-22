@@ -2,6 +2,7 @@
  * Instance 목록 표시 및 선택 UI 컴포넌트
  */
 
+import { cn } from '@echopixel/react';
 import type { ScannedInstance } from '../types/demo';
 
 interface InstanceSelectorProps {
@@ -13,7 +14,7 @@ interface InstanceSelectorProps {
   onClearSelection: () => void;
   disabled?: boolean;
   maxHeight?: string;
-  style?: React.CSSProperties;
+  className?: string;
 }
 
 export function InstanceSelector({
@@ -25,7 +26,7 @@ export function InstanceSelector({
   onClearSelection,
   disabled = false,
   maxHeight = '300px',
-  style,
+  className,
 }: InstanceSelectorProps) {
   if (instances.length === 0) {
     return null;
@@ -36,47 +37,34 @@ export function InstanceSelector({
   const errorCount = instances.filter((i) => i.error).length;
 
   return (
-    <div style={style}>
+    <div className={className}>
       {/* 헤더 */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '10px',
-        }}
-      >
-        <span style={{ color: '#8cf', fontSize: '13px' }}>
+      <div className="flex justify-between items-center mb-2.5">
+        <span className="text-accent-info text-base">
           Instance 선택 ({selectedUids.size} / {maxSelect}개)
         </span>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div className="flex gap-2">
           <button
             onClick={onSelectAllPlayable}
             disabled={disabled}
-            style={{
-              padding: '4px 10px',
-              fontSize: '11px',
-              background: disabled ? '#444' : '#363',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '3px',
-              cursor: disabled ? 'not-allowed' : 'pointer',
-            }}
+            className={cn(
+              'px-2.5 py-1 text-xs text-white border-none rounded-sm',
+              disabled
+                ? 'bg-[#444] cursor-not-allowed'
+                : 'bg-[#363] cursor-pointer hover:bg-[#474]'
+            )}
           >
             영상만 선택
           </button>
           <button
             onClick={onClearSelection}
             disabled={disabled}
-            style={{
-              padding: '4px 10px',
-              fontSize: '11px',
-              background: disabled ? '#444' : '#633',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '3px',
-              cursor: disabled ? 'not-allowed' : 'pointer',
-            }}
+            className={cn(
+              'px-2.5 py-1 text-xs text-white border-none rounded-sm',
+              disabled
+                ? 'bg-[#444] cursor-not-allowed'
+                : 'bg-[#633] cursor-pointer hover:bg-[#744]'
+            )}
           >
             선택 해제
           </button>
@@ -85,12 +73,8 @@ export function InstanceSelector({
 
       {/* 목록 */}
       <div
-        style={{
-          background: '#1a1a2a',
-          borderRadius: '4px',
-          maxHeight,
-          overflowY: 'auto',
-        }}
+        className="bg-[#1a1a2a] rounded-md overflow-y-auto"
+        style={{ maxHeight }}
       >
         {instances.map((instance, idx) => {
           const isSelected = selectedUids.has(instance.uid);
@@ -100,16 +84,17 @@ export function InstanceSelector({
             <div
               key={instance.uid}
               onClick={() => !instance.error && canSelect && !disabled && onToggle(instance.uid)}
-              style={{
-                padding: '8px 12px',
-                borderBottom: '1px solid #333',
-                cursor: instance.error || disabled ? 'not-allowed' : canSelect ? 'pointer' : 'not-allowed',
-                background: isSelected ? '#2a3a2a' : 'transparent',
-                opacity: instance.error ? 0.5 : canSelect ? 1 : 0.6,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-              }}
+              className={cn(
+                'px-3 py-2 border-b border-[#333] flex items-center gap-2.5',
+                isSelected && 'bg-[#2a3a2a]',
+                instance.error && 'opacity-50',
+                !instance.error && !canSelect && 'opacity-60',
+                instance.error || disabled
+                  ? 'cursor-not-allowed'
+                  : canSelect
+                    ? 'cursor-pointer hover:bg-[#252535]'
+                    : 'cursor-not-allowed'
+              )}
             >
               {/* 체크박스 */}
               <input
@@ -117,55 +102,25 @@ export function InstanceSelector({
                 checked={isSelected}
                 disabled={instance.error !== undefined || !canSelect || disabled}
                 onChange={() => {}}
-                style={{ cursor: 'inherit' }}
+                className="cursor-inherit"
               />
 
               {/* 번호 */}
-              <span style={{ color: '#666', fontSize: '11px', minWidth: '24px' }}>
+              <span className="text-text-disabled text-xs min-w-[24px]">
                 {idx + 1}.
               </span>
 
               {/* 타입 배지 */}
               {instance.error ? (
-                <span
-                  style={{
-                    fontSize: '10px',
-                    color: '#f66',
-                    background: '#3a1a1a',
-                    padding: '2px 6px',
-                    borderRadius: '3px',
-                    minWidth: '50px',
-                    textAlign: 'center',
-                  }}
-                >
+                <span className="text-xxs text-[#f66] bg-[#3a1a1a] px-1.5 py-0.5 rounded-sm min-w-[50px] text-center">
                   오류
                 </span>
               ) : instance.isPlayable ? (
-                <span
-                  style={{
-                    fontSize: '10px',
-                    color: '#8f8',
-                    background: '#1a3a1a',
-                    padding: '2px 6px',
-                    borderRadius: '3px',
-                    minWidth: '50px',
-                    textAlign: 'center',
-                  }}
-                >
+                <span className="text-xxs text-accent-success bg-[#1a3a1a] px-1.5 py-0.5 rounded-sm min-w-[50px] text-center">
                   영상
                 </span>
               ) : (
-                <span
-                  style={{
-                    fontSize: '10px',
-                    color: '#fa8',
-                    background: '#3a2a1a',
-                    padding: '2px 6px',
-                    borderRadius: '3px',
-                    minWidth: '50px',
-                    textAlign: 'center',
-                  }}
-                >
+                <span className="text-xxs text-accent-warning bg-[#3a2a1a] px-1.5 py-0.5 rounded-sm min-w-[50px] text-center">
                   정지
                 </span>
               )}
@@ -173,33 +128,23 @@ export function InstanceSelector({
               {/* 프레임 수 */}
               {!instance.error && (
                 <span
-                  style={{
-                    fontSize: '11px',
-                    color: instance.isPlayable ? '#8cf' : '#888',
-                    fontWeight: instance.isPlayable ? 'bold' : 'normal',
-                    minWidth: '45px',
-                    textAlign: 'right',
-                  }}
+                  className={cn(
+                    'text-xs min-w-[45px] text-right',
+                    instance.isPlayable ? 'text-accent-info font-bold' : 'text-text-muted'
+                  )}
                 >
                   {instance.frameCount} 프레임
                 </span>
               )}
 
               {/* UID */}
-              <span
-                style={{
-                  fontFamily: 'monospace',
-                  fontSize: '10px',
-                  color: '#aaa',
-                  flex: 1,
-                }}
-              >
+              <span className="font-mono text-xxs text-text-secondary flex-1">
                 ...{instance.uid.slice(-25)}
               </span>
 
               {/* 크기 정보 */}
               {!instance.error && (
-                <span style={{ fontSize: '10px', color: '#666' }}>
+                <span className="text-xxs text-text-disabled">
                   {instance.width}x{instance.height}
                 </span>
               )}
@@ -209,19 +154,11 @@ export function InstanceSelector({
       </div>
 
       {/* 통계 */}
-      <div
-        style={{
-          marginTop: '8px',
-          fontSize: '11px',
-          color: '#888',
-          display: 'flex',
-          gap: '15px',
-        }}
-      >
+      <div className="mt-2 text-xs text-text-muted flex gap-4">
         <span>총: {instances.length}개</span>
-        <span style={{ color: '#8f8' }}>영상: {playableCount}개</span>
-        <span style={{ color: '#fa8' }}>정지: {stillCount}개</span>
-        {errorCount > 0 && <span style={{ color: '#f66' }}>오류: {errorCount}개</span>}
+        <span className="text-accent-success">영상: {playableCount}개</span>
+        <span className="text-accent-warning">정지: {stillCount}개</span>
+        {errorCount > 0 && <span className="text-[#f66]">오류: {errorCount}개</span>}
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import type { ImageStatus, CanvasInfo, WindowLevelInfo, TransformInfo } from '../../types';
+import { cn } from '../../utils';
 
 /**
  * DicomStatusBar Props
@@ -67,42 +68,33 @@ export function DicomStatusBar({
 
   return (
     <div
-      className={className}
-      style={{
-        padding: '8px 12px',
-        marginBottom: '10px',
-        background: '#2a2a2a',
-        color: '#fff',
-        borderRadius: '4px',
-        fontSize: '13px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        gap: '12px',
-        flexWrap: 'wrap',
-        ...style,
-      }}
+      className={cn(
+        'py-2 px-3 mb-2.5 bg-viewer-surface-alt text-text-primary rounded-md text-base',
+        'flex justify-between items-center gap-3 flex-wrap',
+        className
+      )}
+      style={style}
     >
       {/* 이미지 상태 */}
       <span>{displayStatus}</span>
 
       {/* 캔버스/DPR 정보 */}
       {canvasInfo && (
-        <span style={{ color: '#8f8', fontSize: '11px' }}>
+        <span className="text-[#8f8] text-xs">
           DPR: {canvasInfo.dpr} | Canvas: {Math.floor(canvasInfo.width * canvasInfo.dpr)}x{Math.floor(canvasInfo.height * canvasInfo.dpr)}
         </span>
       )}
 
       {/* Window/Level (설정된 경우에만 표시) */}
       {windowLevel && (
-        <span style={{ color: '#8cf' }}>
+        <span className="text-accent-info">
           W/L: {Math.round(windowLevel.width)} / {Math.round(windowLevel.center)}
         </span>
       )}
 
       {/* Pan/Zoom/Rotation/Flip (변경된 경우에만 표시) */}
       {hasTransformChange && transform && (
-        <span style={{ color: '#cf8' }}>
+        <span className="text-[#cf8]">
           Zoom: {transform.zoom.toFixed(1)}x | Pan: ({Math.round(transform.pan.x)}, {Math.round(transform.pan.y)})
           {transform.rotation ? ` | Rot: ${transform.rotation}°` : ''}
           {(transform.flipH || transform.flipV) && ` | Flip: ${transform.flipH ? 'H' : ''}${transform.flipV ? 'V' : ''}`}

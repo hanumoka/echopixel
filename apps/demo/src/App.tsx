@@ -6,6 +6,7 @@
  */
 
 import { useState, useRef } from 'react';
+import { cn } from '@echopixel/react';
 import { HardwareInfoPanel, type TextureMemoryInfo } from './components/HardwareInfoPanel';
 import {
   SingleViewportPage,
@@ -14,6 +15,30 @@ import {
   PerfTestPage,
 } from './pages';
 import type { ViewMode, WadoConfig } from './types/demo';
+
+// 탭 색상 정의
+const TAB_COLORS = {
+  single: {
+    bg: 'bg-[#2d1f3d]',
+    text: 'text-[#e8b4f8]',
+    border: 'border-b-[#a47]',
+  },
+  'multi-canvas': {
+    bg: 'bg-[#1f2d3d]',
+    text: 'text-[#b4d8f8]',
+    border: 'border-b-[#47a]',
+  },
+  multi: {
+    bg: 'bg-[#1f3d2d]',
+    text: 'text-[#b4f8c8]',
+    border: 'border-b-[#7a4]',
+  },
+  'perf-test': {
+    bg: 'bg-[#3d2d1f]',
+    text: 'text-[#f8d8b4]',
+    border: 'border-b-[#a74]',
+  },
+} as const;
 
 export default function App() {
   // 현재 뷰 모드
@@ -30,32 +55,29 @@ export default function App() {
   // WebGL context ref (HardwareInfoPanel용)
   const glRef = useRef<WebGL2RenderingContext | null>(null);
 
-  // 탭 스타일
-  const getTabStyle = (mode: ViewMode, colors: { bg: string; activeBg: string; color: string; activeColor: string; border: string }) => ({
-    padding: '12px 24px',
-    background: viewMode === mode ? colors.activeBg : '#1a1a1a',
-    color: viewMode === mode ? colors.activeColor : '#888',
-    border: 'none',
-    borderRadius: '8px 8px 0 0',
-    cursor: 'pointer',
-    fontWeight: viewMode === mode ? 'bold' : 'normal',
-    fontSize: '14px',
-    borderBottom: viewMode === mode ? `3px solid ${colors.border}` : '3px solid transparent',
-    transition: 'all 0.2s',
-  });
+  // 탭 버튼 렌더링
+  const renderTab = (mode: ViewMode, label: string) => {
+    const isActive = viewMode === mode;
+    const colors = TAB_COLORS[mode];
+
+    return (
+      <button
+        key={mode}
+        onClick={() => setViewMode(mode)}
+        className={cn(
+          'px-6 py-3 border-none rounded-t-lg cursor-pointer text-lg transition-all duration-200 border-b-[3px]',
+          isActive
+            ? `${colors.bg} ${colors.text} ${colors.border} font-bold`
+            : 'bg-viewer-surface-alt text-text-muted border-b-transparent font-normal'
+        )}
+      >
+        {label}
+      </button>
+    );
+  };
 
   return (
-    <div
-      style={{
-        padding: '20px',
-        fontFamily: 'system-ui, sans-serif',
-        maxWidth: '1400px',
-        margin: '0 auto',
-        minHeight: '100vh',
-        background: '#121218',
-        color: '#e0e0e0',
-      }}
-    >
+    <div className="p-5 font-sans max-w-[1400px] mx-auto min-h-screen bg-[#121218] text-[#e0e0e0]">
       {/* Hardware Info Panel */}
       <HardwareInfoPanel
         gl={glRef.current}
@@ -63,66 +85,14 @@ export default function App() {
         position="right"
       />
 
-      <h1 style={{ marginBottom: '20px', color: '#fff' }}>EchoPixel Demo - DICOM Viewer</h1>
+      <h1 className="mb-5 text-white text-2xl">EchoPixel Demo - DICOM Viewer</h1>
 
       {/* 뷰 모드 선택 탭 */}
-      <div
-        style={{
-          display: 'flex',
-          gap: '4px',
-          marginBottom: '20px',
-          borderBottom: '2px solid #333',
-          paddingBottom: '0',
-        }}
-      >
-        <button
-          onClick={() => setViewMode('single')}
-          style={getTabStyle('single', {
-            bg: '#1a1a1a',
-            activeBg: '#2d1f3d',
-            color: '#888',
-            activeColor: '#e8b4f8',
-            border: '#a47',
-          })}
-        >
-          Single ViewPort
-        </button>
-        <button
-          onClick={() => setViewMode('multi-canvas')}
-          style={getTabStyle('multi-canvas', {
-            bg: '#1a1a1a',
-            activeBg: '#1f2d3d',
-            color: '#888',
-            activeColor: '#b4d8f8',
-            border: '#47a',
-          })}
-        >
-          Multi ViewPort (Single viewPort 기반)
-        </button>
-        <button
-          onClick={() => setViewMode('multi')}
-          style={getTabStyle('multi', {
-            bg: '#1a1a1a',
-            activeBg: '#1f3d2d',
-            color: '#888',
-            activeColor: '#b4f8c8',
-            border: '#7a4',
-          })}
-        >
-          Multi ViewPort (Single canvas 기반)
-        </button>
-        <button
-          onClick={() => setViewMode('perf-test')}
-          style={getTabStyle('perf-test', {
-            bg: '#1a1a1a',
-            activeBg: '#3d2d1f',
-            color: '#888',
-            activeColor: '#f8d8b4',
-            border: '#a74',
-          })}
-        >
-          Performance Test (Pure WebGL)
-        </button>
+      <div className="flex gap-1 mb-5 border-b-2 border-[#333] pb-0">
+        {renderTab('single', 'Single ViewPort')}
+        {renderTab('multi-canvas', 'Multi ViewPort (Single viewPort 기반)')}
+        {renderTab('multi', 'Multi ViewPort (Single canvas 기반)')}
+        {renderTab('perf-test', 'Performance Test (Pure WebGL)')}
       </div>
 
       {/* 페이지 렌더링 */}

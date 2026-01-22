@@ -69,65 +69,22 @@ export function ExpandedViewModal({
   const viewerHeight = Math.min(window.innerHeight - 150, 800);
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(0, 0, 0, 0.98)',
-        zIndex: 1000,
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-      }}
-    >
+    <div className="fixed inset-0 bg-black/[.98] z-[1000] flex flex-col overflow-hidden">
       {/* 헤더 */}
-      <div
-        style={{
-          flexShrink: 0,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '12px 20px',
-          background: '#1a1a2e',
-          borderBottom: '1px solid #333',
-          color: '#fff',
-        }}
-      >
-        <h2 style={{ margin: 0, fontSize: '16px' }}>
+      <div className="flex-shrink-0 flex justify-between items-center px-5 py-3 bg-viewer-surface border-b border-[#333] text-white">
+        <h2 className="m-0 text-lg">
           🔍 확대 보기: {title}
         </h2>
         <button
           onClick={onClose}
-          style={{
-            padding: '8px 16px',
-            fontSize: '13px',
-            background: '#c44',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-          }}
+          className="px-4 py-2 text-base bg-accent-error text-white border-none rounded-md cursor-pointer hover:bg-[#d55]"
         >
           ✕ 닫기 (ESC)
         </button>
       </div>
 
       {/* 확대된 SingleDicomViewer */}
-      <div
-        style={{
-          flex: 1,
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'flex-start',
-          padding: '20px',
-          paddingTop: '10px',
-          overflow: 'auto',
-          minHeight: 0,
-        }}
-      >
+      <div className="flex-1 flex justify-center items-start p-5 pt-2.5 overflow-auto min-h-0">
         <SingleDicomViewer
           frames={frames}
           imageInfo={imageInfo}

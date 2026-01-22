@@ -6,7 +6,7 @@
  * - 어노테이션 관리
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   isDicomFile,
   parseDicom,
@@ -15,12 +15,9 @@ import {
   isEncapsulated,
   getTransferSyntaxName,
   isImageDecoderSupported,
-  type DicomDataset,
-  type DicomImageInfo,
-  type PixelDataInfo,
   type Annotation,
 } from '@echopixel/core';
-import { SingleDicomViewer } from '@echopixel/react';
+import { SingleDicomViewer, cn } from '@echopixel/react';
 import { WadoConfigPanel, ExpandedViewModal } from '../components';
 import { useWadoLoader, useAnnotations } from '../hooks';
 import type { WadoConfig, ViewportData, DataSourceMode, ParseResult } from '../types/demo';
@@ -228,77 +225,50 @@ export function SingleViewportPage({ wadoConfig, onWadoConfigChange }: SingleVie
   return (
     <div>
       {/* 모드 설명 패널 */}
-      <div
-        style={{
-          padding: '15px',
-          marginBottom: '15px',
-          background: '#2d1f3d',
-          border: '1px solid #a47',
-          borderRadius: '4px',
-        }}
-      >
-        <h3 style={{ margin: '0 0 10px 0', color: '#e8b4f8', fontSize: '16px' }}>
+      <div className="p-4 mb-4 bg-[#2d1f3d] border border-[#a47] rounded-md">
+        <h3 className="m-0 mb-2.5 text-[#e8b4f8] text-lg">
           🖼️ Single Viewport
         </h3>
-        <p style={{ margin: 0, color: '#b8a8c8', fontSize: '13px', lineHeight: '1.5' }}>
+        <p className="m-0 text-[#b8a8c8] text-base leading-relaxed">
           단일 DICOM 파일을 로드하여 하나의 뷰포트에서 재생합니다.
           로컬 파일 또는 WADO-RS 서버에서 데이터를 가져올 수 있습니다.
           Window/Level, Pan, Zoom, 프레임 탐색 등 기본 도구를 테스트할 수 있습니다.
         </p>
-        <div style={{ marginTop: '8px', fontSize: '11px', color: '#7a7' }}>
+        <div className="mt-2 text-xs text-[#7a7]">
           Using: @echopixel/react SingleDicomViewer
         </div>
       </div>
 
       {/* 데이터 소스 모드 선택 */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+      <div className="flex gap-2.5 mb-5">
         <button
           onClick={() => handleModeChange('local')}
-          style={{
-            padding: '10px 20px',
-            background: mode === 'local' ? '#3d2d4d' : '#252525',
-            color: mode === 'local' ? '#e8b4f8' : '#888',
-            border: mode === 'local' ? '1px solid #a47' : '1px solid #444',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontWeight: mode === 'local' ? 'bold' : 'normal',
-            transition: 'all 0.2s',
-          }}
+          className={cn(
+            'px-5 py-2.5 rounded-md cursor-pointer transition-all duration-200',
+            mode === 'local'
+              ? 'bg-[#3d2d4d] text-[#e8b4f8] border border-[#a47] font-bold'
+              : 'bg-[#252525] text-text-muted border border-[#444] font-normal hover:bg-[#303030]'
+          )}
         >
           📁 Local File
         </button>
         <button
           onClick={() => handleModeChange('wado-rs')}
-          style={{
-            padding: '10px 20px',
-            background: mode === 'wado-rs' ? '#3d2d4d' : '#252525',
-            color: mode === 'wado-rs' ? '#e8b4f8' : '#888',
-            border: mode === 'wado-rs' ? '1px solid #a47' : '1px solid #444',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontWeight: mode === 'wado-rs' ? 'bold' : 'normal',
-            transition: 'all 0.2s',
-          }}
+          className={cn(
+            'px-5 py-2.5 rounded-md cursor-pointer transition-all duration-200',
+            mode === 'wado-rs'
+              ? 'bg-[#3d2d4d] text-[#e8b4f8] border border-[#a47] font-bold'
+              : 'bg-[#252525] text-text-muted border border-[#444] font-normal hover:bg-[#303030]'
+          )}
         >
           🌐 WADO-RS
         </button>
       </div>
 
       {/* 뷰포트 사이즈 조정 */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '15px',
-          marginBottom: '15px',
-          padding: '10px 15px',
-          background: '#252525',
-          borderRadius: '4px',
-          fontSize: '13px',
-        }}
-      >
-        <span style={{ color: '#888' }}>📐 Size:</span>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#aaa' }}>
+      <div className="flex items-center gap-4 mb-4 px-4 py-2.5 bg-[#252525] rounded-md text-base">
+        <span className="text-text-muted">📐 Size:</span>
+        <label className="flex items-center gap-1.5 text-text-secondary">
           W:
           <input
             type="number"
@@ -313,18 +283,10 @@ export function SingleViewportPage({ wadoConfig, onWadoConfigChange }: SingleVie
               const val = parseInt(e.target.value) || 768;
               setViewportWidth(Math.max(200, Math.min(1920, val)));
             }}
-            style={{
-              width: '70px',
-              padding: '4px 8px',
-              background: '#1a1a1a',
-              border: '1px solid #444',
-              borderRadius: '3px',
-              color: '#fff',
-              fontSize: '13px',
-            }}
+            className="w-[70px] px-2 py-1 bg-viewer-surface-alt border border-[#444] rounded-sm text-white text-base"
           />
         </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#aaa' }}>
+        <label className="flex items-center gap-1.5 text-text-secondary">
           H:
           <input
             type="number"
@@ -339,18 +301,10 @@ export function SingleViewportPage({ wadoConfig, onWadoConfigChange }: SingleVie
               const val = parseInt(e.target.value) || 576;
               setViewportHeight(Math.max(200, Math.min(1080, val)));
             }}
-            style={{
-              width: '70px',
-              padding: '4px 8px',
-              background: '#1a1a1a',
-              border: '1px solid #444',
-              borderRadius: '3px',
-              color: '#fff',
-              fontSize: '13px',
-            }}
+            className="w-[70px] px-2 py-1 bg-viewer-surface-alt border border-[#444] rounded-sm text-white text-base"
           />
         </label>
-        <div style={{ display: 'flex', gap: '5px' }}>
+        <div className="flex gap-1.5">
           {[
             { w: 512, h: 384 },
             { w: 768, h: 576 },
@@ -362,15 +316,7 @@ export function SingleViewportPage({ wadoConfig, onWadoConfigChange }: SingleVie
                 setViewportWidth(w);
                 setViewportHeight(h);
               }}
-              style={{
-                padding: '4px 8px',
-                background: '#2a2a2a',
-                border: '1px solid #444',
-                borderRadius: '3px',
-                color: '#aaa',
-                cursor: 'pointer',
-                fontSize: '11px',
-              }}
+              className="px-2 py-1 bg-[#2a2a2a] border border-[#444] rounded-sm text-text-secondary cursor-pointer text-xs hover:bg-[#3a3a3a]"
             >
               {w}×{h}
             </button>
@@ -380,47 +326,20 @@ export function SingleViewportPage({ wadoConfig, onWadoConfigChange }: SingleVie
 
       {/* 에러/로딩 상태 */}
       {error && (
-        <div
-          style={{
-            padding: '15px',
-            marginBottom: '15px',
-            background: '#3a1a1a',
-            border: '1px solid #a44',
-            borderRadius: '4px',
-            color: '#f88',
-          }}
-        >
+        <div className="p-4 mb-4 bg-[#3a1a1a] border border-[#a44] rounded-md text-[#f88]">
           Error: {error}
         </div>
       )}
 
       {loading && (
-        <div
-          style={{
-            padding: '10px',
-            marginBottom: '15px',
-            background: '#2a2a2a',
-            color: '#fff',
-            borderRadius: '4px',
-            fontSize: '14px',
-          }}
-        >
+        <div className="p-2.5 mb-4 bg-[#2a2a2a] text-white rounded-md text-lg">
           {loading}
         </div>
       )}
 
       {/* 초기 안내 - 로컬 모드 */}
       {mode === 'local' && !viewportData && !loading && !error && (
-        <div
-          style={{
-            padding: '10px',
-            marginBottom: '15px',
-            background: '#2a2a2a',
-            color: '#888',
-            borderRadius: '4px',
-            fontSize: '14px',
-          }}
-        >
+        <div className="p-2.5 mb-4 bg-[#2a2a2a] text-text-muted rounded-md text-lg">
           DICOM 파일을 선택하세요 (ImageDecoder: {isImageDecoderSupported() ? '지원' : '미지원'})
         </div>
       )}
@@ -432,7 +351,7 @@ export function SingleViewportPage({ wadoConfig, onWadoConfigChange }: SingleVie
           onChange={onWadoConfigChange}
           onLoad={handleWadoLoad}
           loading={!!loading}
-          style={{ marginBottom: '15px' }}
+          className="mb-4"
         />
       )}
 
@@ -440,7 +359,7 @@ export function SingleViewportPage({ wadoConfig, onWadoConfigChange }: SingleVie
       {viewportData && (
         <div
           onDoubleClick={() => setExpandedView(true)}
-          style={{ cursor: 'pointer' }}
+          className="cursor-pointer"
           title="더블클릭하여 확대 보기"
         >
           <SingleDicomViewer
@@ -482,12 +401,12 @@ export function SingleViewportPage({ wadoConfig, onWadoConfigChange }: SingleVie
 
       {/* 파일 선택 - 로컬 모드만 */}
       {mode === 'local' && (
-        <div style={{ marginTop: '15px', marginBottom: '20px' }}>
+        <div className="mt-4 mb-5">
           <input
             type="file"
             accept=".dcm,.dicom,application/dicom"
             onChange={handleFileChange}
-            style={{ fontSize: '16px' }}
+            className="text-lg"
           />
         </div>
       )}
@@ -495,49 +414,41 @@ export function SingleViewportPage({ wadoConfig, onWadoConfigChange }: SingleVie
       {/* 파싱 결과 (메타데이터) - 로컬 모드만 */}
       {mode === 'local' && parseResult && (
         <div
-          style={{
-            padding: '15px',
-            background: parseResult.isValid ? '#1a3a1a' : '#3a1a1a',
-            border: `1px solid ${parseResult.isValid ? '#4a4' : '#a44'}`,
-            borderRadius: '4px',
-            color: '#fff',
-          }}
+          className={cn(
+            'p-4 rounded-md text-white',
+            parseResult.isValid
+              ? 'bg-[#1a3a1a] border border-[#4a4]'
+              : 'bg-[#3a1a1a] border border-[#a44]'
+          )}
         >
-          <h3 style={{ margin: '0 0 10px 0', fontSize: '16px' }}>
+          <h3 className="m-0 mb-2.5 text-lg">
             {fileName} - {parseResult.isValid ? '✅ Valid DICOM' : '❌ Invalid'}
           </h3>
 
           {parseResult.error && (
-            <p style={{ color: '#f88', margin: '5px 0' }}>Error: {parseResult.error}</p>
+            <p className="text-[#f88] my-1.5">Error: {parseResult.error}</p>
           )}
 
           {parseResult.isValid && parseResult.dataset && (
-            <div
-              style={{
-                display: 'grid',
-                gap: '15px',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                fontSize: '13px',
-              }}
-            >
+            <div className="grid gap-4 text-base" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
               <div>
-                <h4 style={{ margin: '0 0 8px 0', color: '#8cf', fontSize: '14px' }}>기본 정보</h4>
-                <p style={{ margin: '3px 0' }}>Tags: {parseResult.tagCount}</p>
-                <p style={{ margin: '3px 0' }}>
+                <h4 className="m-0 mb-2 text-accent-info text-lg">기본 정보</h4>
+                <p className="my-1">Tags: {parseResult.tagCount}</p>
+                <p className="my-1">
                   Transfer Syntax: {getTransferSyntaxName(parseResult.dataset.transferSyntax)}
                 </p>
-                <p style={{ margin: '3px 0' }}>
+                <p className="my-1">
                   압축: {isEncapsulated(parseResult.dataset.transferSyntax) ? 'Yes' : 'No'}
                 </p>
               </div>
 
               {parseResult.imageInfo && (
                 <div>
-                  <h4 style={{ margin: '0 0 8px 0', color: '#8cf', fontSize: '14px' }}>이미지 정보</h4>
-                  <p style={{ margin: '3px 0' }}>
+                  <h4 className="m-0 mb-2 text-accent-info text-lg">이미지 정보</h4>
+                  <p className="my-1">
                     크기: {parseResult.imageInfo.columns} x {parseResult.imageInfo.rows}
                   </p>
-                  <p style={{ margin: '3px 0' }}>
+                  <p className="my-1">
                     Bits: {parseResult.imageInfo.bitsAllocated} / {parseResult.imageInfo.bitsStored}
                   </p>
                 </div>
@@ -545,8 +456,8 @@ export function SingleViewportPage({ wadoConfig, onWadoConfigChange }: SingleVie
 
               {parseResult.pixelData && (
                 <div>
-                  <h4 style={{ margin: '0 0 8px 0', color: '#8cf', fontSize: '14px' }}>픽셀 데이터</h4>
-                  <p style={{ margin: '3px 0' }}>프레임 수: {parseResult.pixelData.frameCount}</p>
+                  <h4 className="m-0 mb-2 text-accent-info text-lg">픽셀 데이터</h4>
+                  <p className="my-1">프레임 수: {parseResult.pixelData.frameCount}</p>
                 </div>
               )}
             </div>

@@ -5,6 +5,8 @@
  * 우클릭(W/L), 중클릭(Pan), 휠(Scroll/Zoom)은 고정입니다.
  */
 
+import { cn } from '../../utils';
+
 /**
  * 도구 정의
  */
@@ -183,18 +185,12 @@ export function DicomToolbar({
 
   return (
     <div
-      className={className}
-      style={{
-        display: 'flex',
-        flexDirection: isHorizontal ? 'row' : 'column',
-        flexWrap: 'wrap', // 넘치면 자동 줄바꿈
-        gap: '4px',
-        padding: '8px',
-        background: '#1a1a2e',
-        borderRadius: '4px',
-        alignItems: 'center',
-        ...style,
-      }}
+      className={cn(
+        'flex flex-wrap gap-1 p-2 bg-viewer-surface rounded-md items-center',
+        isHorizontal ? 'flex-row' : 'flex-col',
+        className
+      )}
+      style={style}
     >
       {tools.map((tool) => {
         const isActive = tool.id === activeTool;
@@ -206,23 +202,15 @@ export function DicomToolbar({
             onClick={() => !isDisabled && onToolChange(tool.id)}
             disabled={isDisabled}
             title={tool.description || tool.name}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '4px',
-              padding: compact ? '8px' : '8px 12px',
-              minWidth: compact ? '36px' : '60px',
-              background: isActive ? '#3a5a8a' : isDisabled ? '#2a2a2a' : '#2a2a4a',
-              color: isActive ? '#fff' : isDisabled ? '#555' : '#aaa',
-              border: isActive ? '2px solid #5a8aba' : '2px solid transparent',
-              borderRadius: '4px',
-              cursor: isDisabled ? 'not-allowed' : 'pointer',
-              fontSize: compact ? '16px' : '13px',
-              fontWeight: isActive ? 'bold' : 'normal',
-              transition: 'all 0.15s ease',
-              opacity: isDisabled ? 0.5 : 1,
-            }}
+            className={cn(
+              'flex items-center justify-center gap-1 rounded-md border-2 transition-all duration-150',
+              compact ? 'p-2 min-w-[36px] text-[16px]' : 'py-2 px-3 min-w-[60px] text-base',
+              isActive
+                ? 'bg-[#3a5a8a] text-text-primary border-border-active font-bold'
+                : isDisabled
+                  ? 'bg-[#2a2a2a] text-text-disabled border-transparent cursor-not-allowed opacity-50'
+                  : 'bg-viewer-panel text-text-secondary border-transparent cursor-pointer'
+            )}
           >
             {tool.icon && <span>{tool.icon}</span>}
             {!compact && <span>{tool.name}</span>}
@@ -233,12 +221,10 @@ export function DicomToolbar({
       {/* 구분선 (회전, 플립, 어노테이션 토글, 또는 리셋 버튼이 있을 때) */}
       {(showRotateButtons || showFlipButtons || showAnnotationToggle || showResetButton) && (
         <div
-          style={{
-            width: isHorizontal ? '1px' : '80%',
-            height: isHorizontal ? '24px' : '1px',
-            background: '#444',
-            margin: isHorizontal ? '0 4px' : '4px 0',
-          }}
+          className={cn(
+            'bg-[#444]',
+            isHorizontal ? 'w-px h-6 mx-1' : 'w-4/5 h-px my-1'
+          )}
         />
       )}
 
@@ -248,21 +234,10 @@ export function DicomToolbar({
           <button
             onClick={onRotateLeft}
             title="좌 90° 회전"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '4px',
-              padding: compact ? '8px' : '8px 12px',
-              minWidth: compact ? '36px' : '50px',
-              background: '#2a4a3a',
-              color: '#afa',
-              border: '2px solid transparent',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: compact ? '16px' : '13px',
-              transition: 'all 0.15s ease',
-            }}
+            className={cn(
+              'flex items-center justify-center gap-1 bg-[#2a4a3a] text-[#afa] border-2 border-transparent rounded-md cursor-pointer transition-all duration-150',
+              compact ? 'p-2 min-w-[36px] text-[16px]' : 'py-2 px-3 min-w-[50px] text-base'
+            )}
           >
             <span>↺</span>
             {!compact && <span>좌</span>}
@@ -270,21 +245,10 @@ export function DicomToolbar({
           <button
             onClick={onRotateRight}
             title="우 90° 회전"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '4px',
-              padding: compact ? '8px' : '8px 12px',
-              minWidth: compact ? '36px' : '50px',
-              background: '#2a4a3a',
-              color: '#afa',
-              border: '2px solid transparent',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: compact ? '16px' : '13px',
-              transition: 'all 0.15s ease',
-            }}
+            className={cn(
+              'flex items-center justify-center gap-1 bg-[#2a4a3a] text-[#afa] border-2 border-transparent rounded-md cursor-pointer transition-all duration-150',
+              compact ? 'p-2 min-w-[36px] text-[16px]' : 'py-2 px-3 min-w-[50px] text-base'
+            )}
           >
             <span>↻</span>
             {!compact && <span>우</span>}
@@ -298,21 +262,13 @@ export function DicomToolbar({
           <button
             onClick={onFlipHorizontal}
             title="가로 플립 (좌우 반전)"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '4px',
-              padding: compact ? '8px' : '8px 12px',
-              minWidth: compact ? '36px' : '50px',
-              background: flipH ? '#4a4a2a' : '#2a3a4a',
-              color: flipH ? '#ff8' : '#8cf',
-              border: flipH ? '2px solid #aa8' : '2px solid transparent',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: compact ? '16px' : '13px',
-              transition: 'all 0.15s ease',
-            }}
+            className={cn(
+              'flex items-center justify-center gap-1 rounded-md border-2 cursor-pointer transition-all duration-150',
+              compact ? 'p-2 min-w-[36px] text-[16px]' : 'py-2 px-3 min-w-[50px] text-base',
+              flipH
+                ? 'bg-[#4a4a2a] text-[#ff8] border-[#aa8]'
+                : 'bg-[#2a3a4a] text-accent-info border-transparent'
+            )}
           >
             <span>⇆</span>
             {!compact && <span>가로</span>}
@@ -320,21 +276,13 @@ export function DicomToolbar({
           <button
             onClick={onFlipVertical}
             title="세로 플립 (상하 반전)"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '4px',
-              padding: compact ? '8px' : '8px 12px',
-              minWidth: compact ? '36px' : '50px',
-              background: flipV ? '#4a4a2a' : '#2a3a4a',
-              color: flipV ? '#ff8' : '#8cf',
-              border: flipV ? '2px solid #aa8' : '2px solid transparent',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: compact ? '16px' : '13px',
-              transition: 'all 0.15s ease',
-            }}
+            className={cn(
+              'flex items-center justify-center gap-1 rounded-md border-2 cursor-pointer transition-all duration-150',
+              compact ? 'p-2 min-w-[36px] text-[16px]' : 'py-2 px-3 min-w-[50px] text-base',
+              flipV
+                ? 'bg-[#4a4a2a] text-[#ff8] border-[#aa8]'
+                : 'bg-[#2a3a4a] text-accent-info border-transparent'
+            )}
           >
             <span>⇅</span>
             {!compact && <span>세로</span>}
@@ -347,21 +295,13 @@ export function DicomToolbar({
         <button
           onClick={() => onAnnotationsVisibilityChange?.(!annotationsVisible)}
           title={annotationsVisible ? '어노테이션 숨기기' : '어노테이션 표시'}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '4px',
-            padding: compact ? '8px' : '8px 12px',
-            minWidth: compact ? '36px' : '70px',
-            background: annotationsVisible ? '#2a4a4a' : '#3a3a3a',
-            color: annotationsVisible ? '#8ff' : '#888',
-            border: annotationsVisible ? '2px solid #5aa' : '2px solid transparent',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: compact ? '16px' : '13px',
-            transition: 'all 0.15s ease',
-          }}
+          className={cn(
+            'flex items-center justify-center gap-1 rounded-md border-2 cursor-pointer transition-all duration-150',
+            compact ? 'p-2 min-w-[36px] text-[16px]' : 'py-2 px-3 min-w-[70px] text-base',
+            annotationsVisible
+              ? 'bg-[#2a4a4a] text-[#8ff] border-[#5aa]'
+              : 'bg-[#3a3a3a] text-text-muted border-transparent'
+          )}
         >
           <span>{annotationsVisible ? '👁' : '👁‍🗨'}</span>
           {!compact && <span>{annotationsVisible ? '표시' : '숨김'}</span>}
@@ -373,21 +313,10 @@ export function DicomToolbar({
         <button
           onClick={onReset}
           title="뷰포트 리셋 (R)"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '4px',
-            padding: compact ? '8px' : '8px 12px',
-            minWidth: compact ? '36px' : '60px',
-            background: '#4a2a2a',
-            color: '#faa',
-            border: '2px solid transparent',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: compact ? '16px' : '13px',
-            transition: 'all 0.15s ease',
-          }}
+          className={cn(
+            'flex items-center justify-center gap-1 bg-[#4a2a2a] text-[#faa] border-2 border-transparent rounded-md cursor-pointer transition-all duration-150',
+            compact ? 'p-2 min-w-[36px] text-[16px]' : 'py-2 px-3 min-w-[60px] text-base'
+          )}
         >
           <span>🔄</span>
           {!compact && <span>리셋</span>}

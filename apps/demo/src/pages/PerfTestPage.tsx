@@ -12,6 +12,7 @@ import {
   closeDecodedFrame,
   type DicomInstanceId,
 } from '@echopixel/core';
+import { cn } from '@echopixel/react';
 import { InstanceSelector } from '../components';
 import { useInstanceScanner } from '../hooks';
 import type { WadoConfig } from '../types/demo';
@@ -378,39 +379,23 @@ export function PerfTestPage({ wadoConfig, onWadoConfigChange }: PerfTestPagePro
   const displayError = error || scanError;
 
   return (
-    <div style={{ padding: '20px' }}>
+    <div className="p-5">
       {/* 모드 설명 패널 */}
-      <div
-        style={{
-          padding: '15px',
-          marginBottom: '15px',
-          background: '#3d2d1f',
-          border: '1px solid #a74',
-          borderRadius: '4px',
-        }}
-      >
-        <h3 style={{ margin: '0 0 10px 0', color: '#f8d8b4', fontSize: '16px' }}>
+      <div className="p-4 mb-4 bg-[#3d2d1f] border border-[#a74] rounded-md">
+        <h3 className="m-0 mb-2.5 text-[#f8d8b4] text-lg">
           🚀 Performance Test (Pure WebGL)
         </h3>
-        <p style={{ margin: 0, color: '#d8c8b8', fontSize: '13px', lineHeight: '1.5' }}>
+        <p className="m-0 text-[#d8c8b8] text-base leading-relaxed">
           DOM Overlay 없이 순수 WebGL로만 렌더링합니다. Hybrid DOM-WebGL 방식과 성능을 비교할 수
           있습니다.
         </p>
-        <div
-          style={{
-            marginTop: '12px',
-            padding: '10px',
-            background: 'rgba(0,0,0,0.3)',
-            borderRadius: '4px',
-            fontSize: '12px',
-          }}
-        >
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+        <div className="mt-3 p-2.5 bg-black/30 rounded-md text-sm">
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <div style={{ color: '#8f8', fontWeight: 'bold', marginBottom: '5px' }}>
+              <div className="text-accent-success font-bold mb-1.5">
                 Pure WebGL (이 모드)
               </div>
-              <ul style={{ margin: '0', paddingLeft: '20px', color: '#aaa' }}>
+              <ul className="m-0 pl-5 text-text-secondary">
                 <li>Frame Time: ~0.1ms</li>
                 <li>GPU 작업만 (CPU 최소)</li>
                 <li>DOM 조작 없음</li>
@@ -418,10 +403,10 @@ export function PerfTestPage({ wadoConfig, onWadoConfigChange }: PerfTestPagePro
               </ul>
             </div>
             <div>
-              <div style={{ color: '#8cf', fontWeight: 'bold', marginBottom: '5px' }}>
+              <div className="text-accent-info font-bold mb-1.5">
                 Hybrid DOM-WebGL (Multi 모드)
               </div>
-              <ul style={{ margin: '0', paddingLeft: '20px', color: '#aaa' }}>
+              <ul className="m-0 pl-5 text-text-secondary">
                 <li>Frame Time: ~1-3ms</li>
                 <li>React 컴포넌트 사용 가능</li>
                 <li>DOM 이벤트 활용</li>
@@ -429,137 +414,82 @@ export function PerfTestPage({ wadoConfig, onWadoConfigChange }: PerfTestPagePro
               </ul>
             </div>
           </div>
-          <div style={{ marginTop: '10px', color: '#fa8', fontSize: '11px' }}>
+          <div className="mt-2.5 text-accent-warning text-xs">
             ※ 둘 다 60fps(16.6ms) 충족. 기능 vs 성능 트레이드오프.
           </div>
         </div>
-        <div style={{ marginTop: '8px', fontSize: '11px', color: '#a74' }}>
+        <div className="mt-2 text-xs text-[#a74]">
           Using: @echopixel/core ViewportManager, RenderScheduler, ArrayTextureRenderer
         </div>
       </div>
 
       {/* 에러 표시 */}
       {displayError && (
-        <div
-          style={{
-            padding: '15px',
-            marginBottom: '15px',
-            background: '#3a1a1a',
-            border: '1px solid #a44',
-            borderRadius: '4px',
-            color: '#f88',
-          }}
-        >
+        <div className="p-4 mb-4 bg-[#3a1a1a] border border-[#a44] rounded-md text-[#f88]">
           Error: {displayError}
         </div>
       )}
 
       {/* WADO-RS 설정 */}
-      <div
-        style={{
-          padding: '15px',
-          marginBottom: '15px',
-          background: '#2a2a3a',
-          borderRadius: '4px',
-        }}
-      >
-        <h4 style={{ margin: '0 0 10px 0', color: '#aaa', fontSize: '14px' }}>📡 WADO-RS 설정</h4>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <label style={{ width: '100px', color: '#888' }}>Base URL:</label>
+      <div className="p-4 mb-4 bg-[#2a2a3a] rounded-md">
+        <h4 className="m-0 mb-2.5 text-text-secondary text-lg">📡 WADO-RS 설정</h4>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <label className="w-[100px] text-text-muted">Base URL:</label>
             <input
               type="text"
               value={wadoConfig.baseUrl}
               onChange={(e) => onWadoConfigChange({ ...wadoConfig, baseUrl: e.target.value })}
-              style={{
-                flex: 1,
-                padding: '6px 10px',
-                background: '#1a1a2a',
-                border: '1px solid #444',
-                borderRadius: '4px',
-                color: '#fff',
-                fontFamily: 'monospace',
-                fontSize: '12px',
-              }}
+              className="flex-1 px-2.5 py-1.5 bg-[#1a1a2a] border border-[#444] rounded-md text-white font-mono text-sm"
             />
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <label style={{ width: '100px', color: '#888' }}>Study UID:</label>
+          <div className="flex items-center gap-2">
+            <label className="w-[100px] text-text-muted">Study UID:</label>
             <input
               type="text"
               value={wadoConfig.studyUid}
               onChange={(e) => onWadoConfigChange({ ...wadoConfig, studyUid: e.target.value })}
-              style={{
-                flex: 1,
-                padding: '6px 10px',
-                background: '#1a1a2a',
-                border: '1px solid #444',
-                borderRadius: '4px',
-                color: '#fff',
-                fontFamily: 'monospace',
-                fontSize: '12px',
-              }}
+              className="flex-1 px-2.5 py-1.5 bg-[#1a1a2a] border border-[#444] rounded-md text-white font-mono text-sm"
             />
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <label style={{ width: '100px', color: '#888' }}>Series UID:</label>
+          <div className="flex items-center gap-2">
+            <label className="w-[100px] text-text-muted">Series UID:</label>
             <input
               type="text"
               value={wadoConfig.seriesUid}
               onChange={(e) => onWadoConfigChange({ ...wadoConfig, seriesUid: e.target.value })}
-              style={{
-                flex: 1,
-                padding: '6px 10px',
-                background: '#1a1a2a',
-                border: '1px solid #444',
-                borderRadius: '4px',
-                color: '#fff',
-                fontFamily: 'monospace',
-                fontSize: '12px',
-              }}
+              className="flex-1 px-2.5 py-1.5 bg-[#1a1a2a] border border-[#444] rounded-md text-white font-mono text-sm"
             />
           </div>
         </div>
       </div>
 
       {/* 뷰포트 개수 설정 */}
-      <div
-        style={{
-          padding: '15px',
-          marginBottom: '15px',
-          background: '#2a2a3a',
-          borderRadius: '4px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <label style={{ color: '#aaa' }}>뷰포트 개수:</label>
+      <div className="p-4 mb-4 bg-[#2a2a3a] rounded-md">
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-2">
+            <label className="text-text-secondary">뷰포트 개수:</label>
             <input
               type="range"
               min="1"
               max="100"
               value={viewportCount}
               onChange={(e) => setViewportCount(Number(e.target.value))}
-              style={{ width: '200px' }}
+              className="w-[200px]"
             />
-            <span style={{ color: '#f8d8b4', fontWeight: 'bold', minWidth: '40px' }}>
+            <span className="text-[#f8d8b4] font-bold min-w-[40px]">
               {viewportCount}
             </span>
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div className="flex gap-2">
             {[4, 9, 16, 25, 36, 64, 100].map((n) => (
               <button
                 key={n}
                 onClick={() => setViewportCount(n)}
-                style={{
-                  padding: '4px 8px',
-                  fontSize: '11px',
-                  background: viewportCount === n ? '#a74' : '#444',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '3px',
-                  cursor: 'pointer',
-                }}
+                className={cn(
+                  'px-2 py-1 text-xs text-white border-none rounded-sm cursor-pointer',
+                  viewportCount === n ? 'bg-[#a74]' : 'bg-[#444] hover:bg-[#555]'
+                )}
               >
                 {n}
               </button>
@@ -569,20 +499,16 @@ export function PerfTestPage({ wadoConfig, onWadoConfigChange }: PerfTestPagePro
       </div>
 
       {/* 스캔 및 로드 버튼 */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+      <div className="flex gap-2.5 mb-4">
         <button
           onClick={handleScan}
           disabled={!!scanningStatus}
-          style={{
-            padding: '10px 20px',
-            fontSize: '14px',
-            background: '#4a4a6a',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: scanningStatus ? 'not-allowed' : 'pointer',
-            opacity: scanningStatus ? 0.7 : 1,
-          }}
+          className={cn(
+            'px-5 py-2.5 text-lg text-white border-none rounded-md',
+            scanningStatus
+              ? 'bg-[#4a4a6a] cursor-not-allowed opacity-70'
+              : 'bg-[#4a4a6a] cursor-pointer hover:bg-[#5a5a7a]'
+          )}
         >
           {scanningStatus || '🔍 Instance 스캔'}
         </button>
@@ -590,16 +516,12 @@ export function PerfTestPage({ wadoConfig, onWadoConfigChange }: PerfTestPagePro
         <button
           onClick={handleLoad}
           disabled={selectedUids.size === 0 || isLoading}
-          style={{
-            padding: '10px 20px',
-            fontSize: '14px',
-            background: selectedUids.size === 0 ? '#333' : '#a74',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: selectedUids.size === 0 ? 'not-allowed' : 'pointer',
-            opacity: selectedUids.size === 0 ? 0.5 : 1,
-          }}
+          className={cn(
+            'px-5 py-2.5 text-lg text-white border-none rounded-md',
+            selectedUids.size === 0
+              ? 'bg-[#333] cursor-not-allowed opacity-50'
+              : 'bg-[#a74] cursor-pointer hover:bg-[#b85]'
+          )}
         >
           {isLoading
             ? '로딩 중...'
@@ -616,52 +538,36 @@ export function PerfTestPage({ wadoConfig, onWadoConfigChange }: PerfTestPagePro
           onToggle={toggleSelection}
           onSelectAllPlayable={() => selectAllPlayable(viewportCount)}
           onClearSelection={clearSelection}
-          style={{ marginBottom: '15px' }}
+          className="mb-4"
         />
       )}
 
       {/* Pure WebGL 캔버스 영역 */}
-      <div
-        style={{
-          marginBottom: '15px',
-          display: selectedUids.size > 0 || isReady ? 'block' : 'none',
-        }}
-      >
+      <div className={cn('mb-4', (selectedUids.size > 0 || isReady) ? 'block' : 'hidden')}>
         {/* 성능 통계 */}
         {isReady && (
-          <div
-            style={{
-              padding: '10px 15px',
-              marginBottom: '10px',
-              background: '#1a2a1a',
-              border: '1px solid #4a6',
-              borderRadius: '4px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '30px',
-            }}
-          >
+          <div className="px-4 py-2.5 mb-2.5 bg-[#1a2a1a] border border-[#4a6] rounded-md flex items-center gap-8">
             <div>
-              <span style={{ color: '#888', marginRight: '8px' }}>FPS:</span>
-              <span style={{ color: '#8f8', fontWeight: 'bold', fontSize: '18px' }}>
+              <span className="text-text-muted mr-2">FPS:</span>
+              <span className="text-accent-success font-bold text-xl">
                 {stats.fps.toFixed(1)}
               </span>
             </div>
             <div>
-              <span style={{ color: '#888', marginRight: '8px' }}>Frame Time:</span>
-              <span style={{ color: '#f8f', fontWeight: 'bold', fontSize: '18px' }}>
+              <span className="text-text-muted mr-2">Frame Time:</span>
+              <span className="text-[#f8f] font-bold text-xl">
                 {stats.frameTime.toFixed(2)} ms
               </span>
             </div>
             <div>
-              <span style={{ color: '#888', marginRight: '8px' }}>VRAM:</span>
-              <span style={{ color: '#ff8', fontWeight: 'bold', fontSize: '18px' }}>
+              <span className="text-text-muted mr-2">VRAM:</span>
+              <span className="text-[#ff8] font-bold text-xl">
                 {stats.vramMB.toFixed(0)} MB
               </span>
             </div>
             <div>
-              <span style={{ color: '#888', marginRight: '8px' }}>Viewports:</span>
-              <span style={{ color: '#8cf', fontWeight: 'bold', fontSize: '18px' }}>
+              <span className="text-text-muted mr-2">Viewports:</span>
+              <span className="text-accent-info font-bold text-xl">
                 {viewportCount}
               </span>
             </div>
@@ -669,64 +575,37 @@ export function PerfTestPage({ wadoConfig, onWadoConfigChange }: PerfTestPagePro
         )}
 
         {/* 캔버스 */}
-        <div
-          style={{
-            border: '2px solid #a74',
-            borderRadius: '4px',
-            overflow: 'hidden',
-          }}
-        >
+        <div className="border-2 border-[#a74] rounded-md overflow-hidden">
           <canvas
             ref={canvasRef}
             width={1280}
             height={960}
-            style={{
-              display: 'block',
-              width: '100%',
-              maxWidth: '1280px',
-              background: '#000',
-            }}
+            className="block w-full max-w-[1280px] bg-black"
           />
         </div>
 
         {/* 컨트롤 */}
         {isReady && (
-          <div
-            style={{
-              padding: '12px',
-              marginTop: '10px',
-              background: '#1a1a2e',
-              borderRadius: '4px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '16px',
-            }}
-          >
+          <div className="p-3 mt-2.5 bg-viewer-surface rounded-md flex items-center gap-4">
             <button
               onClick={togglePlay}
-              style={{
-                padding: '8px 20px',
-                fontSize: '14px',
-                background: isPlaying ? '#c44' : '#4c4',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                minWidth: '100px',
-              }}
+              className={cn(
+                'px-5 py-2 text-lg text-white border-none rounded-md cursor-pointer min-w-[100px]',
+                isPlaying ? 'bg-accent-error' : 'bg-accent-success'
+              )}
             >
               {isPlaying ? '⏸ Stop' : '▶ Play All'}
             </button>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <label style={{ color: '#aaa' }}>FPS:</label>
+            <div className="flex items-center gap-2">
+              <label className="text-text-secondary">FPS:</label>
               <input
                 type="number"
                 min={1}
                 max={120}
                 value={fps}
                 onChange={(e) => handleFpsChange(Math.max(1, Math.min(120, Number(e.target.value))))}
-                style={{ width: '50px', padding: '4px' }}
+                className="w-[50px] p-1"
               />
               <input
                 type="range"
@@ -734,36 +613,20 @@ export function PerfTestPage({ wadoConfig, onWadoConfigChange }: PerfTestPagePro
                 max={120}
                 value={fps}
                 onChange={(e) => handleFpsChange(Number(e.target.value))}
-                style={{ width: '100px' }}
+                className="w-[100px]"
               />
             </div>
 
             <button
               onClick={handleReset}
-              style={{
-                padding: '6px 12px',
-                fontSize: '12px',
-                background: '#444',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-              }}
+              className="px-3 py-1.5 text-sm bg-[#444] text-white border-none rounded-md cursor-pointer hover:bg-[#555]"
             >
               🔄 리셋
             </button>
 
             <button
               onClick={handleCleanup}
-              style={{
-                padding: '6px 12px',
-                fontSize: '12px',
-                background: '#644',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-              }}
+              className="px-3 py-1.5 text-sm bg-[#644] text-white border-none rounded-md cursor-pointer hover:bg-[#755]"
             >
               🗑 정리
             </button>
@@ -773,31 +636,15 @@ export function PerfTestPage({ wadoConfig, onWadoConfigChange }: PerfTestPagePro
 
       {/* 로딩 상태 */}
       {isLoading && (
-        <div
-          style={{
-            padding: '40px',
-            background: '#1a1a2a',
-            borderRadius: '4px',
-            textAlign: 'center',
-            color: '#f8d8b4',
-          }}
-        >
-          <div style={{ fontSize: '20px', marginBottom: '10px' }}>⏳</div>
+        <div className="p-10 bg-[#1a1a2a] rounded-md text-center text-[#f8d8b4]">
+          <div className="text-xl mb-2.5">⏳</div>
           Pure WebGL 모드로 DICOM 데이터를 로딩 중입니다...
         </div>
       )}
 
       {/* 초기 안내 */}
       {!isReady && !isLoading && scannedInstances.length === 0 && (
-        <div
-          style={{
-            padding: '20px',
-            background: '#1a1a2a',
-            borderRadius: '4px',
-            textAlign: 'center',
-            color: '#888',
-          }}
-        >
+        <div className="p-5 bg-[#1a1a2a] rounded-md text-center text-text-muted">
           'Instance 스캔' 버튼을 클릭하여 Series 내 Instance를 조회하세요.
           <br />
           스캔 후 Instance를 선택하고 'Pure WebGL 로드' 버튼을 클릭하세요.

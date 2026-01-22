@@ -41,6 +41,7 @@ import {
   type ReactNode,
   type CSSProperties,
 } from 'react';
+import { cn } from '../../utils';
 
 /**
  * HybridViewportGrid Props
@@ -130,13 +131,10 @@ export const HybridViewportGrid = forwardRef<
   return (
     <div
       ref={containerRef}
-      className={className}
+      className={cn('relative bg-viewer-surface-alt overflow-hidden', className)}
       style={{
-        position: 'relative',
         width: `${width}px`,
         height: `${height}px`,
-        background: '#1a1a1a', // 어두운 회색 - DICOM 이미지와 구분
-        overflow: 'hidden',
         ...style,
       }}
     >
@@ -145,34 +143,17 @@ export const HybridViewportGrid = forwardRef<
         ref={canvasRef}
         width={canvasWidth}
         height={canvasHeight}
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          zIndex: 0,
-          // 이벤트는 DOM Grid에서 처리
-          pointerEvents: 'none',
-        }}
+        className="absolute inset-0 w-full h-full z-0 pointer-events-none"
       />
 
       {/* DOM Grid (z-index: 1) */}
       <div
+        className="absolute inset-0 w-full h-full z-[1] grid box-border"
         style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          zIndex: 1,
-          // CSS Grid 레이아웃
-          display: 'grid',
           gridTemplateRows: `repeat(${rows}, 1fr)`,
           gridTemplateColumns: `repeat(${cols}, 1fr)`,
           gap: `${gap}px`,
           padding: `${gap}px`,
-          boxSizing: 'border-box',
         }}
       >
         {children}

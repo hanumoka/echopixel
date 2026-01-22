@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import { cn } from '../../utils';
 
 /**
  * DicomMiniOverlay - 간소화된 뷰포트 오버레이
@@ -127,78 +128,59 @@ export function DicomMiniOverlay({
 }: DicomMiniOverlayProps) {
   // 도구바가 상단 별도 영역에 표시되는지 여부
   const showTopToolbar = toolbarPosition === 'top' && showAnnotationTools && isSelected;
-  // 도구 버튼 스타일 (32x32px로 증가, 가시성 개선)
-  const toolButtonStyle: CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '32px',
-    height: '32px',
-    background: 'rgba(0, 0, 0, 0.7)',
-    color: '#ccc',
-    border: '1px solid rgba(255, 255, 255, 0.2)',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontSize: '16px',
-    padding: 0,
-    transition: 'all 0.15s ease',
-    pointerEvents: 'auto', // 버튼만 클릭 가능
-  };
 
-  const activeToolButtonStyle: CSSProperties = {
-    ...toolButtonStyle,
-    background: 'rgba(74, 158, 255, 0.6)',
-    color: '#fff',
-  };
+  // 도구 버튼 클래스
+  const toolButtonClass = 'flex items-center justify-center w-8 h-8 bg-black/70 text-[#ccc] border border-border rounded-md cursor-pointer text-[16px] p-0 transition-all duration-150 pointer-events-auto';
+  const activeToolButtonClass = 'flex items-center justify-center w-8 h-8 bg-accent-primary/60 text-text-primary border border-border rounded-md cursor-pointer text-[16px] p-0 transition-all duration-150 pointer-events-auto';
 
   // 도구바 렌더링 함수
   const renderToolbar = () => (
-    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+    <div className="flex gap-1 flex-wrap">
       {/* 조작 도구 */}
       <button
         onClick={() => onToolChange?.('WindowLevel')}
         title="밝기/대비 조정 (W/L)"
-        style={activeTool === 'WindowLevel' ? activeToolButtonStyle : toolButtonStyle}
+        className={activeTool === 'WindowLevel' ? activeToolButtonClass : toolButtonClass}
       >
         ☀️
       </button>
       <button
         onClick={() => onToolChange?.('Pan')}
         title="이미지 이동"
-        style={activeTool === 'Pan' ? activeToolButtonStyle : toolButtonStyle}
+        className={activeTool === 'Pan' ? activeToolButtonClass : toolButtonClass}
       >
         ✋
       </button>
       <button
         onClick={() => onToolChange?.('Zoom')}
         title="확대/축소"
-        style={activeTool === 'Zoom' ? activeToolButtonStyle : toolButtonStyle}
+        className={activeTool === 'Zoom' ? activeToolButtonClass : toolButtonClass}
       >
         🔍
       </button>
 
       {/* 구분선 */}
-      <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.3)', margin: '0 2px' }} />
+      <div className="w-px h-6 bg-white/30 mx-0.5" />
 
       {/* 어노테이션 도구 */}
       <button
         onClick={() => onToolChange?.('Length')}
         title="거리 측정"
-        style={activeTool === 'Length' ? activeToolButtonStyle : toolButtonStyle}
+        className={activeTool === 'Length' ? activeToolButtonClass : toolButtonClass}
       >
         📏
       </button>
       <button
         onClick={() => onToolChange?.('Angle')}
         title="각도 측정"
-        style={activeTool === 'Angle' ? activeToolButtonStyle : toolButtonStyle}
+        className={activeTool === 'Angle' ? activeToolButtonClass : toolButtonClass}
       >
         ∠
       </button>
       <button
         onClick={() => onToolChange?.('Point')}
         title="점 마커"
-        style={activeTool === 'Point' ? activeToolButtonStyle : toolButtonStyle}
+        className={activeTool === 'Point' ? activeToolButtonClass : toolButtonClass}
       >
         ●
       </button>
@@ -207,93 +189,52 @@ export function DicomMiniOverlay({
 
   return (
     <div
-      className={className}
+      className={cn(
+        'absolute inset-0 pointer-events-none flex flex-col',
+        'text-text-primary text-xs font-mono',
+        isSelected ? 'border-2 border-accent-primary' : 'border-2 border-transparent',
+        'box-border',
+        className
+      )}
       style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        pointerEvents: 'none',
-        display: 'flex',
-        flexDirection: 'column',
-        color: '#fff',
-        fontSize: '11px',
-        fontFamily: 'monospace',
         textShadow: '0 1px 2px rgba(0, 0, 0, 0.8)',
-        // 선택됨 상태 표시
-        border: isSelected ? '2px solid #4a9eff' : '2px solid transparent',
-        boxSizing: 'border-box',
         ...style,
       }}
     >
       {/* 상단 도구바 영역 (이미지 밖) */}
       {showTopToolbar && (
         <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            minHeight: `${toolbarHeight}px`,
-            padding: '8px 12px',
-            background: 'rgba(20, 25, 40, 0.95)',
-            borderBottom: '2px solid rgba(74, 158, 255, 0.5)',
-            pointerEvents: 'auto',
-            flexShrink: 0,
-            gap: '8px',
-          }}
+          className="flex items-center justify-center py-2 px-3 bg-[rgba(20,25,40,0.95)] border-b-2 border-accent-primary/50 pointer-events-auto shrink-0 gap-2"
+          style={{ minHeight: `${toolbarHeight}px` }}
         >
           {renderToolbar()}
         </div>
       )}
 
       {/* 메인 이미지 영역 오버레이 */}
-      <div
-        style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          padding: '4px',
-        }}
-      >
+      <div className="flex-1 flex flex-col justify-between p-1">
         {/* 상단 정보 영역 */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-          }}
-        >
+        <div className="flex justify-between items-start">
           {/* 좌상단: 인덱스 또는 라벨 */}
           {(showIndex || label) && (
             <span
-              style={{
-                background: isSelected
-                  ? 'rgba(74, 158, 255, 0.7)'
-                  : 'rgba(0, 0, 0, 0.5)',
-                padding: '2px 6px',
-                borderRadius: '3px',
-              }}
+              className={cn(
+                'py-0.5 px-1.5 rounded',
+                isSelected ? 'bg-accent-primary/70' : 'bg-black/50'
+              )}
             >
               {label ?? `#${(index ?? 0) + 1}`}
             </span>
           )}
 
           {/* 우상단: 도구 버튼 (overlay 모드) 및 재생 상태 */}
-          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+          <div className="flex gap-1 items-center">
             {/* 도구 버튼 (overlay 모드, 선택됨 상태에서만) */}
             {toolbarPosition === 'overlay' && showAnnotationTools && isSelected && renderToolbar()}
 
             {/* 재생 상태 */}
             {showPlayState && isPlaying && (
-              <span
-                style={{
-                  background: 'rgba(76, 175, 80, 0.7)',
-                  padding: '2px 6px',
-                  borderRadius: '3px',
-                }}
-              >
+              <span className="bg-accent-success/70 py-0.5 px-1.5 rounded">
                 ▶
               </span>
             )}
@@ -301,57 +242,37 @@ export function DicomMiniOverlay({
         </div>
 
         {/* 하단 정보 영역 */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-end',
-          }}
-        >
+        <div className="flex justify-between items-end">
           {/* 좌하단: 프레임 카운터 */}
           {showFrameInfo && totalFrames > 0 && (
-            <span
-              style={{
-                background: 'rgba(0, 0, 0, 0.5)',
-                padding: '2px 6px',
-                borderRadius: '3px',
-              }}
-            >
+            <span className="bg-black/50 py-0.5 px-1.5 rounded">
               {currentFrame + 1} / {totalFrames}
             </span>
           )}
 
           {/* 우하단: W/L 값 또는 도구 버튼 */}
-          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+          <div className="flex gap-1 items-center">
             {showWindowLevel && windowLevel && (
-              <span
-                style={{
-                  background: 'rgba(0, 0, 0, 0.5)',
-                  padding: '2px 6px',
-                  borderRadius: '3px',
-                  fontSize: '10px',
-                  color: '#8cf',
-                }}
-              >
+              <span className="bg-black/50 py-0.5 px-1.5 rounded text-xxs text-accent-info">
                 W:{Math.round(windowLevel.width)} L:{Math.round(windowLevel.center)}
               </span>
             )}
 
             {/* 도구 버튼 (선택됨 상태에서만 표시) */}
             {showTools && isSelected && (
-              <div style={{ display: 'flex', gap: '4px', marginLeft: '4px' }}>
+              <div className="flex gap-1 ml-1">
                 {/* 회전 버튼 */}
                 <button
                   onClick={onRotateLeft}
                   title="좌 90° 회전"
-                  style={toolButtonStyle}
+                  className={toolButtonClass}
                 >
                   ↺
                 </button>
                 <button
                   onClick={onRotateRight}
                   title="우 90° 회전"
-                  style={toolButtonStyle}
+                  className={toolButtonClass}
                 >
                   ↻
                 </button>
@@ -360,14 +281,14 @@ export function DicomMiniOverlay({
                 <button
                   onClick={onFlipH}
                   title="가로 플립 (좌우 반전)"
-                  style={flipH ? activeToolButtonStyle : toolButtonStyle}
+                  className={flipH ? activeToolButtonClass : toolButtonClass}
                 >
                   ⇆
                 </button>
                 <button
                   onClick={onFlipV}
                   title="세로 플립 (상하 반전)"
-                  style={flipV ? activeToolButtonStyle : toolButtonStyle}
+                  className={flipV ? activeToolButtonClass : toolButtonClass}
                 >
                   ⇅
                 </button>
@@ -376,26 +297,14 @@ export function DicomMiniOverlay({
                 <button
                   onClick={onReset}
                   title="리셋"
-                  style={{
-                    ...toolButtonStyle,
-                    color: '#f88',
-                  }}
+                  className={cn(toolButtonClass, 'text-[#f88]')}
                 >
                   ⟲
                 </button>
 
                 {/* 현재 상태 표시 */}
                 {(rotation !== 0 || flipH || flipV) && (
-                  <span
-                    style={{
-                      background: 'rgba(74, 158, 255, 0.5)',
-                      padding: '4px 6px',
-                      borderRadius: '4px',
-                      fontSize: '11px',
-                      color: '#fff',
-                      marginLeft: '4px',
-                    }}
-                  >
+                  <span className="bg-accent-primary/50 py-1 px-1.5 rounded-md text-xs text-text-primary ml-1">
                     {rotation !== 0 && `${rotation}°`}
                     {flipH && ' H'}
                     {flipV && ' V'}

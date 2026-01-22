@@ -2,6 +2,7 @@
  * WADO-RS 설정 입력 폼 컴포넌트
  */
 
+import { cn } from '@echopixel/react';
 import type { WadoConfig } from '../types/demo';
 
 interface WadoConfigPanelProps {
@@ -13,7 +14,7 @@ interface WadoConfigPanelProps {
   showInstanceUid?: boolean;
   showLoadButton?: boolean;
   compact?: boolean;
-  style?: React.CSSProperties;
+  className?: string;
 }
 
 export function WadoConfigPanel({
@@ -25,87 +26,76 @@ export function WadoConfigPanel({
   showInstanceUid = true,
   showLoadButton = true,
   compact = false,
-  style,
+  className,
 }: WadoConfigPanelProps) {
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    padding: compact ? '6px 8px' : '8px',
-    fontSize: compact ? '12px' : '14px',
-    background: '#2a2a3a',
-    border: '1px solid #555',
-    borderRadius: '4px',
-    color: '#fff',
-  };
+  const inputClass = cn(
+    'w-full bg-[#2a2a3a] border border-[#555] rounded-md text-white',
+    compact ? 'px-2 py-1.5 text-sm' : 'p-2 text-base'
+  );
 
-  const labelStyle: React.CSSProperties = {
-    display: 'block',
-    color: '#8cf',
-    marginBottom: '5px',
-    fontSize: compact ? '12px' : '13px',
-  };
+  const labelClass = cn(
+    'block text-accent-info mb-1.5',
+    compact ? 'text-sm' : 'text-base'
+  );
 
   return (
     <div
-      style={{
-        padding: '15px',
-        background: '#1a2a3a',
-        border: '1px solid #47a',
-        borderRadius: '4px',
-        ...style,
-      }}
+      className={cn(
+        'p-4 bg-[#1a2a3a] border border-[#47a] rounded-md',
+        className
+      )}
     >
-      <div style={{ marginBottom: '10px' }}>
-        <label style={labelStyle}>DICOM Web Base URL</label>
+      <div className="mb-2.5">
+        <label className={labelClass}>DICOM Web Base URL</label>
         <input
           type="text"
           value={config.baseUrl}
           onChange={(e) => onChange({ ...config, baseUrl: e.target.value })}
           placeholder="http://localhost:8080/dicomweb"
           disabled={disabled || loading}
-          style={inputStyle}
+          className={inputClass}
         />
       </div>
 
       <div
+        className="grid gap-2.5"
         style={{
-          display: 'grid',
-          gap: '10px',
           gridTemplateColumns: showInstanceUid
             ? 'repeat(auto-fit, minmax(200px, 1fr))'
             : 'repeat(2, 1fr)',
         }}
       >
         <div>
-          <label style={labelStyle}>Study Instance UID</label>
+          <label className={labelClass}>Study Instance UID</label>
           <input
             type="text"
             value={config.studyUid}
             onChange={(e) => onChange({ ...config, studyUid: e.target.value })}
             disabled={disabled || loading}
-            style={inputStyle}
+            className={inputClass}
           />
         </div>
 
         <div>
-          <label style={labelStyle}>Series Instance UID</label>
+          <label className={labelClass}>Series Instance UID</label>
           <input
             type="text"
             value={config.seriesUid}
             onChange={(e) => onChange({ ...config, seriesUid: e.target.value })}
             disabled={disabled || loading}
-            style={inputStyle}
+            className={inputClass}
           />
         </div>
 
         {showInstanceUid && (
           <div>
-            <label style={labelStyle}>SOP Instance UID</label>
+            <label className={labelClass}>SOP Instance UID</label>
             <input
               type="text"
               value={config.instanceUid}
               onChange={(e) => onChange({ ...config, instanceUid: e.target.value })}
               disabled={disabled || loading}
-              style={inputStyle}
+              className={inputClass}
             />
           </div>
         )}
@@ -115,16 +105,12 @@ export function WadoConfigPanel({
         <button
           onClick={onLoad}
           disabled={disabled || loading}
-          style={{
-            marginTop: '15px',
-            padding: '10px 20px',
-            background: loading ? '#555' : '#47a',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            fontSize: '14px',
-          }}
+          className={cn(
+            'mt-4 px-5 py-2.5 text-white border-none rounded-md text-base',
+            loading
+              ? 'bg-text-disabled cursor-not-allowed'
+              : 'bg-[#47a] cursor-pointer hover:bg-[#58b]'
+          )}
         >
           {loading ? 'Loading...' : 'Load from WADO-RS'}
         </button>

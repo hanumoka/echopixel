@@ -9,13 +9,13 @@ import { useState, useCallback, useMemo, useRef } from 'react';
 import { type Annotation } from '@echopixel/core';
 import {
   HybridMultiViewport as ReactHybridMultiViewport,
-  SingleDicomViewer,
+  cn,
   type HybridMultiViewportHandle,
   type HybridSeriesData,
   type HybridViewportStats,
   type PerformanceOptions,
 } from '@echopixel/react';
-import { WadoConfigPanel, InstanceSelector, PlaybackControlBar, ExpandedViewModal } from '../components';
+import { InstanceSelector, PlaybackControlBar, ExpandedViewModal } from '../components';
 import { PerformanceOptionsPanel } from '../components/PerformanceOptions';
 import { useWadoLoader, useInstanceScanner, useMultiAnnotations } from '../hooks';
 import type { WadoConfig } from '../types/demo';
@@ -205,19 +205,11 @@ export function MultiViewportPage({ wadoConfig, onWadoConfigChange }: MultiViewp
   return (
     <div>
       {/* 모드 설명 패널 */}
-      <div
-        style={{
-          padding: '15px',
-          marginBottom: '15px',
-          background: '#1f3d2d',
-          border: '1px solid #7a4',
-          borderRadius: '4px',
-        }}
-      >
-        <h3 style={{ margin: '0 0 10px 0', color: '#b4f8c8', fontSize: '16px' }}>
+      <div className="p-4 mb-4 bg-[#1f3d2d] border border-[#7a4] rounded-md">
+        <h3 className="m-0 mb-2.5 text-[#b4f8c8] text-lg">
           🎯 Multi (Single Canvas)
         </h3>
-        <p style={{ margin: 0, color: '#a8c8b8', fontSize: '13px', lineHeight: '1.5' }}>
+        <p className="m-0 text-[#a8c8b8] text-base leading-relaxed">
           <strong>단일 WebGL Canvas</strong>에서 여러 뷰포트를 렌더링합니다.
           gl.scissor()와 gl.viewport()로 영역을 분할하여 각 뷰포트를 그립니다.
           텍스처 공유가 가능하여 메모리 효율적이지만, 16개 이상 뷰포트에서 성능 테스트가 필요합니다.
@@ -226,98 +218,51 @@ export function MultiViewportPage({ wadoConfig, onWadoConfigChange }: MultiViewp
 
       {/* 에러 표시 */}
       {error && (
-        <div
-          style={{
-            padding: '15px',
-            marginBottom: '15px',
-            background: '#3a1a1a',
-            border: '1px solid #a44',
-            borderRadius: '4px',
-            color: '#f88',
-          }}
-        >
+        <div className="p-4 mb-4 bg-[#3a1a1a] border border-[#a44] rounded-md text-[#f88]">
           Error: {error}
         </div>
       )}
 
       {/* 설정 패널 */}
-      <div
-        style={{
-          padding: '15px',
-          marginBottom: '15px',
-          background: '#1a2a1a',
-          border: '1px solid #4a7',
-          borderRadius: '4px',
-        }}
-      >
-        <h3 style={{ margin: '0 0 15px 0', color: '#8f8', fontSize: '16px' }}>WADO-RS 설정</h3>
+      <div className="p-4 mb-4 bg-[#1a2a1a] border border-[#4a7] rounded-md">
+        <h3 className="m-0 mb-4 text-accent-success text-lg">WADO-RS 설정</h3>
 
-        <div
-          style={{
-            display: 'grid',
-            gap: '10px',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          }}
-        >
+        <div className="grid gap-2.5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
           <div>
-            <label style={{ display: 'block', color: '#8cf', marginBottom: '5px', fontSize: '13px' }}>
+            <label className="block text-accent-info mb-1.5 text-base">
               DICOM Web Base URL
             </label>
             <input
               type="text"
               value={wadoConfig.baseUrl}
               onChange={(e) => onWadoConfigChange({ ...wadoConfig, baseUrl: e.target.value })}
-              style={{
-                width: '100%',
-                padding: '8px',
-                fontSize: '13px',
-                background: '#2a2a3a',
-                border: '1px solid #555',
-                borderRadius: '4px',
-                color: '#fff',
-              }}
+              className="w-full p-2 text-base bg-[#2a2a3a] border border-[#555] rounded-md text-white"
             />
           </div>
           <div>
-            <label style={{ display: 'block', color: '#8cf', marginBottom: '5px', fontSize: '13px' }}>
+            <label className="block text-accent-info mb-1.5 text-base">
               Study Instance UID
             </label>
             <input
               type="text"
               value={wadoConfig.studyUid}
               onChange={(e) => onWadoConfigChange({ ...wadoConfig, studyUid: e.target.value })}
-              style={{
-                width: '100%',
-                padding: '8px',
-                fontSize: '13px',
-                background: '#2a2a3a',
-                border: '1px solid #555',
-                borderRadius: '4px',
-                color: '#fff',
-              }}
+              className="w-full p-2 text-base bg-[#2a2a3a] border border-[#555] rounded-md text-white"
             />
           </div>
           <div>
-            <label style={{ display: 'block', color: '#8cf', marginBottom: '5px', fontSize: '13px' }}>
+            <label className="block text-accent-info mb-1.5 text-base">
               Series Instance UID
             </label>
             <input
               type="text"
               value={wadoConfig.seriesUid}
               onChange={(e) => onWadoConfigChange({ ...wadoConfig, seriesUid: e.target.value })}
-              style={{
-                width: '100%',
-                padding: '8px',
-                fontSize: '13px',
-                background: '#2a2a3a',
-                border: '1px solid #555',
-                borderRadius: '4px',
-                color: '#fff',
-              }}
+              className="w-full p-2 text-base bg-[#2a2a3a] border border-[#555] rounded-md text-white"
             />
           </div>
           <div>
-            <label style={{ display: 'block', color: '#8cf', marginBottom: '5px', fontSize: '13px' }}>
+            <label className="block text-accent-info mb-1.5 text-base">
               뷰포트 개수: {viewportCount}개 ({gridDimensions.cols}×{gridDimensions.rows})
             </label>
             <input
@@ -326,17 +271,9 @@ export function MultiViewportPage({ wadoConfig, onWadoConfigChange }: MultiViewp
               max="100"
               value={viewportCount}
               onChange={(e) => setViewportCount(Number(e.target.value))}
-              style={{ width: '100%', cursor: 'pointer' }}
+              className="w-full cursor-pointer"
             />
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                fontSize: '11px',
-                color: '#888',
-                marginTop: '2px',
-              }}
-            >
+            <div className="flex justify-between text-xs text-text-muted mt-0.5">
               <span>1</span>
               <span>50</span>
               <span>100</span>
@@ -345,19 +282,16 @@ export function MultiViewportPage({ wadoConfig, onWadoConfigChange }: MultiViewp
         </div>
 
         {/* 액션 버튼들 */}
-        <div style={{ marginTop: '15px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+        <div className="mt-4 flex gap-2.5 flex-wrap">
           <button
             onClick={handleScan}
             disabled={!!scanningStatus || !!loadingStatus}
-            style={{
-              padding: '10px 20px',
-              background: scanningStatus ? '#555' : '#47a',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: scanningStatus ? 'not-allowed' : 'pointer',
-              fontSize: '14px',
-            }}
+            className={cn(
+              'px-5 py-2.5 text-white border-none rounded-md text-lg',
+              scanningStatus
+                ? 'bg-text-disabled cursor-not-allowed'
+                : 'bg-[#47a] cursor-pointer hover:bg-[#58b]'
+            )}
           >
             {scanningStatus || 'Instance 스캔'}
           </button>
@@ -369,22 +303,12 @@ export function MultiViewportPage({ wadoConfig, onWadoConfigChange }: MultiViewp
               !!scanningStatus ||
               (scannedInstances.length > 0 && selectedUids.size === 0)
             }
-            style={{
-              padding: '10px 20px',
-              background:
-                loadingStatus || (scannedInstances.length > 0 && selectedUids.size === 0)
-                  ? '#555'
-                  : '#4a7',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '4px',
-              cursor:
-                loadingStatus || (scannedInstances.length > 0 && selectedUids.size === 0)
-                  ? 'not-allowed'
-                  : 'pointer',
-              fontSize: '14px',
-              fontWeight: 'bold',
-            }}
+            className={cn(
+              'px-5 py-2.5 text-white border-none rounded-md text-lg font-bold',
+              loadingStatus || (scannedInstances.length > 0 && selectedUids.size === 0)
+                ? 'bg-text-disabled cursor-not-allowed'
+                : 'bg-[#4a7] cursor-pointer hover:bg-[#5b8]'
+            )}
           >
             {loadingStatus || `로드 (${selectedUids.size > 0 ? selectedUids.size : viewportCount}개)`}
           </button>
@@ -399,13 +323,13 @@ export function MultiViewportPage({ wadoConfig, onWadoConfigChange }: MultiViewp
             onToggle={toggleSelection}
             onSelectAllPlayable={() => selectAllPlayable(viewportCount)}
             onClearSelection={clearSelection}
-            style={{ marginTop: '15px' }}
+            className="mt-4"
           />
         )}
 
         {/* 스캔 전 안내 */}
         {scannedInstances.length === 0 && !scanningStatus && (
-          <div style={{ marginTop: '15px', fontSize: '12px', color: '#888' }}>
+          <div className="mt-4 text-sm text-text-muted">
             'Instance 스캔' 버튼을 클릭하여 Series 내 모든 Instance를 조회하세요.
             <br />
             스캔 후 로드할 Instance를 선택할 수 있습니다.
@@ -418,29 +342,17 @@ export function MultiViewportPage({ wadoConfig, onWadoConfigChange }: MultiViewp
         options={performanceOptions}
         onChange={setPerformanceOptions}
         currentVramMB={stats.vramMB}
-        style={{ marginBottom: '15px' }}
+        className="mb-4"
       />
 
       {/* 상태 표시 */}
       {seriesMap.size > 0 && (
-        <div
-          style={{
-            padding: '8px 12px',
-            marginBottom: '10px',
-            background: '#2a2a2a',
-            color: '#fff',
-            borderRadius: '4px',
-            fontSize: '13px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}
-        >
+        <div className="px-3 py-2 mb-2.5 bg-[#2a2a2a] text-white rounded-md text-base flex justify-between items-center">
           <span>
             Multi-Viewport ({viewportCount}개, {gridDimensions.cols}×{gridDimensions.rows}) |{' '}
             {seriesMap.size} loaded
           </span>
-          <span style={{ color: '#8f8' }}>
+          <span className="text-accent-success">
             FPS: {stats.fps} | Frame Time: {stats.frameTime.toFixed(1)}ms | VRAM:{' '}
             {stats.vramMB.toFixed(1)}MB
           </span>
@@ -487,37 +399,18 @@ export function MultiViewportPage({ wadoConfig, onWadoConfigChange }: MultiViewp
 
       {/* 확대 뷰 버튼 패널 */}
       {seriesMap.size > 0 && (
-        <div
-          style={{
-            padding: '10px',
-            marginBottom: '10px',
-            background: '#1a2a3a',
-            borderRadius: '4px',
-            display: 'flex',
-            gap: '10px',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-          }}
-        >
-          <span style={{ color: '#8cf', fontSize: '13px' }}>🔍 확대 보기:</span>
+        <div className="p-2.5 mb-2.5 bg-[#1a2a3a] rounded-md flex gap-2.5 flex-wrap items-center">
+          <span className="text-accent-info text-base">🔍 확대 보기:</span>
           {Array.from(seriesMap.keys()).map((viewportId) => (
             <button
               key={viewportId}
               onClick={() => setExpandedViewportId(viewportId)}
-              style={{
-                padding: '6px 12px',
-                fontSize: '12px',
-                background: '#2a3a4a',
-                color: '#fff',
-                border: '1px solid #4a6a8a',
-                borderRadius: '4px',
-                cursor: 'pointer',
-              }}
+              className="px-3 py-1.5 text-sm bg-[#2a3a4a] text-white border border-[#4a6a8a] rounded-md cursor-pointer hover:bg-[#3a4a5a]"
             >
               {viewportId}
             </button>
           ))}
-          <span style={{ color: '#888', fontSize: '11px', marginLeft: '10px' }}>
+          <span className="text-xs text-text-muted ml-2.5">
             (또는 뷰포트 더블클릭)
           </span>
         </div>
@@ -579,77 +472,37 @@ export function MultiViewportPage({ wadoConfig, onWadoConfigChange }: MultiViewp
 
       {/* 뷰포트 정보 */}
       {seriesMap.size > 0 && (
-        <div
-          style={{
-            marginTop: '10px',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-            gap: '8px',
-          }}
-        >
+        <div className="mt-2.5 grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
           {Array.from(seriesMap.entries()).map(([viewportId, series], idx) => (
             <div
               key={viewportId}
-              style={{
-                padding: '10px',
-                background: '#1a1a1a',
-                borderRadius: '4px',
-                fontSize: '11px',
-                color: '#aaa',
-                border: '1px solid #333',
-              }}
+              className="p-2.5 bg-viewer-surface-alt rounded-md text-xs text-text-secondary border border-[#333]"
             >
-              <div
-                style={{
-                  fontWeight: 'bold',
-                  color: '#fff',
-                  marginBottom: '6px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-              >
+              <div className="font-bold text-white mb-1.5 flex justify-between items-center">
                 <span>Viewport {idx + 1}</span>
                 {series.info.frameCount <= 1 ? (
-                  <span
-                    style={{
-                      fontSize: '10px',
-                      color: '#fa8',
-                      background: '#3a2a1a',
-                      padding: '2px 6px',
-                      borderRadius: '3px',
-                    }}
-                  >
+                  <span className="text-xxs text-accent-warning bg-[#3a2a1a] px-1.5 py-0.5 rounded-sm">
                     정지 영상
                   </span>
                 ) : (
                   <span
-                    style={{
-                      fontSize: '10px',
-                      color: isPlaying ? '#8f8' : '#888',
-                      background: isPlaying ? '#1a3a1a' : '#2a2a2a',
-                      padding: '2px 6px',
-                      borderRadius: '3px',
-                    }}
+                    className={cn(
+                      'text-xxs px-1.5 py-0.5 rounded-sm',
+                      isPlaying
+                        ? 'text-accent-success bg-[#1a3a1a]'
+                        : 'text-text-muted bg-[#2a2a2a]'
+                    )}
                   >
                     {isPlaying ? 'Playing' : 'Stopped'}
                   </span>
                 )}
               </div>
               {series.info.seriesId && (
-                <div
-                  style={{
-                    fontFamily: 'monospace',
-                    fontSize: '9px',
-                    color: '#6af',
-                    marginBottom: '4px',
-                    wordBreak: 'break-all',
-                  }}
-                >
+                <div className="font-mono text-[9px] text-[#6af] mb-1 break-all">
                   UID: ...{series.info.seriesId.slice(-25)}
                 </div>
               )}
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div className="flex justify-between">
                 <span>Frames: {series.info.frameCount}</span>
                 <span>
                   Size: {series.info.imageWidth}x{series.info.imageHeight}

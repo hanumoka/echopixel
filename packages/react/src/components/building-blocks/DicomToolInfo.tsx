@@ -1,4 +1,5 @@
 import type { ToolMode } from '../../types';
+import { cn } from '../../utils';
 
 /**
  * 도구 바인딩 정보
@@ -123,52 +124,37 @@ export function DicomToolInfo({
 
   return (
     <div
-      className={className}
-      style={{
-        marginTop: '12px',
-        padding: '10px',
-        background: '#1a1a2e',
-        borderRadius: '4px',
-        fontSize: '12px',
-        color: '#aaa',
-        ...style,
-      }}
+      className={cn(
+        'mt-3 p-2.5 bg-viewer-surface rounded-md text-sm text-text-secondary',
+        className
+      )}
+      style={style}
     >
       {/* 마우스 도구 섹션 */}
-      <div style={{
-        marginBottom: '8px',
-        color: '#8cf',
-        fontWeight: 'bold',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-      }}>
+      <div className="mb-2 text-accent-info font-bold flex items-center gap-2">
         🖱️ 마우스 도구
-        <span style={{
-          fontSize: '10px',
-          padding: '2px 6px',
-          borderRadius: '3px',
-          background: mode === 'static' ? '#2a4a2a' : '#2a2a4a',
-          color: mode === 'static' ? '#8f8' : '#88f',
-        }}>
+        <span
+          className={cn(
+            'text-xxs py-0.5 px-1.5 rounded',
+            mode === 'static'
+              ? 'bg-[#2a4a2a] text-[#8f8]'
+              : 'bg-viewer-panel text-[#88f]'
+          )}
+        >
           {mode === 'static' ? '정지 이미지' : '동영상'}
         </span>
       </div>
 
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(2, 1fr)',
-        gap: '6px 16px',
-      }}>
+      <div className="grid grid-cols-2 gap-y-1.5 gap-x-4">
         {effectiveMouseTools.map((tool, index) => (
           <div key={index}>
-            <span style={{ color: '#fff' }}>{tool.binding}</span>
+            <span className="text-text-primary">{tool.binding}</span>
             {' → '}
             <span style={tool.highlightColor ? { color: tool.highlightColor } : undefined}>
               {tool.tool}
             </span>
             {tool.description && (
-              <span style={{ color: '#666', marginLeft: '4px' }}>
+              <span className="text-[#666] ml-1">
                 ({tool.description})
               </span>
             )}
@@ -179,18 +165,13 @@ export function DicomToolInfo({
       {/* 키보드 단축키 섹션 */}
       {effectiveKeyboardShortcuts.length > 0 && (
         <>
-          <div style={{
-            marginTop: '10px',
-            marginBottom: '6px',
-            color: '#cf8',
-            fontWeight: 'bold',
-          }}>
+          <div className="mt-2.5 mb-1.5 text-[#cf8] font-bold">
             ⌨️ 키보드 단축키
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px' }}>
+          <div className="flex flex-wrap gap-y-2 gap-x-4">
             {effectiveKeyboardShortcuts.map((shortcut, index) => (
               <span key={index}>
-                <span style={{ color: '#fff' }}>{shortcut.key}</span>
+                <span className="text-text-primary">{shortcut.key}</span>
                 {' '}
                 {shortcut.action}
               </span>
@@ -201,26 +182,14 @@ export function DicomToolInfo({
 
       {/* Context Loss 테스트 버튼 (개발용) */}
       {showContextLossTest && onTestContextLoss && (
-        <div style={{
-          marginTop: '12px',
-          paddingTop: '10px',
-          borderTop: '1px solid #333',
-        }}>
+        <div className="mt-3 pt-2.5 border-t border-[#333]">
           <button
             onClick={onTestContextLoss}
-            style={{
-              padding: '6px 12px',
-              fontSize: '12px',
-              background: '#c44',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-            }}
+            className="py-1.5 px-3 text-sm bg-accent-error text-text-primary border-none rounded-md cursor-pointer"
           >
             🧪 Test Context Loss (2초 후 복구)
           </button>
-          <span style={{ marginLeft: '10px', fontSize: '11px', color: '#888' }}>
+          <span className="ml-2.5 text-xs text-text-muted">
             현재 프레임이 유지되는지 확인
           </span>
         </div>

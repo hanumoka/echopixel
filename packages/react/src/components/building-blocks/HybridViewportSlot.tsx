@@ -30,6 +30,7 @@ import {
   type CSSProperties,
 } from 'react';
 import type { HybridViewportManager } from '@echopixel/core';
+import { cn } from '../../utils';
 
 /**
  * HybridViewportSlot Props
@@ -156,35 +157,24 @@ export function HybridViewportSlot({
       onDoubleClick={handleDoubleClick}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className={className}
-      style={{
-        position: 'relative',
-        width: '100%',
-        height: '100%',
-        background: 'transparent',
-        cursor: 'pointer',
-        boxSizing: 'border-box',
-        border: isSelected
-          ? '3px solid #4cf'
+      className={cn(
+        'relative w-full h-full bg-transparent cursor-pointer box-border',
+        'rounded-sm transition-[border] duration-100 pointer-events-auto',
+        'flex flex-col overflow-hidden',
+        isSelected
+          ? 'border-[3px] border-border-selected'
           : isHovered
-            ? '2px solid rgba(100, 200, 255, 0.7)'
-            : '1px solid rgba(255, 255, 255, 0.15)',
-        borderRadius: '2px',
-        transition: 'border 0.1s ease',
-        pointerEvents: 'auto',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-        ...style,
-      }}
+            ? 'border-2 border-border-hover'
+            : 'border border-border',
+        className
+      )}
+      style={style}
     >
       {/* 상단 도구바 영역 (이미지 밖) */}
       {topToolbar && (
         <div
-          style={{
-            flexShrink: 0,
-            minHeight: topToolbarHeight > 0 ? `${topToolbarHeight}px` : 'auto',
-          }}
+          className="shrink-0"
+          style={{ minHeight: topToolbarHeight > 0 ? `${topToolbarHeight}px` : 'auto' }}
         >
           {topToolbar}
         </div>
@@ -193,11 +183,7 @@ export function HybridViewportSlot({
       {/* 이미지 영역 (WebGL 렌더링 대상) */}
       <div
         ref={contentRef}
-        style={{
-          flex: 1,
-          position: 'relative',
-          minHeight: 0, // flex child가 overflow되지 않도록
-        }}
+        className="flex-1 relative min-h-0"
       >
         {children}
       </div>
@@ -205,10 +191,8 @@ export function HybridViewportSlot({
       {/* 하단 도구바 영역 (이미지 밖) */}
       {bottomToolbar && (
         <div
-          style={{
-            flexShrink: 0,
-            minHeight: bottomToolbarHeight > 0 ? `${bottomToolbarHeight}px` : 'auto',
-          }}
+          className="shrink-0"
+          style={{ minHeight: bottomToolbarHeight > 0 ? `${bottomToolbarHeight}px` : 'auto' }}
         >
           {bottomToolbar}
         </div>

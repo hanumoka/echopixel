@@ -7,8 +7,7 @@
  * - 디버그 로깅으로 캐시 동작 모니터링
  */
 
-import type { CSSProperties } from 'react';
-import type { PerformanceOptions as PerformanceOptionsType } from '@echopixel/react';
+import { cn, type PerformanceOptions as PerformanceOptionsType } from '@echopixel/react';
 
 /**
  * VRAM 프리셋 옵션
@@ -41,8 +40,8 @@ export interface PerformanceOptionsPanelProps {
   onChange: (options: PerformanceOptionsType) => void;
   /** 현재 VRAM 사용량 (MB) */
   currentVramMB?: number;
-  /** 패널 스타일 */
-  style?: CSSProperties;
+  /** 패널 클래스 */
+  className?: string;
 }
 
 /**
@@ -52,7 +51,7 @@ export function PerformanceOptionsPanel({
   options,
   onChange,
   currentVramMB,
-  style,
+  className,
 }: PerformanceOptionsPanelProps) {
   const handleVramChange = (value: number) => {
     onChange({ ...options, maxVramMB: value });
@@ -77,43 +76,31 @@ export function PerformanceOptionsPanel({
 
   return (
     <div
-      style={{
-        padding: '12px',
-        background: '#1a1a2e',
-        borderRadius: '8px',
-        border: '1px solid #333',
-        fontSize: '13px',
-        ...style,
-      }}
+      className={cn(
+        'p-3 bg-viewer-surface rounded-lg border border-[#333] text-base',
+        className
+      )}
     >
-      <div style={{ fontWeight: 'bold', marginBottom: '12px', color: '#4a9eff' }}>
+      <div className="font-bold mb-3 text-accent-primary">
         Performance Options
       </div>
 
       {/* VRAM 제한 */}
-      <div style={{ marginBottom: '16px' }}>
-        <label style={{ display: 'block', marginBottom: '6px', color: '#aaa' }}>
+      <div className="mb-4">
+        <label className="block mb-1.5 text-text-secondary">
           VRAM Limit
         </label>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+        <div className="flex flex-wrap gap-1">
           {VRAM_PRESETS.map((preset) => (
             <button
               key={preset.label}
               onClick={() => handleVramChange(preset.value)}
-              style={{
-                padding: '4px 8px',
-                fontSize: '11px',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                background: currentMaxVram === preset.value
-                  ? '#4a9eff'
-                  : '#333',
-                color: currentMaxVram === preset.value
-                  ? '#fff'
-                  : '#ccc',
-                transition: 'all 0.15s ease',
-              }}
+              className={cn(
+                'px-2 py-1 text-xs border-none rounded-md cursor-pointer transition-all duration-150',
+                currentMaxVram === preset.value
+                  ? 'bg-accent-primary text-white'
+                  : 'bg-[#333] text-[#ccc] hover:bg-[#444]'
+              )}
             >
               {preset.label}
             </button>
@@ -122,14 +109,8 @@ export function PerformanceOptionsPanel({
 
         {/* VRAM 사용량 표시 */}
         {currentVramMB !== undefined && (
-          <div style={{ marginTop: '8px' }}>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              marginBottom: '4px',
-              fontSize: '11px',
-              color: '#888',
-            }}>
+          <div className="mt-2">
+            <div className="flex justify-between mb-1 text-xs text-text-muted">
               <span>Usage: {currentVramMB.toFixed(1)} MB</span>
               <span>
                 {currentMaxVram === Infinity
@@ -138,19 +119,14 @@ export function PerformanceOptionsPanel({
               </span>
             </div>
             {currentMaxVram !== Infinity && (
-              <div style={{
-                width: '100%',
-                height: '4px',
-                background: '#333',
-                borderRadius: '2px',
-                overflow: 'hidden',
-              }}>
-                <div style={{
-                  width: `${vramUsagePercent}%`,
-                  height: '100%',
-                  background: vramUsagePercent > 90 ? '#f44' : vramUsagePercent > 70 ? '#fa0' : '#4a9eff',
-                  transition: 'width 0.3s ease, background 0.3s ease',
-                }} />
+              <div className="w-full h-1 bg-[#333] rounded-sm overflow-hidden">
+                <div
+                  className={cn(
+                    'h-full transition-all duration-300',
+                    vramUsagePercent > 90 ? 'bg-[#f44]' : vramUsagePercent > 70 ? 'bg-[#fa0]' : 'bg-accent-primary'
+                  )}
+                  style={{ width: `${vramUsagePercent}%` }}
+                />
               </div>
             )}
           </div>
@@ -158,39 +134,27 @@ export function PerformanceOptionsPanel({
       </div>
 
       {/* DPR 설정 */}
-      <div style={{ marginBottom: '16px' }}>
-        <label style={{ display: 'block', marginBottom: '6px', color: '#aaa' }}>
+      <div className="mb-4">
+        <label className="block mb-1.5 text-text-secondary">
           Device Pixel Ratio
         </label>
-        <div style={{ display: 'flex', gap: '4px' }}>
+        <div className="flex gap-1">
           {DPR_PRESETS.map((preset) => (
             <button
               key={preset.label}
               onClick={() => handleDprChange(preset.value)}
-              style={{
-                padding: '4px 10px',
-                fontSize: '11px',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                background: currentDpr === preset.value
-                  ? '#4a9eff'
-                  : '#333',
-                color: currentDpr === preset.value
-                  ? '#fff'
-                  : '#ccc',
-                transition: 'all 0.15s ease',
-              }}
+              className={cn(
+                'px-2.5 py-1 text-xs border-none rounded-md cursor-pointer transition-all duration-150',
+                currentDpr === preset.value
+                  ? 'bg-accent-primary text-white'
+                  : 'bg-[#333] text-[#ccc] hover:bg-[#444]'
+              )}
             >
               {preset.label}
             </button>
           ))}
         </div>
-        <div style={{
-          marginTop: '4px',
-          fontSize: '10px',
-          color: '#666',
-        }}>
+        <div className="mt-1 text-xxs text-text-disabled">
           Current: {currentDpr ?? window.devicePixelRatio.toFixed(2)}x
           {currentDpr === undefined && ' (auto)'}
         </div>
@@ -198,41 +162,22 @@ export function PerformanceOptionsPanel({
 
       {/* 디버그 모드 */}
       <div>
-        <label style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          cursor: 'pointer',
-          color: '#aaa',
-        }}>
+        <label className="flex items-center gap-2 cursor-pointer text-text-secondary">
           <input
             type="checkbox"
             checked={isDebugMode}
             onChange={(e) => handleDebugChange(e.target.checked)}
-            style={{ cursor: 'pointer' }}
+            className="cursor-pointer"
           />
           <span>Debug Mode (Console Logging)</span>
         </label>
-        <div style={{
-          marginTop: '4px',
-          fontSize: '10px',
-          color: '#666',
-          paddingLeft: '24px',
-        }}>
+        <div className="mt-1 text-xxs text-text-disabled pl-6">
           Logs texture cache operations to console
         </div>
       </div>
 
       {/* 경고 메시지 */}
-      <div style={{
-        marginTop: '16px',
-        padding: '8px',
-        background: '#2a2a1e',
-        borderRadius: '4px',
-        fontSize: '10px',
-        color: '#aa8',
-        borderLeft: '3px solid #aa8',
-      }}>
+      <div className="mt-4 p-2 bg-[#2a2a1e] rounded-md text-xxs text-[#aa8] border-l-[3px] border-[#aa8]">
         Note: Changing VRAM or DPR requires reloading data to take effect.
       </div>
     </div>

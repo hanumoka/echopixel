@@ -2,6 +2,8 @@
  * 재생/정지 버튼 + FPS 슬라이더 컴포넌트
  */
 
+import { cn } from '@echopixel/react';
+
 interface PlaybackControlBarProps {
   isPlaying: boolean;
   fps: number;
@@ -18,7 +20,7 @@ interface PlaybackControlBarProps {
   playableCount?: number;
   stillCount?: number;
   maxFps?: number;
-  style?: React.CSSProperties;
+  className?: string;
 }
 
 export function PlaybackControlBar({
@@ -37,37 +39,25 @@ export function PlaybackControlBar({
   playableCount,
   stillCount,
   maxFps = 60,
-  style,
+  className,
 }: PlaybackControlBarProps) {
   return (
     <div
-      style={{
-        padding: '12px',
-        background: '#1a1a2e',
-        borderRadius: '4px',
-        color: '#fff',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '16px',
-        flexWrap: 'wrap',
-        ...style,
-      }}
+      className={cn(
+        'p-3 bg-viewer-surface rounded-md text-white flex items-center gap-4 flex-wrap',
+        className
+      )}
     >
       {/* 재생/정지 버튼 */}
       <button
         onClick={onTogglePlay}
         disabled={disabled}
-        style={{
-          padding: '8px 20px',
-          fontSize: '14px',
-          background: disabled ? '#555' : isPlaying ? '#c44' : '#4c4',
-          color: '#fff',
-          border: 'none',
-          borderRadius: '4px',
-          cursor: disabled ? 'not-allowed' : 'pointer',
-          minWidth: '100px',
-          opacity: disabled ? 0.6 : 1,
-        }}
+        className={cn(
+          'px-5 py-2 text-lg border-none rounded-md cursor-pointer min-w-[100px] text-white transition-all',
+          disabled && 'bg-text-disabled cursor-not-allowed opacity-60',
+          !disabled && isPlaying && 'bg-accent-error',
+          !disabled && !isPlaying && 'bg-accent-success'
+        )}
         title={disabled ? disabledMessage : ''}
       >
         {isPlaying ? '⏸ Stop' : '▶ Play All'}
@@ -75,7 +65,7 @@ export function PlaybackControlBar({
 
       {/* FPS 컨트롤 */}
       {!disabled && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="flex items-center gap-2">
           <label>FPS:</label>
           <input
             type="number"
@@ -83,7 +73,7 @@ export function PlaybackControlBar({
             max={maxFps}
             value={fps}
             onChange={(e) => onFpsChange(Math.max(1, Math.min(maxFps, Number(e.target.value))))}
-            style={{ width: '50px', padding: '4px' }}
+            className="w-[50px] p-1 bg-viewer-panel border border-border rounded text-white"
           />
           <input
             type="range"
@@ -91,7 +81,7 @@ export function PlaybackControlBar({
             max={maxFps}
             value={fps}
             onChange={(e) => onFpsChange(Number(e.target.value))}
-            style={{ width: '100px' }}
+            className="w-[100px]"
           />
         </div>
       )}
@@ -102,15 +92,7 @@ export function PlaybackControlBar({
           {onReset && (
             <button
               onClick={onReset}
-              style={{
-                padding: '6px 12px',
-                fontSize: '12px',
-                background: '#444',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-              }}
+              className="px-3 py-1.5 text-sm bg-[#444] text-white border-none rounded-md cursor-pointer hover:bg-[#555]"
             >
               ⏮ 처음으로
             </button>
@@ -118,15 +100,7 @@ export function PlaybackControlBar({
           {onResetViewport && (
             <button
               onClick={onResetViewport}
-              style={{
-                padding: '6px 12px',
-                fontSize: '12px',
-                background: '#444',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-              }}
+              className="px-3 py-1.5 text-sm bg-[#444] text-white border-none rounded-md cursor-pointer hover:bg-[#555]"
             >
               🔄 뷰포트 리셋
             </button>
@@ -138,15 +112,12 @@ export function PlaybackControlBar({
       {showAnnotationsToggle && onAnnotationsVisibilityChange && (
         <button
           onClick={() => onAnnotationsVisibilityChange(!showAnnotations)}
-          style={{
-            padding: '8px 16px',
-            fontSize: '14px',
-            background: showAnnotations ? '#2a4a4a' : '#3a3a3a',
-            color: showAnnotations ? '#8ff' : '#888',
-            border: showAnnotations ? '2px solid #5aa' : '2px solid transparent',
-            borderRadius: '4px',
-            cursor: 'pointer',
-          }}
+          className={cn(
+            'px-4 py-2 text-lg rounded-md cursor-pointer border-2 transition-all',
+            showAnnotations
+              ? 'bg-[#2a4a4a] text-[#8ff] border-[#5aa]'
+              : 'bg-[#3a3a3a] text-text-muted border-transparent'
+          )}
           title={showAnnotations ? '어노테이션 숨기기' : '어노테이션 표시'}
         >
           {showAnnotations ? '👁 어노테이션 표시' : '👁‍🗨 어노테이션 숨김'}
@@ -155,16 +126,16 @@ export function PlaybackControlBar({
 
       {/* 영상/정지 통계 */}
       {(playableCount !== undefined || stillCount !== undefined) && (
-        <div style={{ fontSize: '12px', color: '#888', marginLeft: 'auto' }}>
+        <div className="text-sm text-text-muted ml-auto">
           {disabled ? (
-            <span style={{ color: '#fa8' }}>{disabledMessage}</span>
+            <span className="text-accent-warning">{disabledMessage}</span>
           ) : (
             <>
               {playableCount !== undefined && (
-                <span style={{ color: '#8f8' }}>영상: {playableCount}개</span>
+                <span className="text-accent-success">영상: {playableCount}개</span>
               )}
               {stillCount !== undefined && stillCount > 0 && (
-                <span style={{ color: '#fa8', marginLeft: '10px' }}>정지: {stillCount}개</span>
+                <span className="text-accent-warning ml-2.5">정지: {stillCount}개</span>
               )}
             </>
           )}

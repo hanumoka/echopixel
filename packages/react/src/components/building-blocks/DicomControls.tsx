@@ -1,4 +1,5 @@
 import type { PlaybackState } from '../../types';
+import { cn } from '../../utils';
 
 /**
  * DicomControls Props
@@ -75,18 +76,12 @@ export function DicomControls({
 
   return (
     <div
-      className={className}
-      style={{
-        padding: '12px',
-        background: '#1a1a2e',
-        borderRadius: '4px',
-        color: '#fff',
-        ...style,
-      }}
+      className={cn('p-3 bg-viewer-surface rounded-md text-text-primary', className)}
+      style={style}
     >
       {/* 프레임 슬라이더 */}
-      <div style={{ marginBottom: '10px' }}>
-        <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px' }}>
+      <div className="mb-2.5">
+        <label className="block mb-1 text-base">
           프레임: {currentFrame + 1} / {totalFrames}
         </label>
         <input
@@ -96,30 +91,20 @@ export function DicomControls({
           value={currentFrame}
           onChange={(e) => onFrameChange?.(Number(e.target.value))}
           disabled={sliderDisabled}
-          style={{
-            width: '100%',
-            cursor: sliderDisabled ? 'not-allowed' : 'pointer',
-          }}
+          className={cn('w-full', sliderDisabled ? 'cursor-not-allowed' : 'cursor-pointer')}
         />
       </div>
 
       {/* 재생 컨트롤 */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        flexWrap: 'wrap',
-      }}>
+      <div className="flex items-center gap-2 flex-wrap">
         {/* 이전 프레임 버튼 */}
         <button
           onClick={onPrevFrame}
           disabled={isPlaying}
-          style={{
-            padding: '6px 12px',
-            fontSize: '14px',
-            cursor: isPlaying ? 'not-allowed' : 'pointer',
-            opacity: isPlaying ? 0.5 : 1,
-          }}
+          className={cn(
+            'py-1.5 px-3 text-lg',
+            isPlaying ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+          )}
         >
           ◀
         </button>
@@ -127,16 +112,10 @@ export function DicomControls({
         {/* 재생/정지 버튼 */}
         <button
           onClick={onTogglePlay}
-          style={{
-            padding: '6px 16px',
-            fontSize: '14px',
-            background: isPlaying ? '#c44' : '#4c4',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            minWidth: '70px',
-          }}
+          className={cn(
+            'py-1.5 px-4 text-lg text-text-primary border-none rounded-md cursor-pointer min-w-[70px]',
+            isPlaying ? 'bg-accent-error' : 'bg-accent-success'
+          )}
         >
           {isPlaying ? '⏸' : '▶'}
         </button>
@@ -145,27 +124,17 @@ export function DicomControls({
         <button
           onClick={onNextFrame}
           disabled={isPlaying}
-          style={{
-            padding: '6px 12px',
-            fontSize: '14px',
-            cursor: isPlaying ? 'not-allowed' : 'pointer',
-            opacity: isPlaying ? 0.5 : 1,
-          }}
+          className={cn(
+            'py-1.5 px-3 text-lg',
+            isPlaying ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+          )}
         >
           ▶
         </button>
 
         {/* FPS 조절 - 공간 부족 시 줄바꿈 */}
-        <div style={{
-          marginLeft: 'auto',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '4px',
-          fontSize: '12px',
-          flexShrink: 0,
-          minWidth: 'fit-content',
-        }}>
-          <label style={{ whiteSpace: 'nowrap' }}>FPS:</label>
+        <div className="ml-auto flex items-center gap-1 text-sm shrink-0 min-w-fit">
+          <label className="whitespace-nowrap">FPS:</label>
           <input
             type="number"
             min={minFps}
@@ -175,7 +144,7 @@ export function DicomControls({
               const newFps = Math.max(minFps, Math.min(maxFps, Number(e.target.value)));
               onFpsChange?.(newFps);
             }}
-            style={{ width: '40px', padding: '2px' }}
+            className="w-10 p-0.5"
           />
           <input
             type="range"
@@ -183,7 +152,7 @@ export function DicomControls({
             max={maxFps}
             value={fps}
             onChange={(e) => onFpsChange?.(Number(e.target.value))}
-            style={{ width: '60px' }}
+            className="w-[60px]"
           />
         </div>
       </div>

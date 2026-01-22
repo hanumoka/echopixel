@@ -102,3 +102,6 @@ export {
 
 // Hooks (추후 구현)
 // export { useDicomViewport } from './hooks/useDicomViewport';
+
+// Utils
+export { cn } from './utils/cn';
