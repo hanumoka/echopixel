@@ -334,11 +334,9 @@ export const SingleDicomViewerGroup = forwardRef<
 
   // 뷰어 선택 핸들러
   const handleSelect = useCallback((id: string) => {
-    console.log('[SingleDicomViewerGroup] handleSelect - id:', id, 'selectable:', selectable, 'currentSelectedId:', selectedId);
     if (!selectable) return;
 
     const newId = selectedId === id ? null : id;
-    console.log('[SingleDicomViewerGroup] handleSelect - newId:', newId);
 
     // 기존 선택된 뷰어의 활성 도구를 리셋 (선택 해제 또는 다른 뷰어 선택 시)
     if (selectedId && selectedId !== newId) {
@@ -366,17 +364,14 @@ export const SingleDicomViewerGroup = forwardRef<
       if (!container || !selectedId) return;
 
       // 어노테이션 도구가 활성화된 상태에서는 외부 클릭 감지 건너뛰기
-      // (어노테이션 도구 사용 중 클릭이 외부 클릭으로 잘못 감지되는 것 방지)
       const selectedHandle = viewerRefs.current.get(selectedId);
       const activeMeasurementToolId = selectedHandle?.getActiveMeasurementToolId?.();
       if (activeMeasurementToolId) {
-        console.log('[SingleDicomViewerGroup] handleClickOutside - skipping, annotation tool active:', activeMeasurementToolId);
         return;
       }
 
       // 클릭이 컴포넌트 바깥에서 발생했는지 확인
       if (!container.contains(e.target as Node)) {
-        console.log('[SingleDicomViewerGroup] Click outside detected - deselecting viewer');
         // 선택된 뷰어의 활성 도구 리셋
         const prevHandle = viewerRefs.current.get(selectedId);
         prevHandle?.resetActiveTool();
@@ -406,8 +401,6 @@ export const SingleDicomViewerGroup = forwardRef<
 
     // 빈 영역 (빈 슬롯 또는 갭 영역) 클릭 시 선택 해제
     if (selectedId) {
-      console.log('[SingleDicomViewerGroup] Background click - deselecting viewer');
-      // 선택된 뷰어의 활성 도구 리셋
       const prevHandle = viewerRefs.current.get(selectedId);
       prevHandle?.resetActiveTool();
 
@@ -423,15 +416,12 @@ export const SingleDicomViewerGroup = forwardRef<
     e.stopPropagation(); // 컨테이너 클릭 핸들러로 전파 방지
 
     // 어노테이션 도구가 활성화된 상태에서는 선택 로직 건너뛰기
-    // (캔버스 클릭이 어노테이션 도구의 점 입력으로 사용되어야 함)
     const viewerHandle = viewerRefs.current.get(id);
     const activeMeasurementToolId = viewerHandle?.getActiveMeasurementToolId?.();
     if (activeMeasurementToolId) {
-      console.log('[SingleDicomViewerGroup] handleViewerClick - skipping selection, annotation tool active:', activeMeasurementToolId);
       return;
     }
 
-    console.log('[SingleDicomViewerGroup] handleViewerClick - id:', id);
     handleSelect(id);
   }, [handleSelect]);
 

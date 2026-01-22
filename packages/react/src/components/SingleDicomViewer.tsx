@@ -429,34 +429,14 @@ export const SingleDicomViewer = forwardRef<
 
   useEffect(() => {
     const element = canvasContainerRef.current;
-
-    // ★ DEBUG: 어노테이션 이벤트 핸들러 설정 조건 확인
-    console.log('[SingleDicomViewer] Annotation useEffect:', {
-      viewportId,
-      hasElement: !!element,
-      activeMeasurementToolId,
-      hasTransformContext: !!transformContext,
-      webglReady,
-    });
-
-    if (!element || !activeMeasurementToolId || !transformContext) {
-      console.log('[SingleDicomViewer] ❌ Annotation useEffect early return:', {
-        reason: !element ? 'no element' : !activeMeasurementToolId ? 'no activeMeasurementToolId' : 'no transformContext',
-      });
-      return;
-    }
+    if (!element || !activeMeasurementToolId || !transformContext) return;
 
     const tool = measurementToolsRef.current[activeMeasurementToolId];
-    if (!tool) {
-      console.log('[SingleDicomViewer] ❌ Tool not found:', activeMeasurementToolId);
-      return;
-    }
+    if (!tool) return;
 
-    console.log('[SingleDicomViewer] ✅ Setting up annotation event handlers for:', activeMeasurementToolId);
-
-    // 이미지 경계 (DICOM 좌표 기준)
-    const imageWidth = imageInfo.columns;
-    const imageHeight = imageInfo.rows;
+    // 이미지 경계 (transformContext에서 가져옴)
+    const imageWidth = transformContext.viewport.imageWidth;
+    const imageHeight = transformContext.viewport.imageHeight;
 
     // DICOM 좌표가 이미지 영역 내인지 검증
     const isWithinImageBounds = (dicomX: number, dicomY: number): boolean => {
@@ -493,42 +473,22 @@ export const SingleDicomViewer = forwardRef<
     };
 
     const handleMouseDown = (evt: MouseEvent) => {
-      // ★ DEBUG: 마우스 클릭 이벤트 감지
-      console.log('[SingleDicomViewer] handleMouseDown:', {
-        viewportId,
-        button: evt.button,
-        target: (evt.target as Element).tagName,
-        activeMeasurementToolId,
-      });
-
       // 어노테이션 Shape 또는 DragHandle 내부 클릭이면 무시
       // (SVGOverlay에서 선택/드래그 처리)
-      // .annotation-shape: 모든 어노테이션 도형의 공통 클래스 (확장성)
       const target = evt.target as Element;
       if (target.closest('.annotation-shape, .drag-handle')) {
-        console.log('[SingleDicomViewer] ❌ Ignored: clicked on annotation shape or drag handle');
         return;
       }
 
       // 좌클릭만 처리 (우클릭은 취소)
       if (evt.button === 0) {
         const toolEvent = createToolEvent(evt);
-        // ★ 이미지 영역 밖이면 무시
-        if (!toolEvent) {
-          console.log('[SingleDicomViewer] ❌ Ignored: outside image bounds');
-          return;
-        }
-
-        console.log('[SingleDicomViewer] ✅ Calling tool.handleMouseDown:', {
-          toolEvent,
-          toolIsActive: tool.isActive(),
-        });
+        if (!toolEvent) return; // 이미지 영역 밖이면 무시
 
         evt.preventDefault(); // 텍스트 선택 방지
         tool.handleMouseDown(toolEvent);
       } else if (evt.button === 2) {
         // 우클릭: 드로잉 취소
-        console.log('[SingleDicomViewer] Right-click: cancelling drawing');
         tool.cancelDrawing();
         setTempAnnotation(null);
       }
@@ -546,11 +506,10 @@ export const SingleDicomViewer = forwardRef<
     element.addEventListener('mousemove', handleMouseMove);
 
     return () => {
-      console.log('[SingleDicomViewer] Cleaning up annotation event handlers for:', activeMeasurementToolId);
       element.removeEventListener('mousedown', handleMouseDown);
       element.removeEventListener('mousemove', handleMouseMove);
     };
-  }, [activeMeasurementToolId, transformContext, viewportId, imageInfo]);
+  }, [activeMeasurementToolId, transformContext]);
 
   // Tool System 통합
   const { setToolActive: setToolGroupToolActive } = useToolGroup({
@@ -582,28 +541,11 @@ export const SingleDicomViewer = forwardRef<
 
   // 툴바에서 도구 선택 시 좌클릭 바인딩 변경
   const handleToolbarToolChange = useCallback((toolId: string) => {
-    // ★ DEBUG: 도구 변경 시작
-    console.log('[SingleDicomViewer] handleToolbarToolChange:', {
-      viewportId,
-      toolId,
-      prevTool: activeTool,
-      activeMeasurementToolId,
-      hasTransformContext: !!transformContext,
-    });
-
     const isAnnotationTool = (ANNOTATION_TOOL_IDS as readonly string[]).includes(toolId);
     const prevTool = activeTool;
-    const isPrevAnnotationTool = (ANNOTATION_TOOL_IDS as readonly string[]).includes(prevTool);
-
-    console.log('[SingleDicomViewer] Tool type:', {
-      isAnnotationTool,
-      isPrevAnnotationTool,
-      ANNOTATION_TOOL_IDS,
-    });
 
     // 이전 어노테이션 도구 비활성화
     if (activeMeasurementToolId && activeMeasurementToolId !== toolId) {
-      console.log('[SingleDicomViewer] Deactivating previous tool:', activeMeasurementToolId);
       measurementToolsRef.current[activeMeasurementToolId]?.deactivate();
       setTempAnnotation(null);
     }
@@ -613,16 +555,9 @@ export const SingleDicomViewer = forwardRef<
       // 어노테이션 도구 선택
       // ========================================
       const tool = measurementToolsRef.current[toolId];
-      console.log('[SingleDicomViewer] Annotation tool activation attempt:', {
-        toolId,
-        hasTool: !!tool,
-        hasTransformContext: !!transformContext,
-        toolsAvailable: Object.keys(measurementToolsRef.current),
-      });
 
       if (tool && transformContext) {
         // ToolContext 생성
-        // calibration은 transformContext에 이미 포함되어 있음
         const context: ToolContext = {
           dicomId: viewportId,
           frameIndex: currentFrame,
@@ -631,34 +566,16 @@ export const SingleDicomViewer = forwardRef<
           transformContext,
         };
 
-        console.log('[SingleDicomViewer] ✅ Activating annotation tool:', {
-          toolId,
-          context: {
-            dicomId: context.dicomId,
-            frameIndex: context.frameIndex,
-            hasCalibration: !!context.calibration,
-          },
-        });
-
         // MeasurementTool 활성화
         tool.activate(context, handleAnnotationCreated, handleTempUpdate);
 
         setActiveMeasurementToolId(toolId);
         setActiveTool(toolId);
-        // ★ 모든 조작 도구의 Primary 바인딩 해제 (기본 바인딩으로 복원)
-        // 이렇게 하면 좌클릭(Primary)은 어노테이션 도구만 사용하게 됨
-        // - WindowLevel: Secondary (우클릭)만
-        // - Pan: Auxiliary (중클릭)만
-        // - Zoom: Shift+Primary만 (Wheel은 정지 이미지에서만)
-        // - StackScroll: Wheel만 (동영상에서만)
+        // 모든 조작 도구의 Primary 바인딩 해제 (기본 바인딩으로 복원)
         for (const manipToolId of MANIPULATION_TOOL_IDS) {
           const defaultBindings = getToolDefaultBindings(manipToolId, isStaticImage);
           setToolGroupToolActive(manipToolId, defaultBindings);
         }
-      } else {
-        console.log('[SingleDicomViewer] ❌ Cannot activate annotation tool:', {
-          reason: !tool ? 'tool not found' : 'no transformContext',
-        });
       }
     } else {
       // ========================================
