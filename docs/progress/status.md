@@ -4,9 +4,9 @@
 
 | 항목 | 상태 |
 |------|------|
-| **현재 Phase** | Phase 3 (Annotations) ✅ 핵심 완료 |
-| **마지막 업데이트** | 2026-01-22 |
-| **다음 마일스톤** | Phase 5 (npm 배포) |
+| **현재 Phase** | Phase 3 (Annotations) ✅ **완료** |
+| **마지막 업데이트** | 2026-01-22 (세션 #37) |
+| **다음 마일스톤** | Phase 5 (npm 배포 준비) |
 
 ### 핵심 목표
 
@@ -40,7 +40,7 @@
 | **2.6** | @echopixel/react 멀티 뷰어 | ✅ 완료 |
 | **2.7** | Multi Viewport Rotation/Flip | ✅ 완료 |
 | **2.8** | Performance Options | ✅ 완료 |
-| **3** | Annotations (측정 도구, SVG 오버레이) | ✅ 핵심 완료 |
+| **3** | Annotations (측정 도구, SVG 오버레이) | ✅ **완료** |
 | **4** | Plugin System & 16-bit | ⏳ 대기 |
 | **5** | npm v1.0.0 배포 | ⏳ 대기 |
 
@@ -84,15 +84,26 @@ packages/
 
 ## 다음 단계
 
-1. **npm 배포 준비** ⬅️ 다음 마일스톤
-   - [ ] README.md 작성
-   - [ ] CHANGELOG.md 작성
-   - [ ] 패키지 버전 관리
+### 1. npm 배포 준비 (Phase 5) ⬅️ 다음 마일스톤
 
-2. **선택적 확장**
-   - [ ] Ellipse, VTI 측정 도구
-   - [ ] Plugin System (Phase 4)
-   - [ ] 16-bit 텍스처 지원
+| 작업 | 상태 | 우선순위 |
+|------|------|----------|
+| README.md 작성 | ⏳ | 높음 |
+| CHANGELOG.md 작성 | ⏳ | 높음 |
+| 패키지 버전 관리 | ⏳ | 높음 |
+| 라이센스 파일 (MIT) | ⏳ | 높음 |
+| TypeScript 타입 정의 | ⏳ | 중간 |
+| Examples 디렉토리 | ⏳ | 중간 |
+
+### 2. 선택적 확장
+
+| 작업 | 상태 | 비고 |
+|------|------|------|
+| Ellipse 측정 도구 | ⏳ | 필요 시 추가 |
+| VTI 측정 도구 | ⏳ | 필요 시 추가 |
+| 라벨 드래그 | ⏳ | 필요 시 추가 |
+| Plugin System (Phase 4) | ⏳ | |
+| 16-bit 텍스처 지원 | ⏳ | CT/MR용 |
 
 ---
 
@@ -102,6 +113,15 @@ packages/
 |------|------|
 | VSCode DOM 타입 인식 오류 | 🟡 미해결 (빌드 정상) |
 | HardwareInfoPanel GPU 정보 (Multi) | 🟡 미표시 |
+
+### 해결된 이슈 (세션 #37)
+
+| 이슈 | 해결 |
+|------|------|
+| Multi ViewPort 어노테이션 도구 미작동 | ✅ 이벤트 핸들링 수정 |
+| Multi ViewPort 캘리브레이션 미로딩 (px 표시) | ✅ full DICOM 인스턴스에서 추출 |
+| 개별 뷰어 어노테이션 visibility 미작동 | ✅ 개별 상태 관리 추가 |
+| 디버그 console.log 잔존 | ✅ 제거 완료 |
 
 ---
 

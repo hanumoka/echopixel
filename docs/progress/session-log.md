@@ -6,6 +6,72 @@
 
 ---
 
+## 2026-01-22 세션 #37 (Multi ViewPort 어노테이션 버그 수정)
+
+### 작업 내용
+
+**1. Multi ViewPort (Single viewport 기반) 어노테이션 도구 수정** ⭐
+
+사용자 요청: "Multi ViewPort 탭에서 어노테이션 도구가 동작하지 않음"
+
+**원인 분석**:
+| 문제 | 원인 | 해결 |
+|------|------|------|
+| 어노테이션 완료 클릭이 뷰포트 선택으로 처리됨 | `handleViewerClick`이 모든 클릭 가로챔 | `getActiveMeasurementToolId()` 체크 추가 |
+| Click outside가 어노테이션 완료를 가로챔 | `handleClickOutside`가 컴포넌트 내부 클릭도 처리 | 활성 도구 있을 때 스킵 |
+| 어노테이션이 저장되지 않음 | App.tsx에서 `onAnnotationUpdate` 미전달 | 핸들러 추가 |
+
+**2. 캘리브레이션 로딩 수정**
+
+사용자 요청: "길이 어노테이션이 cm이 아닌 px로 표시됨"
+
+**원인**: `loadMultiCanvasViewers`에서 full DICOM 인스턴스의 캘리브레이션 정보 미추출
+
+**해결**: Single ViewPort의 `handleWadoLoad`와 동일한 캘리브레이션 추출 로직 추가
+
+```typescript
+// ultrasoundCalibration 추출
+if (!finalImageInfo.pixelSpacing && !finalImageInfo.ultrasoundCalibration) {
+  const instanceBuffer = await fetch(instanceUrl, { headers: { 'Accept': 'application/dicom' } });
+  const ultrasoundCalibration = getUltrasoundCalibration(instanceBuffer);
+  if (ultrasoundCalibration) {
+    finalImageInfo = { ...finalImageInfo, ultrasoundCalibration };
+  }
+}
+```
+
+**3. 개별 어노테이션 Visibility 컨트롤 추가**
+
+사용자 요청: "어노테이션 숨기기가 그룹에서만 컨트롤되고 개별 컨트롤이 안됨"
+
+**해결**:
+- `viewerAnnotationsVisibility` 상태 추가 (`Record<string, boolean>`)
+- 각 뷰어별로 독립적인 visibility 토글 가능
+
+**4. 코드 정리**
+
+| 항목 | 내용 |
+|------|------|
+| 디버그 로그 제거 | SingleDicomViewer, SingleDicomViewerGroup, LengthTool에서 16개+ console.log 제거 |
+| useEffect 최적화 | 의존성 배열에서 `imageInfo` 제거 (`transformContext.viewport` 사용) |
+| .gitignore 업데이트 | Vite timestamp 파일 패턴 추가 (`*.timestamp-*.mjs`) |
+
+### 커밋 내역
+
+| 커밋 | 내용 |
+|------|------|
+| `e561b68` | Fix annotation tools in Multi ViewPort and add individual visibility control |
+| `d43f1b0` | Remove debug console.log statements and optimize useEffect dependencies |
+| `ac18fe3` | Add Vite timestamp files to .gitignore and remove accidentally committed files |
+
+### 학습 포인트
+
+- **이벤트 전파 관리**: 중첩된 컴포넌트에서 이벤트 핸들링 시 활성 상태 체크 필요
+- **캘리브레이션 로딩**: WADO-RS metadata만으로는 ultrasoundCalibration 추출 불가, full DICOM instance 필요
+- **상태 관리**: 그룹 레벨 vs 개별 레벨 상태 분리 (viewerAnnotationsVisibility)
+
+---
+
 ## 2026-01-21 세션 #36 (Performance Test 탭 추가)
 
 ### 작업 내용
@@ -93,9 +159,10 @@
 
 ## 다음 세션 할 일
 
-- [ ] Performance Test 탭 실제 성능 측정 및 비교
-- [ ] 디버그 로그 제거 (릴리스 전)
-- [ ] npm 배포 준비 (README, CHANGELOG)
+- [ ] npm 배포 준비 (README.md, CHANGELOG.md)
+- [ ] 패키지 버전 관리 설정
+- [ ] 선택적: Ellipse, VTI 측정 도구
+- [ ] 선택적: 라벨 드래그 기능
 
 ---
 
