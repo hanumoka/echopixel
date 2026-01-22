@@ -13,6 +13,20 @@ function tagToString(tag: DicomTag): string {
 }
 
 /**
+ * 바이트 배열을 문자열로 변환 (Stack Overflow 방지)
+ *
+ * 학습 포인트:
+ * - String.fromCharCode(...bytes)는 65536+ 바이트에서 Stack Overflow 발생
+ * - TextDecoder는 대용량 데이터도 안전하게 처리
+ * - DICOM 기본 인코딩은 ISO-8859-1 (Latin-1)
+ */
+const textDecoder = new TextDecoder('iso-8859-1');
+
+function bytesToString(bytes: Uint8Array): string {
+  return textDecoder.decode(bytes);
+}
+
+/**
  * DICOM 파일인지 확인
  */
 export function isDicomFile(buffer: ArrayBuffer): boolean {
@@ -104,7 +118,7 @@ export function parseDicom(buffer: ArrayBuffer): DicomDataset {
     // Transfer Syntax UID 추출 (0002,0010)
     if (group === 0x0002 && element === 0x0010 && length > 0) {
       const bytes = new Uint8Array(buffer, offset, length);
-      transferSyntax = String.fromCharCode(...bytes)
+      transferSyntax = bytesToString(bytes)
         .replace(/\0/g, '')
         .trim();
     }
@@ -154,7 +168,7 @@ export function getStringValue(
     return undefined;
   }
   const bytes = new Uint8Array(buffer, elem.offset, elem.length);
-  return String.fromCharCode(...bytes)
+  return bytesToString(bytes)
     .replace(/\0/g, '')
     .trim();
 }
