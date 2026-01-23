@@ -104,6 +104,66 @@ resolve: {
 
 ---
 
+## 2026-01-23 세션 #39 계속 (문서 검토 및 버그 수정)
+
+### 작업 내용
+
+**1. docs 폴더 검토 및 수정**
+
+| 파일 | 수정 내용 |
+|------|----------|
+| `docs/progress/status.md` | 개발자 가이드 파일 수 7개 → 15개 수정, 파일 목록 업데이트 |
+| `docs/guide/developer-guide/README.md` | 절대 경로 `/docs/...` → 상대 경로 `../../...` 수정 (4개 링크) |
+
+**2. 체크박스 UI 버그 수정** ⭐
+
+**증상**:
+- 체크박스 체크 표시가 보이지 않음
+- 초기 선택이 maxSelect(viewportCount)를 무시하고 16개까지 선택됨
+- 체크 해제 후 다시 선택 불가
+
+**원인 및 해결**:
+
+| 문제 | 원인 | 해결 |
+|------|------|------|
+| 체크 표시 안보임 | `@tailwindcss/forms` 기본 스타일이 어두운 배경색 적용 | `globals.css`에 `:checked` 스타일 추가 |
+| 초기 16개 선택 | `scanInstances`가 항상 16개 자동 선택 | `maxSelect` 파라미터 추가 |
+| 재선택 불가 | `toggleSelection`이 maxSelect 미체크 | `maxSelect` 파라미터로 제한 체크 |
+
+**변경된 파일**:
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `apps/demo/src/styles/globals.css` | 체크박스 `:checked` 스타일 추가 |
+| `apps/demo/src/hooks/useInstanceScanner.ts` | `scanInstances`, `toggleSelection`에 maxSelect 파라미터 추가 |
+| `apps/demo/src/pages/MultiCanvasPage.tsx` | viewportCount 전달 |
+| `apps/demo/src/pages/MultiViewportPage.tsx` | viewportCount 전달 |
+| `apps/demo/src/pages/PerfTestPage.tsx` | viewportCount 전달 |
+
+**3. 가이드 문서 검토 및 수정**
+
+| 파일 | 수정 내용 |
+|------|----------|
+| `docs/guide/user-guide/datasources.md` | WADO-RS 예제 import에 `parseDicom` 추가 |
+| `docs/guide/user-guide/components.md` | Props 테이블에 `onAnnotationsVisibilityChange` 추가 |
+
+### 커밋 내역
+
+| 커밋 | 내용 |
+|------|------|
+| `7ca7198` | fix: resolve pnpm dev race condition with build-first approach |
+| `0897407` | docs: fix developer guide file count and use relative links |
+| `b48e099` | fix: instance selector checkbox and maxSelect limit issues |
+| `8bc8b8a` | docs: fix missing import and add missing prop in guide docs |
+
+### 학습 포인트
+
+- **@tailwindcss/forms**: 폼 요소 기본 스타일을 리셋하므로 다크 테마에서 `:checked` 스타일 오버라이드 필요
+- **상태 관리**: 초기화 로직과 토글 로직 모두 동일한 제한 조건을 적용해야 일관성 유지
+- **문서 검증**: API 문서 작성 후 실제 코드와 대조하여 import, Props 검증 필수
+
+---
+
 ## 2026-01-22 세션 #38 (Tailwind CSS + 가이드 문서)
 
 ### 작업 내용
