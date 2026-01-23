@@ -102,6 +102,7 @@ function MyViewer({ viewportData }) {
 | `onAnnotationDelete` | `(id) => void` | 어노테이션 삭제 콜백 |
 | `selectedAnnotationId` | `string` | 현재 선택된 어노테이션 ID |
 | `showAnnotations` | `boolean` | 어노테이션 표시 여부 |
+| `onAnnotationsVisibilityChange` | `(visible: boolean) => void` | 어노테이션 표시 토글 콜백 |
 
 ### Handle (ref)
 

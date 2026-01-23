@@ -202,7 +202,7 @@ const frame = await dataSource.loadFrame({
 
 ```tsx
 import { useState } from 'react';
-import { WadoRsDataSource, getImageInfo, extractPixelData } from '@echopixel/core';
+import { WadoRsDataSource, parseDicom, getImageInfo, extractPixelData } from '@echopixel/core';
 import { SingleDicomViewer } from '@echopixel/react';
 
 function WadoViewer() {
