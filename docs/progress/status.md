@@ -77,15 +77,15 @@
 | 가이드 | 대상 | 파일 수 | 상태 |
 |--------|------|---------|------|
 | **사용자 가이드** | React 개발자 | 8개 | ✅ |
-| **개발자 가이드** | 기여자/메인테이너 | 7개 | ✅ |
+| **개발자 가이드** | 기여자/메인테이너 | 15개 | ✅ |
 
 **사용자 가이드** (`docs/guide/user-guide/`):
 - README.md, getting-started.md, components.md, tools.md
 - annotations.md, datasources.md, advanced.md, troubleshooting.md
 
 **개발자 가이드** (`docs/guide/developer-guide/`):
-- README.md, setup.md, project-structure.md, architecture.md
-- coding-guide.md, testing.md, contributing.md
+- 기본: README.md, setup.md, project-structure.md, architecture.md, coding-guide.md, testing.md, contributing.md
+- 심화: dicom-fundamentals.md, cornerstone-vs-echopixel.md, core-technologies.md, rendering-pipeline.md, multi-viewport-architecture.md, memory-management.md, performance-optimization.md, troubleshooting-guide.md
 
 ---
 

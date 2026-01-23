@@ -198,7 +198,7 @@ pnpm build
 
 ## 문서 참조
 
-- [아키텍처 설계](/docs/architecture/overview.md)
-- [기술 스택 결정](/docs/design/technical-stack.md)
-- [구현 로드맵](/docs/roadmap/implementation-phases.md)
-- [진행 상황](/docs/progress/status.md)
+- [아키텍처 설계](../../architecture/overview.md)
+- [기술 스택 결정](../../design/technical-stack.md)
+- [구현 로드맵](../../roadmap/implementation-phases.md)
+- [진행 상황](../../progress/status.md)
