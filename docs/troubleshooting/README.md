@@ -31,7 +31,7 @@
 <!-- - [문제명](./dicom-issue-name.md) -->
 
 ### 빌드/설정 관련
-<!-- - [문제명](./build-issue-name.md) -->
+- [pnpm dev Race Condition](./pnpm-dev-race-condition.md) - **Important** (2026-01-23)
 
 ### 성능 관련
 <!-- - [문제명](./performance-issue-name.md) -->

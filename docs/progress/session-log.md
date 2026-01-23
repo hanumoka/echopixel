@@ -6,6 +6,104 @@
 
 ---
 
+## 2026-01-23 세션 #39 (pnpm dev Race Condition 분석 및 해결)
+
+### 작업 내용
+
+**1. pnpm dev 실행 시 오류 분석** ⭐⭐⭐
+
+사용자 환경: 다른 PC에서 git pull 후 `pnpm dev` 실행 시 오류 발생
+
+**발생한 오류들**:
+
+| 오류 | 원인 |
+|------|------|
+| `Failed to resolve entry for package "@echopixel/core"` | 병렬 실행으로 dist/ 미생성 상태에서 접근 |
+| `Cannot find module '@echopixel/core'` (TS) | vite-plugin-dts가 타입 생성 시 dist/index.d.ts 미존재 |
+| `TS6059: File is not under 'rootDir'` | tsconfig paths로 외부 소스 참조 시 rootDir 충돌 |
+
+**2. 근본 원인 분석**
+
+`pnpm dev` 스크립트의 `--parallel` 플래그가 Race Condition 유발:
+
+```json
+"dev": "pnpm -r --parallel run dev"
+```
+
+| 패키지 | dev 스크립트 | 문제 |
+|--------|-------------|------|
+| `apps/demo` | `vite` | 즉시 시작, 의존성 스캔 |
+| `packages/core` | `vite build --watch` | 빌드 중, dist/ 재생성 중 |
+| `packages/react` | `vite build --watch` | 빌드 중, core 타입 필요 |
+
+**다른 PC에서 작동한 이유**:
+- Vite `.vite` 캐시에 이전 pre-bundling 결과 존재
+- 이전에 `pnpm build` 실행하여 `dist/` 폴더 존재
+
+**3. 해결책 적용**
+
+**적용된 해결책**: `apps/demo/vite.config.ts`에 alias 추가
+
+```typescript
+resolve: {
+  alias: {
+    "@echopixel/core": resolve(__dirname, "../../packages/core/src/index.ts"),
+    "@echopixel/react": resolve(__dirname, "../../packages/react/src/index.ts"),
+  },
+},
+```
+
+**결과**:
+- ✅ apps/demo dev server 정상 시작
+- ✅ 브라우저에서 앱 정상 작동
+- ⚠️ packages/react의 vite-plugin-dts TypeScript 경고 (런타임 영향 없음)
+
+**4. 시도했지만 실패한 방법**
+
+| 시도 | 결과 | 원인 |
+|------|------|------|
+| `tsconfig.json`에 paths 추가 | TS6059 오류 | rootDir 제약 충돌 |
+
+**5. 추가 해결책 적용**
+
+`pnpm dev` 스크립트 수정으로 빌드 순서 보장 (적용됨):
+
+```json
+{
+  "scripts": {
+    "dev": "pnpm build && pnpm -r --parallel run dev"
+  }
+}
+```
+
+### 생성된 문서
+
+| 파일 | 내용 |
+|------|------|
+| `docs/troubleshooting/pnpm-dev-race-condition.md` | 문제 분석, 해결책, 시도한 방법 정리 |
+
+### 변경된 파일
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `package.json` | dev 스크립트 수정 (빌드 순서 보장) |
+| `apps/demo/vite.config.ts` | alias 추가 (@echopixel/core, @echopixel/react) |
+| `tsconfig.json` | paths 추가 후 제거 (원래 상태로 복원) |
+
+### 학습 포인트
+
+- **pnpm 워크스페이스 병렬 실행**: `--parallel` 플래그는 의존성 순서를 무시하므로 race condition 발생 가능
+- **Vite alias vs TypeScript paths**: Vite alias는 런타임 번들링용, TypeScript paths는 타입 체크용으로 별개
+- **vite-plugin-dts의 한계**: 모노레포에서 다른 패키지 소스 직접 참조 시 rootDir 제약 발생
+- **캐시의 중요성**: Vite `.vite` 캐시가 있으면 문제가 숨겨질 수 있음
+
+### 다음 단계
+
+- [x] pnpm dev 스크립트 수정 (빌드 순서 보장) ✅
+- [ ] 또는 turbo/nx 등 빌드 도구 도입 검토 (선택적)
+
+---
+
 ## 2026-01-22 세션 #38 (Tailwind CSS + 가이드 문서)
 
 ### 작업 내용

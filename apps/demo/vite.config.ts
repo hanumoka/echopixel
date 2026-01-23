@@ -9,6 +9,9 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": resolve(__dirname, "./src"),
+      // 워크스페이스 패키지를 소스 파일로 직접 참조 (dev 모드 race condition 해결)
+      "@echopixel/core": resolve(__dirname, "../../packages/core/src/index.ts"),
+      "@echopixel/react": resolve(__dirname, "../../packages/react/src/index.ts"),
     },
   },
   css: {

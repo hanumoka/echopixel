@@ -5,7 +5,7 @@
 | 항목 | 상태 |
 |------|------|
 | **현재 Phase** | Phase 3 (Annotations) ✅ **완료** |
-| **마지막 업데이트** | 2026-01-22 (세션 #38 계속) |
+| **마지막 업데이트** | 2026-01-23 (세션 #39) |
 | **다음 마일스톤** | Phase 5 (npm 배포 준비) |
 | **스타일링** | Tailwind CSS ✅ **마이그레이션 완료** |
 | **문서화** | 사용자/개발자 가이드 ✅ **작성 완료** |
@@ -138,10 +138,21 @@ packages/
 
 ## 알려진 이슈
 
-| 이슈 | 상태 |
-|------|------|
-| VSCode DOM 타입 인식 오류 | 🟡 미해결 (빌드 정상) |
-| HardwareInfoPanel GPU 정보 (Multi) | 🟡 미표시 |
+| 이슈 | 상태 | 참고 |
+|------|------|------|
+| pnpm dev Race Condition | ✅ 해결됨 | [troubleshooting](../troubleshooting/pnpm-dev-race-condition.md) |
+| VSCode DOM 타입 인식 오류 | 🟡 미해결 | 빌드 정상 |
+| HardwareInfoPanel GPU 정보 (Multi) | 🟡 미표시 | |
+
+### pnpm dev Race Condition (세션 #39)
+
+**증상**: 새 환경에서 `pnpm dev` 실행 시 "Failed to resolve entry for package" 오류
+
+**원인**: `--parallel` 플래그로 인해 packages 빌드 완료 전 apps/demo가 의존성 스캔
+
+**적용된 해결책**:
+- `package.json`의 dev 스크립트 수정: `pnpm build && pnpm -r --parallel run dev`
+- `apps/demo/vite.config.ts`에 alias 추가 (추가 안전장치)
 
 ### 해결된 이슈 (세션 #37)
 
