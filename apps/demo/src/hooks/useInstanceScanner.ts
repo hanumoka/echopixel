@@ -7,10 +7,10 @@ import { WadoRsDataSource } from '@echopixel/core';
 import type { ScannedInstance, WadoConfig } from '../types/demo';
 
 interface UseInstanceScannerReturn {
-  scanInstances: (config: WadoConfig) => Promise<void>;
+  scanInstances: (config: WadoConfig, maxSelect?: number) => Promise<void>;
   scannedInstances: ScannedInstance[];
   selectedUids: Set<string>;
-  toggleSelection: (uid: string) => void;
+  toggleSelection: (uid: string, maxSelect?: number) => void;
   selectAllPlayable: (maxCount: number) => void;
   clearSelection: () => void;
   setSelectedUids: (uids: Set<string>) => void;
@@ -27,7 +27,7 @@ export function useInstanceScanner(): UseInstanceScannerReturn {
   const [error, setError] = useState<string | null>(null);
 
   // Instance 스캔
-  const scanInstances = useCallback(async (config: WadoConfig) => {
+  const scanInstances = useCallback(async (config: WadoConfig, maxSelect: number = 16) => {
     setScanningStatus('Instance 목록 조회 중...');
     setScannedInstances([]);
     setSelectedUids(new Set());
@@ -89,8 +89,8 @@ export function useInstanceScanner(): UseInstanceScannerReturn {
       setScannedInstances(results);
       setScanningStatus('');
 
-      // 첫 N개 자동 선택 (maxSelect는 나중에 적용)
-      const validUids = results.filter((r) => !r.error).slice(0, 16).map((r) => r.uid);
+      // 첫 N개 자동 선택 (maxSelect 제한 적용)
+      const validUids = results.filter((r) => !r.error).slice(0, maxSelect).map((r) => r.uid);
       setSelectedUids(new Set(validUids));
     } catch (err) {
       setError(`Instance 목록 조회 실패: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -98,13 +98,17 @@ export function useInstanceScanner(): UseInstanceScannerReturn {
     }
   }, []);
 
-  // 선택 토글
-  const toggleSelection = useCallback((uid: string) => {
+  // 선택 토글 (maxSelect 제한 적용)
+  const toggleSelection = useCallback((uid: string, maxSelect?: number) => {
     setSelectedUids((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(uid)) {
         newSet.delete(uid);
       } else {
+        // maxSelect가 지정된 경우, 제한 초과 시 추가하지 않음
+        if (maxSelect !== undefined && newSet.size >= maxSelect) {
+          return prev;
+        }
         newSet.add(uid);
       }
       return newSet;

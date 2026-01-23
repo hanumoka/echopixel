@@ -22,6 +22,11 @@
     background-color: theme('colors.viewer.panel');
     border-color: theme('colors.border.DEFAULT');
   }
+  /* 체크박스 체크 상태 스타일 */
+  input[type="checkbox"]:checked {
+    background-color: theme('colors.accent.primary');
+    border-color: theme('colors.accent.primary');
+  }
 }
 
 @layer components {

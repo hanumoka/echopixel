@@ -116,7 +116,7 @@ export function MultiViewportPage({ wadoConfig, onWadoConfigChange }: MultiViewp
 
   // Instance 스캔
   const handleScan = async () => {
-    await scanInstances(wadoConfig);
+    await scanInstances(wadoConfig, viewportCount);
   };
 
   // 데이터 로드
@@ -320,7 +320,7 @@ export function MultiViewportPage({ wadoConfig, onWadoConfigChange }: MultiViewp
             instances={scannedInstances}
             selectedUids={selectedUids}
             maxSelect={viewportCount}
-            onToggle={toggleSelection}
+            onToggle={(uid) => toggleSelection(uid, viewportCount)}
             onSelectAllPlayable={() => selectAllPlayable(viewportCount)}
             onClearSelection={clearSelection}
             className="mt-4"

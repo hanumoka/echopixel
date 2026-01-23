@@ -126,7 +126,7 @@ export function PerfTestPage({ wadoConfig, onWadoConfigChange }: PerfTestPagePro
 
   // Instance 스캔
   const handleScan = async () => {
-    await scanInstances(wadoConfig);
+    await scanInstances(wadoConfig, viewportCount);
   };
 
   // 데이터 로드
@@ -535,7 +535,7 @@ export function PerfTestPage({ wadoConfig, onWadoConfigChange }: PerfTestPagePro
           instances={scannedInstances}
           selectedUids={selectedUids}
           maxSelect={viewportCount}
-          onToggle={toggleSelection}
+          onToggle={(uid) => toggleSelection(uid, viewportCount)}
           onSelectAllPlayable={() => selectAllPlayable(viewportCount)}
           onClearSelection={clearSelection}
           className="mb-4"
