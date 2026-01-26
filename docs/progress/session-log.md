@@ -54,10 +54,20 @@
 | ESLint 환경 설정 미흡 (no-undef 오류) | 🟡 미해결 | 중간 |
 | vite-plugin-dts TS 버전 경고 | 🟡 미해결 | 낮음 |
 
+**3. ESLint 설정 개선** ⭐
+
+| 항목 | 내용 |
+|------|------|
+| 추가 패키지 | `globals`, `eslint-plugin-react`, `eslint-plugin-react-hooks` |
+| 오류 감소 | 495개 → 68개 (86% 감소) |
+| 해결된 문제 | browser/node 전역 변수, React 17+ JSX 트랜스폼 |
+| 남은 문제 | React Hooks 코드 패턴 (별도 수정 필요) |
+
 ### 다음 단계
 
-- [ ] ESLint 환경 설정 수정 (browser, node 전역 변수 인식)
-- [ ] Phase 5: npm 배포 준비 (README.md, CHANGELOG.md, LICENSE)
+- [ ] React Hooks 조건부 호출 패턴 수정
+- [ ] 렌더링 중 ref 업데이트 패턴 수정
+- [ ] npm 배포는 Private npm repository 설정 후 진행 예정
 
 ---
 
