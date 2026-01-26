@@ -11,7 +11,6 @@ import {
 import type {
   DicomImageInfo,
   Annotation,
-  SVGRenderConfig,
 } from '@echopixel/core';
 import {
   SingleDicomViewer,
@@ -262,7 +261,7 @@ export const SingleDicomViewerGroup = forwardRef<
     onAnnotationSelect,
     onAnnotationUpdate,
     onAnnotationDelete,
-    onAnnotationCreate,
+    onAnnotationCreate: _onAnnotationCreate,
     onAnnotationsVisibilityChange,
     style,
     className,

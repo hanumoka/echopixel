@@ -28,7 +28,7 @@
  * ```
  */
 
-import { useMemo, useCallback, useState, useRef, useEffect, type CSSProperties } from 'react';
+import { useMemo, useCallback, useState, useRef, useEffect, useLayoutEffect, type CSSProperties } from 'react';
 import type {
   Annotation,
   Point,
@@ -278,11 +278,13 @@ export function SVGOverlay({
   const transformContextRef = useRef(transformContext);
   const handlersRef = useRef(handlers);
 
-  // 매 렌더링마다 최신 값으로 업데이트
-  dragStateRef.current = dragState;
-  draggedPointsRef.current = draggedPoints;
-  transformContextRef.current = transformContext;
-  handlersRef.current = handlers;
+  // 매 렌더링마다 최신 값으로 업데이트 (렌더링 후 동기적으로)
+  useLayoutEffect(() => {
+    dragStateRef.current = dragState;
+    draggedPointsRef.current = draggedPoints;
+    transformContextRef.current = transformContext;
+    handlersRef.current = handlers;
+  });
 
   // Document 레벨 드래그 이벤트 핸들링
   // 의존성을 dragState만으로 최소화하여 드래그 중 안정성 확보

@@ -72,6 +72,8 @@ export function HardwareInfoPanel({
 
   // 초기 수집 및 주기적 메모리 업데이트
   useEffect(() => {
+    // Initial collection on mount - intentional setState in effect
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     collectInfo();
 
     // 메모리 정보는 5초마다 업데이트

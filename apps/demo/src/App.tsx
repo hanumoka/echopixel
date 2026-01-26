@@ -5,9 +5,9 @@
  * 각 뷰 모드는 별도 페이지 컴포넌트에서 처리
  */
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { cn } from '@echopixel/react';
-import { HardwareInfoPanel, type TextureMemoryInfo } from './components/HardwareInfoPanel';
+import { HardwareInfoPanel } from './components/HardwareInfoPanel';
 import {
   SingleViewportPage,
   MultiCanvasPage,
@@ -52,9 +52,6 @@ export default function App() {
     instanceUid: '1.2.840.113619.2.391.60843.1732524816.3.1.512',
   });
 
-  // WebGL context ref (HardwareInfoPanel용)
-  const glRef = useRef<WebGL2RenderingContext | null>(null);
-
   // 탭 버튼 렌더링
   const renderTab = (mode: ViewMode, label: string) => {
     const isActive = viewMode === mode;
@@ -80,7 +77,6 @@ export default function App() {
     <div className="p-5 font-sans max-w-[1400px] mx-auto min-h-screen bg-[#121218] text-[#e0e0e0]">
       {/* Hardware Info Panel */}
       <HardwareInfoPanel
-        gl={glRef.current}
         defaultOpen={false}
         position="right"
       />

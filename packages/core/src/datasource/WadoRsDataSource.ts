@@ -343,7 +343,7 @@ export class WadoRsDataSource implements DataSource {
   /**
    * 재시도 옵션 생성
    */
-  private getRetryOptions(options?: LoadFrameOptions): RetryOptions {
+  private getRetryOptions(_options?: LoadFrameOptions): RetryOptions {
     return {
       maxRetries: this.config.maxRetries,
       timeout: this.config.timeout,

@@ -25,6 +25,7 @@
 import {
   useRef,
   useEffect,
+  useLayoutEffect,
   useCallback,
   type ReactNode,
   type CSSProperties,
@@ -100,11 +101,15 @@ export function HybridViewportSlot({
 
   // manager를 ref로 저장하여 cleanup 시에도 최신 참조 사용
   const managerRef = useRef(manager);
-  managerRef.current = manager;
 
   // onElementRef를 ref로 저장 (무한 루프 방지)
   const onElementRefRef = useRef(onElementRef);
-  onElementRefRef.current = onElementRef;
+
+  // refs를 동기적으로 업데이트 (렌더링 후 즉시)
+  useLayoutEffect(() => {
+    managerRef.current = manager;
+    onElementRefRef.current = onElementRef;
+  });
 
   // 마운트 시 이미지 영역만 슬롯으로 등록 (도구바 제외)
   useEffect(() => {
@@ -126,7 +131,7 @@ export function HybridViewportSlot({
   useEffect(() => {
     onElementRefRef.current?.(contentRef.current);
     return () => onElementRefRef.current?.(null);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);  
 
   // 클릭 핸들러
   const handleClick = useCallback((e: React.MouseEvent) => {

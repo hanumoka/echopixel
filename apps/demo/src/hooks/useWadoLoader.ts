@@ -13,12 +13,13 @@ import {
 } from '@echopixel/core';
 import type { WadoConfig, ViewportData, HybridSeriesData, ViewerData } from '../types/demo';
 
-interface LoadedData {
+interface _LoadedData {
   frames: Uint8Array[];
   imageInfo: DicomImageInfo;
   isEncapsulated: boolean;
   frameCount: number;
 }
+// Note: _LoadedData is currently unused but kept for future use
 
 interface UseWadoLoaderReturn {
   loadInstance: (config: WadoConfig) => Promise<ViewportData | null>;

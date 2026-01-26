@@ -96,7 +96,7 @@ export class HybridRenderScheduler {
     const tick = (timestamp: number): void => {
       if (!this.isRunning) return;
 
-      const deltaTime = timestamp - this.lastTickTime;
+      const _deltaTime = timestamp - this.lastTickTime;
       this.lastTickTime = timestamp;
 
       // FPS 계산

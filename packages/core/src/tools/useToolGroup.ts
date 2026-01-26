@@ -7,7 +7,7 @@
  * - 도구 설정에 viewport 접근자 자동 주입
  */
 
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useCallback, useState } from 'react';
 import { ToolGroupManager } from './ToolManager';
 import { ToolGroup } from './ToolGroup';
 import { addTool, hasTool } from './ToolRegistry';
@@ -176,7 +176,6 @@ export function useToolGroup({
 
   // bindings를 ref로 저장하여 의존성 배열 문제 해결
   const bindingsRef = useRef(bindings);
-  bindingsRef.current = bindings;
 
   // 이전 isStaticImage 값 추적 (변경 감지용)
   const prevIsStaticImageRef = useRef(isStaticImage);
@@ -184,13 +183,20 @@ export function useToolGroup({
   // viewportManager를 ref로 저장하여 의존성 배열 문제 해결
   // (viewportManager는 매 렌더링마다 새 객체가 생성될 수 있으므로)
   const viewportManagerRef = useRef(viewportManager);
-  viewportManagerRef.current = viewportManager;
+
+  // refs를 동기적으로 업데이트 (렌더링 후 즉시, useLayoutEffect 사용)
+  useLayoutEffect(() => {
+    bindingsRef.current = bindings;
+    viewportManagerRef.current = viewportManager;
+  });
 
   // 도구 그룹 생성/삭제
   useEffect(() => {
     if (disabled) {
       if (toolGroup) {
         ToolGroupManager.destroyToolGroup(toolGroupId);
+        // Cleanup state when disabled - intentional setState in effect
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setToolGroup(null);
         registeredViewportsRef.current.clear();
       }

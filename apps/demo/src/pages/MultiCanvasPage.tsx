@@ -14,7 +14,7 @@ import {
   type SingleDicomViewerGroupHandle,
   type ViewerData,
 } from '@echopixel/react';
-import { WadoConfigPanel, InstanceSelector, PlaybackControlBar } from '../components';
+import { InstanceSelector, PlaybackControlBar } from '../components';
 import { useWadoLoader, useInstanceScanner } from '../hooks';
 import type { WadoConfig } from '../types/demo';
 import { calculateGridDimensions } from '../types/demo';

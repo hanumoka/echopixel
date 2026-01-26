@@ -331,7 +331,7 @@ export class ToolGroup {
    * - 드래그가 시작된 뷰포트를 벗어나도 이벤트를 계속 전달
    * - activeDragViewportId로 원래 뷰포트 컨텍스트 유지
    */
-  private onMouseMove(evt: MouseEvent, viewportId: string, element: HTMLElement): void {
+  private onMouseMove(evt: MouseEvent, _viewportId: string, _element: HTMLElement): void {
     // 드래그 중인 도구가 있으면 해당 도구로 이벤트 전달
     // 드래그 시작 뷰포트가 아닌 다른 뷰포트에서도 이벤트를 받음
     if (this.activeDragTool && this.activeDragViewportId) {
@@ -351,7 +351,7 @@ export class ToolGroup {
   /**
    * 마우스 업 이벤트 처리
    */
-  private onMouseUp(evt: MouseEvent, viewportId: string, element: HTMLElement): void {
+  private onMouseUp(evt: MouseEvent, _viewportId: string, _element: HTMLElement): void {
     // 드래그 중인 도구가 있으면 (어떤 뷰포트에서든) 이벤트 전달
     if (this.activeDragTool && this.activeDragViewportId) {
       const originalViewport = this.viewports.get(this.activeDragViewportId);

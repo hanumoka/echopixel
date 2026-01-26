@@ -27,26 +27,7 @@ export function PointShape({
 }: ShapeProps) {
   const { id, points, labelPosition, displayValue, color, isSelected, isHovered } = data;
 
-  // 점이 1개 미만이면 렌더링 안함
-  if (points.length < 1) {
-    return null;
-  }
-
-  const point = points[0];
-
-  // 색상 결정
-  const strokeColor = isSelected
-    ? config.selectedStrokeColor
-    : isHovered
-      ? config.hoveredStrokeColor
-      : color;
-
-  const strokeWidth = isSelected ? config.selectedStrokeWidth : config.strokeWidth;
-
-  // 십자선 크기
-  const crossSize = isSelected ? 12 : 10;
-
-  // 이벤트 핸들러
+  // 이벤트 핸들러 (Hooks는 early return 전에 호출해야 함)
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -70,6 +51,25 @@ export function PointShape({
   const handleMouseLeave = useCallback(() => {
     onHover?.(null);
   }, [onHover]);
+
+  // 점이 1개 미만이면 렌더링 안함
+  if (points.length < 1) {
+    return null;
+  }
+
+  const point = points[0];
+
+  // 색상 결정
+  const strokeColor = isSelected
+    ? config.selectedStrokeColor
+    : isHovered
+      ? config.hoveredStrokeColor
+      : color;
+
+  const strokeWidth = isSelected ? config.selectedStrokeWidth : config.strokeWidth;
+
+  // 십자선 크기
+  const crossSize = isSelected ? 12 : 10;
 
   return (
     <g

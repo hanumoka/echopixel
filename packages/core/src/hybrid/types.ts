@@ -7,7 +7,7 @@
  * - DPR(Device Pixel Ratio) 처리
  */
 
-import type { Viewport, Rect } from '../viewport/types';
+import type { Viewport } from '../viewport/types';
 
 /**
  * WebGL 뷰포트 경계 (gl.viewport/scissor 파라미터)

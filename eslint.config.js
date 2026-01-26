@@ -44,10 +44,12 @@ export default [
       "react/jsx-uses-react": "off",
       "@typescript-eslint/no-unused-vars": [
         "error",
-        { argsIgnorePattern: "^_" },
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
       "@typescript-eslint/explicit-function-return-type": "off",
       "@typescript-eslint/no-explicit-any": "warn",
+      // TypeScript가 이미 타입 체크를 하므로 no-undef 비활성화
+      "no-undef": "off",
     },
   },
   // Node.js 환경 파일 (설정 파일들)

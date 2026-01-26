@@ -618,6 +618,8 @@ export const SingleDicomViewer = forwardRef<
   }, [isStaticImage]);
 
   // 캔버스 컨테이너를 Tool System에 등록
+  // Version counter triggers re-registration - intentional setState in effect
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const element = canvasContainerRef.current;
     if (element && webglReady) {
@@ -629,6 +631,7 @@ export const SingleDicomViewer = forwardRef<
       };
     }
   }, [viewportId, viewportElements, webglReady]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // W/L, 프레임, 캔버스 크기, 또는 DPR 변경 시 재렌더링
   useEffect(() => {

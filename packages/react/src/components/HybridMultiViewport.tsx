@@ -43,6 +43,7 @@
 
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   useCallback,
@@ -380,7 +381,7 @@ export const HybridMultiViewport = forwardRef<
     onAnnotationCreate,
     showAnnotationTools = false,
     showAnnotations = true,
-    onAnnotationsVisibilityChange,
+    onAnnotationsVisibilityChange: _onAnnotationsVisibilityChange,
     // Lifecycle callbacks
     onViewportIdsReady,
     style,
@@ -536,6 +537,8 @@ export const HybridMultiViewport = forwardRef<
 
   // ViewportManagerLike 어댑터 (Tool System 연결)
   // hybridManager의 메서드를 호출하고, React 상태를 업데이트하여 렌더링 트리거
+  // ref access in useMemo is intentional - creates adapter from initialized ref
+  /* eslint-disable react-hooks/refs */
   const viewportManagerAdapter = useMemo<ViewportManagerLike | null>(() => {
     const hybridManager = hybridManagerRef.current;
     if (!hybridManager) return null;
@@ -570,6 +573,7 @@ export const HybridMultiViewport = forwardRef<
   }, [isInitialized]); // hybridManager 초기화 후에만 생성
 
   // Tool System 통합
+  // viewportManagerAdapter is derived from ref, but this is intentional
   const { setToolActive, toolGroup } = useToolGroup({
     toolGroupId: 'hybrid-viewport',
     viewportManager: viewportManagerAdapter,
@@ -578,6 +582,7 @@ export const HybridMultiViewport = forwardRef<
     disabled: !isInitialized || !viewportManagerAdapter,
     isStaticImage,
   });
+  /* eslint-enable react-hooks/refs */
 
   // 초기 도구 설정 및 isStaticImage 변경 시 바인딩 업데이트
   // - toolGroup 생성 후: activeTool에 좌클릭 바인딩 추가
@@ -650,8 +655,11 @@ export const HybridMultiViewport = forwardRef<
   }, [activeViewportId, viewports, viewportElements, seriesMap, viewportIds]);
 
   // ref 업데이트 (마우스 이벤트 핸들러에서 최신 값 참조용)
-  getActiveViewportTransformContextRef.current = getActiveViewportTransformContext;
-  viewportsRef.current = viewports;
+  // useLayoutEffect로 렌더링 후 즉시 업데이트
+  useLayoutEffect(() => {
+    getActiveViewportTransformContextRef.current = getActiveViewportTransformContext;
+    viewportsRef.current = viewports;
+  });
 
   // 어노테이션 생성 완료 콜백
   const handleAnnotationCreated = useCallback((annotation: Annotation) => {
@@ -1519,6 +1527,8 @@ export const HybridMultiViewport = forwardRef<
         dpr={dpr}
         onCanvasRef={handleCanvasRef}
       >
+        {/* Ref access in render callback is intentional - manager is always initialized at this point */}
+        {/* eslint-disable-next-line react-hooks/refs */}
         {viewportIds.map((id, index) => {
           const viewport = viewports.find((v) => v.id === id) ?? null;
           const manager = hybridManagerRef.current;

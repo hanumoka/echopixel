@@ -1,5 +1,5 @@
 import type { DicomImageInfo } from '../dicom';
-import type { PixelDataInfo } from '../dicom/types';
+// PixelDataInfo import removed - not currently used
 
 /**
  * DICOM 인스턴스 식별자

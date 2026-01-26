@@ -43,7 +43,7 @@ export function domRectToWebGLViewport(
 
   // 1. Canvas 기준 상대 좌표 계산 (CSS pixels)
   const relativeLeft = elementRect.left - canvasRect.left;
-  const relativeTop = elementRect.top - canvasRect.top;
+  const _relativeTop = elementRect.top - canvasRect.top; // unused but kept for documentation
   const relativeBottom = elementRect.bottom - canvasRect.top;
 
   // 2. Canvas CSS 높이 (CSS pixels)

@@ -62,7 +62,7 @@ export interface MultiCanvasGridProps {
 type SyncMode = 'none' | 'frame-ratio' | 'absolute';
 
 export function MultiCanvasGrid({
-  layout,
+  layout: _layout,
   dataSource,
   studyUid,
   seriesUid,
@@ -74,7 +74,7 @@ export function MultiCanvasGrid({
   // 1-2개: 2열, 3-4개: 2열, 5-6개: 3열, 7-9개: 3열, 10+개: 4열
   const viewportCount = instanceUids.length;
   const gridCols = viewportCount <= 2 ? 2 : viewportCount <= 4 ? 2 : viewportCount <= 6 ? 3 : viewportCount <= 9 ? 3 : 4;
-  const maxSlots = viewportCount; // instanceUids 개수만큼 슬롯 생성
+  // maxSlots = viewportCount (instanceUids 개수만큼 슬롯 생성)
 
   // 뷰포트 슬롯 상태 - 초기화 시에만 설정 (key prop으로 컴포넌트가 재마운트됨)
   const [slots, setSlots] = useState<ViewportSlot[]>(() => {
@@ -455,7 +455,7 @@ export function MultiCanvasGrid({
                 }}
               >
                 <option value="">자동 (첫 번째 영상)</option>
-                {playableSlots.map((slot, idx) => (
+                {playableSlots.map((slot, _idx) => (
                   <option key={slot.id} value={slot.id}>
                     #{slots.indexOf(slot) + 1} ({slot.metadata?.frameCount}f)
                   </option>

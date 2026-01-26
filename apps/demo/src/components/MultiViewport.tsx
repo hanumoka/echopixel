@@ -134,7 +134,7 @@ export function MultiViewport({
     setViewports(viewportManager.getAllViewports());
 
     // 렌더링 콜백 설정
-    renderScheduler.setRenderCallback((viewportId, frameIndex, bounds) => {
+    renderScheduler.setRenderCallback((viewportId, frameIndex, _bounds) => {
       const viewport = viewportManager.getViewport(viewportId);
       const textureManager = textureManagersRef.current.get(viewportId);
 

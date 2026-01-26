@@ -80,29 +80,18 @@ export function AngleShape({
 }: ShapeProps) {
   const { id, points, labelPosition, displayValue, color, isSelected, isHovered } = data;
 
-  // 점이 3개 미만이면 렌더링 안함
-  if (points.length < 3) {
-    return null;
-  }
+  // 안전한 포인트 추출 (Hooks 호출 전에 기본값 설정)
+  const p1 = points[0] ?? { x: 0, y: 0 };
+  const p2 = points[1] ?? { x: 0, y: 0 };
+  const p3 = points[2] ?? { x: 0, y: 0 };
 
-  const [p1, p2, p3] = points;
-
-  // 색상 결정
-  const strokeColor = isSelected
-    ? config.selectedStrokeColor
-    : isHovered
-      ? config.hoveredStrokeColor
-      : color;
-
-  const strokeWidth = isSelected ? config.selectedStrokeWidth : config.strokeWidth;
-
-  // 아크 경로 계산
+  // 아크 경로 계산 (Hooks는 early return 전에 호출해야 함)
   const arcPath = useMemo(
-    () => createArcPath(p2, p1, p3, 20),
-    [p1, p2, p3]
+    () => points.length >= 3 ? createArcPath(p2, p1, p3, 20) : '',
+    [p1, p2, p3, points.length]
   );
 
-  // 이벤트 핸들러
+  // 이벤트 핸들러 (Hooks는 early return 전에 호출해야 함)
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -126,6 +115,20 @@ export function AngleShape({
   const handleMouseLeave = useCallback(() => {
     onHover?.(null);
   }, [onHover]);
+
+  // 점이 3개 미만이면 렌더링 안함
+  if (points.length < 3) {
+    return null;
+  }
+
+  // 색상 결정
+  const strokeColor = isSelected
+    ? config.selectedStrokeColor
+    : isHovered
+      ? config.hoveredStrokeColor
+      : color;
+
+  const strokeWidth = isSelected ? config.selectedStrokeWidth : config.strokeWidth;
 
   return (
     <g

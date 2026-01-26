@@ -253,7 +253,7 @@ export const DicomViewport = forwardRef<DicomViewportHandle, DicomViewportProps>
   // Tool System 통합
   // 정지 이미지: 휠 → Zoom
   // 동영상: 휠 → StackScroll (프레임 전환)
-  const { resetAllViewports } = useToolGroup({
+  const { resetAllViewports: _resetAllViewports } = useToolGroup({
     toolGroupId,  // 뷰포트별 고유 ID 사용
     viewportManager,
     viewportElements,
@@ -553,7 +553,7 @@ export const DicomViewport = forwardRef<DicomViewportHandle, DicomViewportProps>
         animationRef.current = null;
       }
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);  
 
   // 프레임 렌더링 (ref에서 W/L 값을 읽어 최신 값 사용)
   const renderFrame = useCallback(async (frameIndex: number) => {

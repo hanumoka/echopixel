@@ -153,7 +153,7 @@ export class RenderScheduler {
   /**
    * 모든 뷰포트 업데이트 및 렌더링 (내부)
    */
-  private updateAndRenderViewports(timestamp: number, deltaTime: number): void {
+  private updateAndRenderViewports(timestamp: number, _deltaTime: number): void {
     const gl = this.gl;
     const viewports = this.viewportManager.getActiveViewports();
 
