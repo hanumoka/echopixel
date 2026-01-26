@@ -6,6 +6,97 @@
 
 ---
 
+## 2026-01-26 세션 #40-4 (주니어 개발자 가이드 보강)
+
+### 작업 내용
+
+**가이드 문서 대폭 보강** ⭐⭐⭐
+
+이전 세션에서 요약 형식으로 변환한 3개 가이드를 주니어 개발자가 쉽게 이해할 수 있도록 상세하게 재작성:
+
+| 파일 | 이전 | 이후 | 추가 내용 |
+|------|------|------|----------|
+| `multi-viewport-architecture.md` | 109줄 | 682줄 | WebGL Context 제한 설명, Scissor Test, 좌표 변환, 흔한 문제 해결 |
+| `memory-management.md` | 135줄 | 1077줄 | CPU vs GPU 메모리, VideoFrame 생명주기, Context Loss 복구, LRU 캐시 |
+| `performance-optimization.md` | 139줄 | 1098줄 | 7가지 전략 각각 상세 설명, 코드 예제, 성능 측정 방법 |
+
+**주요 보강 내용:**
+
+1. **"왜?"에 대한 설명** - 각 기술이 필요한 이유
+2. **ASCII 다이어그램** - 시각적 이해를 위한 다이어그램
+3. **상세 코드 예제** - 한국어 주석 포함
+4. **흔한 실수와 해결책** - 실무에서 겪을 수 있는 문제
+5. **학습 포인트 정리** - 핵심 개념 요약 테이블
+6. **외부 학습 자료 링크** - MDN, WebGL Fundamentals 등
+
+### 변경된 파일 (3개)
+
+| 파일 | 변경 |
+|------|------|
+| `docs/guide/developer-guide/multi-viewport-architecture.md` | 682줄로 상세화 |
+| `docs/guide/developer-guide/memory-management.md` | 1077줄로 상세화 |
+| `docs/guide/developer-guide/performance-optimization.md` | 1098줄로 상세화 |
+
+### 다음 세션 할 일
+
+- [ ] 추가 가이드 문서 검토 필요 시 보강
+
+---
+
+## 2026-01-26 세션 #40-3 (문서 리팩토링)
+
+### 작업 내용
+
+**1. 문서 중복 분석** ⭐⭐
+
+| 분석 결과 | 내용 |
+|----------|------|
+| 총 파일 수 | 48개 markdown 파일 |
+| 주요 중복 | 4개 (multi-viewport, memory, performance, cornerstone3d) |
+| 대용량 파일 | 3개 (800+ lines) |
+| 빈 플레이스홀더 | 3개 (learning/ 하위 폴더) |
+
+**2. 가이드 파일 리팩토링** ⭐⭐⭐
+
+중복된 가이드 파일들을 **요약 + 링크** 형식으로 변환:
+
+| 파일 | 이전 | 이후 | 참조 |
+|------|------|------|------|
+| `multi-viewport-architecture.md` | 728줄 | 109줄 | → architecture/multi-viewport-strategy-analysis.md |
+| `memory-management.md` | 919줄 | 135줄 | → architecture/memory-architecture-analysis.md |
+| `performance-optimization.md` | 881줄 | 139줄 | → design/performance-strategy.md |
+
+**3. learning/ 폴더 정리**
+
+- 빈 플레이스홀더 폴더 삭제: `dicom/`, `typescript/`, `webgl2/`
+- `learning/README.md`를 실제 학습 자료 링크로 업데이트
+
+### 변경된 파일 (5개)
+
+| 파일 | 변경 |
+|------|------|
+| `docs/guide/developer-guide/multi-viewport-architecture.md` | 요약 형식으로 리팩토링 |
+| `docs/guide/developer-guide/memory-management.md` | 요약 형식으로 리팩토링 |
+| `docs/guide/developer-guide/performance-optimization.md` | 요약 형식으로 리팩토링 |
+| `docs/learning/README.md` | 실제 자료 링크로 업데이트 |
+| `docs/progress/status.md` | 문서 리팩토링 완료 반영 |
+
+### 삭제된 파일 (3개)
+
+- `docs/learning/dicom/README.md`
+- `docs/learning/typescript/README.md`
+- `docs/learning/webgl2/README.md`
+
+### 결과
+
+| 메트릭 | 이전 | 이후 |
+|--------|------|------|
+| 가이드 파일 총 줄 수 | ~2,500줄 | ~400줄 |
+| 중복 제거 | 30-40% | 0% |
+| 문서 유지보수성 | 낮음 | 높음 |
+
+---
+
 ## 2026-01-26 세션 #40 (프로젝트 검토 및 타입 체크 오류 수정)
 
 ### 작업 내용

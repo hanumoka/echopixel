@@ -5,7 +5,7 @@
 | 항목 | 상태 |
 |------|------|
 | **현재 Phase** | Phase 3 (Annotations) ✅ **완료** |
-| **마지막 업데이트** | 2026-01-26 (세션 #40-2) |
+| **마지막 업데이트** | 2026-01-26 (세션 #40-4) |
 | **다음 마일스톤** | npm 배포 (Private npm repository 설정 후) |
 | **스타일링** | Tailwind CSS ✅ **마이그레이션 완료** |
 | **문서화** | 사용자/개발자 가이드 ✅ **작성 완료** |
@@ -80,6 +80,7 @@
 |--------|------|---------|------|
 | **사용자 가이드** | React 개발자 | 8개 | ✅ |
 | **개발자 가이드** | 기여자/메인테이너 | 15개 | ✅ |
+| **문서 리팩토링** | 중복 제거, 요약화 | 세션 #40-3 | ✅ |
 
 **사용자 가이드** (`docs/guide/user-guide/`):
 - README.md, getting-started.md, components.md, tools.md
@@ -87,7 +88,10 @@
 
 **개발자 가이드** (`docs/guide/developer-guide/`):
 - 기본: README.md, setup.md, project-structure.md, architecture.md, coding-guide.md, testing.md, contributing.md
-- 심화: dicom-fundamentals.md, cornerstone-vs-echopixel.md, core-technologies.md, rendering-pipeline.md, multi-viewport-architecture.md, memory-management.md, performance-optimization.md, troubleshooting-guide.md
+- 심화: dicom-fundamentals.md, cornerstone-vs-echopixel.md, core-technologies.md, rendering-pipeline.md
+- 요약 + 링크: multi-viewport-architecture.md, memory-management.md, performance-optimization.md, troubleshooting-guide.md
+
+> **Note**: 심화 문서 3개(multi-viewport, memory, performance)는 주니어 개발자를 위해 상세하게 보강됨 (세션 #40-4)
 
 ---
 
@@ -115,13 +119,15 @@ packages/
 
 ## 다음 단계
 
-### 1. 코드 품질 개선 ⬅️ 다음 마일스톤
+### 1. 코드 품질 개선 ✅ 완료
 
-| 작업 | 상태 | 우선순위 |
-|------|------|----------|
-| React Hooks 조건부 호출 수정 | ⏳ | 중간 |
-| 렌더링 중 ref 업데이트 패턴 수정 | ⏳ | 중간 |
-| ESLint 경고 정리 | ⏳ | 낮음 |
+| 작업 | 상태 | 세션 |
+|------|------|------|
+| React Hooks 조건부 호출 수정 | ✅ | #40-2 |
+| 렌더링 중 ref 업데이트 패턴 수정 | ✅ | #40-2 |
+| ESLint 에러 0개 | ✅ | #40-2 |
+| 문서 중복 제거 리팩토링 | ✅ | #40-3 |
+| 주니어 개발자 가이드 상세화 | ✅ | #40-4 |
 
 ### 2. npm 배포 (Phase 5) - 보류
 
