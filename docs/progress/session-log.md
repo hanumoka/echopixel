@@ -6,6 +6,61 @@
 
 ---
 
+## 2026-01-26 세션 #40 (프로젝트 검토 및 타입 체크 오류 수정)
+
+### 작업 내용
+
+**1. 프로젝트 전체 검토** ⭐⭐⭐
+
+포괄적인 코드베이스 분석 수행:
+- 142개 TS/TSX 파일 (~13,100줄)
+- 48개 문서 파일
+- 패키지 구조 및 의존성 분석
+- 성능 달성 현황 확인 (100개 뷰포트 60fps)
+
+**2. 타입 체크 오류 수정** ⭐⭐
+
+`pnpm typecheck` 실행 시 다수의 오류 발견 및 수정:
+
+| 문제 | 원인 | 해결 |
+|------|------|------|
+| JSX 플래그 미설정 | 루트 tsconfig에 jsx 옵션 없음 | `jsx: "react-jsx"` 추가 |
+| ViewportTransform 타입 불일치 | flipH, flipV 속성 누락 | 속성 추가 |
+| ViewportPlaybackState 타입 불일치 | lastFrameTime 속성 누락 | 속성 추가 |
+| ViewportSeriesInfo 타입 불일치 | seriesId 속성 누락 | 속성 추가 |
+| Viewport 타입 불일치 | bounds, active 속성 누락 | 속성 추가 |
+| RenderStats 타입 오류 | lastRenderTime 속성 미존재 | 중복 UI 행 제거 |
+
+### 변경된 파일
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `tsconfig.json` | `jsx: "react-jsx"` 추가 |
+| `apps/demo/src/components/DicomViewport.tsx` | Viewport 타입 완전 구현 |
+| `apps/demo/src/components/HardwareInfoPanel.tsx` | 존재하지 않는 속성 참조 제거 |
+
+### 검증 결과
+
+| 명령어 | 결과 |
+|--------|------|
+| `pnpm typecheck` | ✅ 통과 |
+| `pnpm build` | ✅ 성공 |
+| `pnpm lint` | ⚠️ 기존 ESLint 설정 문제 (별도 작업 필요) |
+
+### 발견된 추가 이슈
+
+| 이슈 | 상태 | 우선순위 |
+|------|------|----------|
+| ESLint 환경 설정 미흡 (no-undef 오류) | 🟡 미해결 | 중간 |
+| vite-plugin-dts TS 버전 경고 | 🟡 미해결 | 낮음 |
+
+### 다음 단계
+
+- [ ] ESLint 환경 설정 수정 (browser, node 전역 변수 인식)
+- [ ] Phase 5: npm 배포 준비 (README.md, CHANGELOG.md, LICENSE)
+
+---
+
 ## 2026-01-23 세션 #39 (pnpm dev Race Condition 분석 및 해결)
 
 ### 작업 내용

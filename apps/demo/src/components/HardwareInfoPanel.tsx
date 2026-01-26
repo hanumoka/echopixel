@@ -408,10 +408,6 @@ export function HardwareInfoPanel({
                       value={`${renderStats.frameTime.toFixed(2)} ms`}
                       highlight
                     />
-                    <InfoRow
-                      label="Last Render"
-                      value={`${renderStats.lastRenderTime.toFixed(2)} ms`}
-                    />
 
                     {/* FPS bar */}
                     <div style={{ marginTop: '12px' }}>

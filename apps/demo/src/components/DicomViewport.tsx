@@ -198,20 +198,24 @@ export const DicomViewport = forwardRef<DicomViewportHandle, DicomViewportProps>
       return {
         id: viewportId,
         textureUnit: 0,
+        bounds: { x: 0, y: 0, width: 0, height: 0 },
         windowLevel: wl,
-        transform: { pan, zoom, rotation: 0 },
+        transform: { pan, zoom, rotation: 0, flipH: false, flipV: false },
         playback: {
           isPlaying,
           currentFrame,
           fps,
+          lastFrameTime: 0,
         },
         series: imageInfo ? {
+          seriesId: viewportId,
           frameCount: frames.length,
           imageWidth: imageInfo.columns,
           imageHeight: imageInfo.rows,
           isEncapsulated,
           bitsStored: imageInfo.bitsStored,
         } : null,
+        active: true,
       };
     },
     setViewportWindowLevel: (id: string, wl: { center: number; width: number } | null) => {
