@@ -65,9 +65,73 @@
 
 ### 다음 단계
 
-- [ ] React Hooks 조건부 호출 패턴 수정
-- [ ] 렌더링 중 ref 업데이트 패턴 수정
+- [x] React Hooks 조건부 호출 패턴 수정 ✅ (2026-01-26 완료)
+- [x] 렌더링 중 ref 업데이트 패턴 수정 ✅ (2026-01-26 완료)
 - [ ] npm 배포는 Private npm repository 설정 후 진행 예정
+
+---
+
+## 2026-01-26 세션 #40-2 (ESLint 에러 완전 해결)
+
+### 작업 내용
+
+**1. React Hooks 규칙 위반 수정** ⭐⭐⭐
+
+| 파일 | 문제 | 해결 |
+|------|------|------|
+| `LengthShape.tsx` | 조건부 Hook 호출 | Hooks를 early return 전으로 이동 |
+| `AngleShape.tsx` | 조건부 Hook 호출 | Hooks를 early return 전으로 이동 |
+| `PointShape.tsx` | 조건부 Hook 호출 | Hooks를 early return 전으로 이동 |
+| `HybridViewportSlot.tsx` | 렌더링 중 ref 업데이트 | useLayoutEffect 사용 |
+| `SVGOverlay.tsx` | 렌더링 중 ref 업데이트 | useLayoutEffect 사용 |
+| `useToolGroup.ts` | 렌더링 중 ref 업데이트 | useLayoutEffect 사용 |
+| `HybridMultiViewport.tsx` | 렌더링 중 ref 업데이트 | useLayoutEffect 사용 |
+
+**2. 미사용 변수 에러 수정** ⭐⭐
+
+ESLint 설정에 `varsIgnorePattern: "^_"` 추가하여 `_` 접두사 변수 허용
+
+| 파일 | 수정 내용 |
+|------|----------|
+| `eslint.config.js` | varsIgnorePattern 규칙 추가 |
+| 24개 파일 | 미사용 변수에 `_` 접두사 또는 제거 |
+
+**3. 의도적 패턴에 대한 ESLint 비활성화**
+
+| 패턴 | 파일 | 이유 |
+|------|------|------|
+| setState in effect | HardwareInfoPanel.tsx, useToolGroup.ts, SingleDicomViewer.tsx | 초기화/정리 로직 |
+| ref access in render | HybridMultiViewport.tsx | 초기화된 매니저 접근 |
+
+### 결과
+
+| 항목 | 이전 | 이후 |
+|------|------|------|
+| ESLint 에러 | 48개 | **0개** ✅ |
+| ESLint 경고 | 15개 | 13개 |
+| TypeScript 에러 | 0개 | 0개 |
+
+### 변경된 파일 (24개)
+
+- `apps/demo/src/`: App.tsx, DicomViewport.tsx, HardwareInfoPanel.tsx, MultiCanvasGrid.tsx, MultiViewport.tsx
+- `apps/demo/src/hooks/`: useWadoLoader.ts
+- `apps/demo/src/pages/`: MultiCanvasPage.tsx
+- `eslint.config.js`
+- `packages/core/src/datasource/`: WadoRsDataSource.ts, types.ts
+- `packages/core/src/hybrid/`: HybridRenderScheduler.ts, coordinateUtils.ts, types.ts
+- `packages/core/src/sync/`: RenderScheduler.ts
+- `packages/core/src/tools/`: ToolGroup.ts, useToolGroup.ts
+- `packages/react/src/components/`: HybridMultiViewport.tsx, SingleDicomViewer.tsx, SingleDicomViewerGroup.tsx
+- `packages/react/src/components/annotations/`: SVGOverlay.tsx
+- `packages/react/src/components/annotations/shapes/`: AngleShape.tsx, LengthShape.tsx, PointShape.tsx
+- `packages/react/src/components/building-blocks/`: HybridViewportSlot.tsx
+
+### 남은 경고 (13개)
+
+모두 `react-hooks/exhaustive-deps` 경고로, 의존성 배열 관련:
+- ref cleanup 패턴 경고 (의도적)
+- missing/unnecessary dependency 경고 (추후 검토)
+- useMemo 의존성 경고 (AngleShape)
 
 ---
 
